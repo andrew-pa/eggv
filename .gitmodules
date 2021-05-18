@@ -1,0 +1,28 @@
+[submodule "depd/glfw"]
+	path = depd/glfw
+	url = https://github.com/glfw/glfw
+[submodule "depd/glm"]
+	path = depd/glm
+	url = https://github.com/g-truc/glm
+[submodule "depd/vk_mem_alloc"]
+	path = depd/vk_mem_alloc
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "depd/imgui"]
+	path = depd/imgui
+	url = https://github.com/ocornut/imgui
+	branch = docking
+; [submodule "depd/ImGuiFileDialog"]
+; 	path = depd/ImGuiFileDialog
+; 	url = https://github.com/aiekick/ImGuiFileDialog
+[submodule "depd/dirent"]
+	path = depd/dirent
+	url = https://github.com/tronkko/dirent
+[submodule "depd/json"]
+	path = depd/json
+	url = https://github.com/nlohmann/json
+[submodule "depd/stduuid"]
+	path = depd/stduuid
+	url = https://github.com/mariusbancila/stduuid
+[submodule "depd/imnodes"]
+	path = depd/imnodes
+	url = https://github.com/Nelarius/imnodes
