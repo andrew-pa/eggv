@@ -7,6 +7,7 @@
 //#include "ImGuiFileDialog.h"
 #include <uuid.h>
 #include "mesh_gen.h"
+#include "deferred_nodes.h"
 
 void generate_cube(float width, float height, float depth, std::function<void(vec3, vec3, vec3, vec2)> vertex, std::function<void(size_t)> index) {
 	float w2 = 0.5f * width;
@@ -116,47 +117,62 @@ std::shared_ptr<scene> create_scene(device* dev) {
 
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
-	: app("erg", vec2(2880, 1620)), r(dev.get(), create_scene(dev.get()))
+    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(dev.get(), nullptr)
 {
-	std::vector<vk::DescriptorPoolSize> pool_sizes = {
-		vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
-		vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1) // for ImGUI
-	};
+    r.prototypes.push_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
 
-	/* auto [required_sets, placement] = rviewport.init_descriptors(pool_sizes); */
+    current_scene = create_scene(dev.get());
 
-	desc_pool = dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
-		vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1000, (uint32_t)pool_sizes.size(), pool_sizes.data()
-	});
+    for(int i = 1; i < cargs.size(); ++i) {
+        if(cargs[i] == "-p") {
+            i++;
+            if(i >= cargs.size()) throw;
+            load_plugin(cargs[i++]);
+        }
+    }
 
-	/*auto desc_sets = dev->dev->allocateDescriptorSetsUnique(vk::DescriptorSetAllocateInfo{
-		desc_pool.get(), (uint32_t)required_sets.size(), required_sets.data()
-	});
+    r.current_scene = current_scene;
+    std::vector<vk::DescriptorPoolSize> pool_sizes = {
+        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1) // for ImGUI
+    };
 
-	for (auto i = 0; i < placement.size() && i < desc_sets.size(); ++i) {
-		*placement[i] = std::move(desc_sets[i]);
-	}
+    desc_pool = dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
+            vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1000, (uint32_t)pool_sizes.size(), pool_sizes.data()
+            });
 
-	rviewport.init_once();
-        */
+    this->init_swapchain_depd();
+    this->init_gui();
 
-	this->init_swapchain_depd();
-	this->init_gui();
+    auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
+    upload_cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
-	auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
-	upload_cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+    std::vector<std::unique_ptr<buffer>> upload_buffers;
+    //rviewport.init_upload(upload_cb.get(), upload_buffers);
+    ImGui_ImplVulkan_CreateFontsTexture(upload_cb.get());
 
-	std::vector<std::unique_ptr<buffer>> upload_buffers;
-	//rviewport.init_upload(upload_cb.get(), upload_buffers);
-	ImGui_ImplVulkan_CreateFontsTexture(upload_cb.get());
+    upload_cb->end();
+    dev->graphics_qu.submit({ vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cb.get()} }, nullptr);
 
-	upload_cb->end();
-	dev->graphics_qu.submit({ vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cb.get()} }, nullptr);
+    dev->graphics_qu.waitIdle();
+    ImGui_ImplVulkan_DestroyFontUploadObjects();
+    dev->tmp_cmd_buffers.clear();
+    dev->tmp_upload_buffers.clear();
+}
 
-	dev->graphics_qu.waitIdle();
-	ImGui_ImplVulkan_DestroyFontUploadObjects();
-	dev->tmp_cmd_buffers.clear();
-	dev->tmp_upload_buffers.clear();
+void eggv_app::load_plugin(const std::string& path) {
+    char* error = dlerror();
+    auto hndl = dlopen(path.c_str(), RTLD_LAZY);
+    if((error = dlerror()) != nullptr) {
+        std::cout << "failed to load plugin: " << error << "\n";
+        return;
+    }
+    auto load = (void(*)(device*, std::vector<std::shared_ptr<render_node_prototype>>*, std::vector<std::shared_ptr<trait_factory>>*))dlsym(hndl, "eggv_plugin_load");
+    if((error = dlerror()) != nullptr) {
+        std::cout << "failed to load plugin at " << path << " error:" << error << "\n";
+        return;
+    }
+    load(dev.get(), &r.prototypes, &current_scene->trait_factories);
+    plugins.push_back({path, hndl});
 }
 
 void eggv_app::init_swapchain_depd() {
@@ -277,7 +293,7 @@ void eggv_app::build_gui(frame_state* fs) {
 	//ImGui::ShowDemoWindow();
 	ImGui::ShowMetricsWindow();
         r.build_gui();
-		r.current_scene->build_gui(fs);
+        current_scene->build_gui(fs);
 }
 #pragma endregion
 
@@ -285,7 +301,7 @@ void eggv_app::build_gui(frame_state* fs) {
 void eggv_app::update(float t, float dt) {
     if(r.should_recompile) r.compile_render_graph();
     frame_state fs(t, dt);
-    r.current_scene->update(&fs);
+    current_scene->update(&fs);
 }
 
 vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
@@ -314,6 +330,11 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
 #pragma endregion
 
 eggv_app::~eggv_app() {
+        for(const auto&[_, hndl] : plugins) {
+            /* auto unload = (void(*)(void))dlsym(hndl, "eggv_plugin_unload"); */
+            /* unload(); */
+            dlclose(hndl);
+        }
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImNodes::DestroyContext();

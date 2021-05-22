@@ -163,6 +163,31 @@ struct output_render_node_prototype : public render_node_prototype {
     }
 };
 
+
+struct color_preview_render_node_prototype : public render_node_prototype { 
+    color_preview_render_node_prototype() {
+        inputs = {
+            framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
+        };
+        outputs = {};
+    }
+
+    const char* name() const override { return "Preview [Color]"; }
+
+    virtual vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
+        return vk::UniquePipeline(nullptr);
+    }
+
+    void build_gui(renderer* r, render_node* node) override {
+        if(node->inputs[0].first == nullptr) return;
+        auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->inputs[0].first->outputs[node->inputs[0].second]];
+        if(fb_img == nullptr) { ImGui::Text("invalid framebuffer"); return; }
+        ImGui::Image((void*)fb_img->img, ImVec2(256,256));
+    }
+};
+
+
+
 render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
     : prototype(prototype),
         inputs(prototype->inputs.size(), {nullptr,0}),
@@ -177,7 +202,8 @@ render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
 renderer::renderer(device* dev, std::shared_ptr<scene> s) : dev(dev), current_scene(s), next_id(10), desc_pool(nullptr), should_recompile(false) {
     prototypes = {
         std::make_shared<output_render_node_prototype>(),
-        std::make_shared<simple_geom_render_node_prototype>(dev)
+        std::make_shared<simple_geom_render_node_prototype>(dev),
+        std::make_shared<color_preview_render_node_prototype>(),
     };
     screen_output_node = std::make_shared<render_node>(prototypes[0]);
     render_graph.push_back(screen_output_node);
@@ -195,6 +221,7 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
     for(auto& buf : buffers) {
         if(!std::get<1>(buf.second)) {
             if(std::get<0>(buf.second)->info.format == desc.format) {
+                std::get<1>(buf.second) = true;
                 return buf.first;
             }
         }
@@ -220,7 +247,7 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
             vk::MemoryPropertyFlagBits::eDeviceLocal,
             &iv, vk::ImageViewType::e2D,
             vk::ImageSubresourceRange { aspects_for_type(desc.type), 0, 1, 0, 1 });
-    framebuffer_ref id = next_id + 1;
+    framebuffer_ref id = next_id ++;
     buffers[id] = std::move(std::tuple{std::move(newfb), true, std::move(iv), desc.type});
     return id;
 }
@@ -251,7 +278,7 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     uint32_t num_color_out = 0;
     color_atch_start = reference_pool.data() + reference_pool.size();
     for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
-        if(node->prototype->outputs[i].type == framebuffer_type::color) {
+        if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
             reference_pool.push_back(vk::AttachmentReference {
                     attachement_refs.at(node->outputs[i]),
                     vk::ImageLayout::eColorAttachmentOptimal
@@ -262,7 +289,7 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     depth_atch_start = reference_pool.data() + reference_pool.size();
     for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
         if(node->prototype->outputs[i].type == framebuffer_type::depth ||
-                node->prototype->outputs[i].type == framebuffer_type::depth_stencil) {
+                node->prototype->outputs[i].type == framebuffer_type::depth_stencil && node->outputs[i] != 0) {
             reference_pool.push_back(vk::AttachmentReference {
                     attachement_refs.at(node->outputs[i]),
                     vk::ImageLayout::eDepthStencilAttachmentOptimal
@@ -464,19 +491,41 @@ void renderer::build_gui() {
     ImGui::SameLine();
     ImGui::Text("%zu active meshes", active_meshes.size());
 
+    if(ImGui::BeginTable("##RenderFramebufferTable", 2)) {
+        ImGui::TableSetupColumn("ID");
+        ImGui::TableSetupColumn("In use?");
+        ImGui::TableHeadersRow();
+        for(const auto& [id, _fb] : buffers) {
+            const auto&[img, allocated, imv, type] = _fb;
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::Text("%lu", id);
+            ImGui::TableNextColumn();
+            ImGui::Text("%s", allocated ? "Y" : "N");
+        }
+        ImGui::EndTable();
+    }
+
+    ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
+
     ImNodes::BeginNodeEditor();
 
     gui_node_attribs.clear();
     gui_links.clear();
     int next_attrib_id = 1;
+    std::vector<std::shared_ptr<render_node>> deleted_nodes;
 
-    for (const auto& node : this->render_graph) {
+    for (const auto& node : render_graph) {
         auto i = (size_t)node.get();
         ImNodes::BeginNode(i);
         ImNodes::BeginNodeTitleBar();
         ImGui::Text("%s", node->prototype->name());
+        ImGui::SameLine();
+        if(ImGui::SmallButton(" x ")) {
+            deleted_nodes.push_back(node);
+        }
         ImNodes::EndNodeTitleBar();
-        node->prototype->build_gui(node.get());
+        node->prototype->build_gui(this, node.get());
 
         for (int input_ix = 0; input_ix < node->prototype->inputs.size(); ++input_ix) {
             auto id = next_attrib_id++;
@@ -490,7 +539,7 @@ void renderer::build_gui() {
             auto id = next_attrib_id++;
             gui_node_attribs[id] = {node, output_ix, true};
             ImNodes::BeginOutputAttribute(id, ImNodesPinShape_Circle);
-            ImGui::Text("%s", node->prototype->outputs[output_ix].name.c_str());
+            ImGui::Text("%s [%lu]", node->prototype->outputs[output_ix].name.c_str(), node->outputs[output_ix]);
             ImNodes::EndOutputAttribute();
         }
 
@@ -515,10 +564,45 @@ void renderer::build_gui() {
         gui_links.push_back({ attrib_id, out_attrib_id->first });
     }
 
+    if(ImGui::BeginPopupContextWindow()) {
+        ImGui::Text("Create new node...");
+        ImGui::Separator();
+        for(const auto& node_type : prototypes) {
+            if(ImGui::MenuItem(node_type->name())) {
+                render_graph.push_back(std::make_shared<render_node>(node_type));
+            }
+        }
+        ImGui::EndPopup();
+    }
+
     /* ImNodes::MiniMap(0.1f, ImNodesMiniMapLocation_TopRight); */
 
     ImNodes::EndNodeEditor();
 
+    int start_attrib, end_attrib;
+    if(ImNodes::IsLinkCreated(&start_attrib, &end_attrib)) {
+        if(std::get<2>(gui_node_attribs[start_attrib])) { // make sure start=input and end=output
+            std::swap(start_attrib, end_attrib);
+        }
+        auto&[input_node, input_ix, is_input] = gui_node_attribs[start_attrib];
+        auto&[output_node, output_ix, is_output] = gui_node_attribs[end_attrib];
+        input_node->inputs[input_ix] = {output_node, output_ix};
+    }
+
+    int link_id;
+    if(ImNodes::IsLinkDestroyed(&link_id)) {
+        auto&[start_attrib, end_attrib] = gui_links[link_id];
+        auto&[input_node, input_ix, is_input] = gui_node_attribs[start_attrib];
+        auto&[output_node, output_ix, is_output] = gui_node_attribs[end_attrib];
+        input_node->inputs[input_ix] = {nullptr,0};
+        output_node->outputs[output_ix] = 0;
+    }
+
+    for(auto n : deleted_nodes) {
+        auto f = std::find(render_graph.begin(), render_graph.end(), n);
+        if(f != render_graph.end())
+            render_graph.erase(f);
+    }
     ImGui::End();
 }
 
@@ -538,7 +622,8 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs) {
 }
 
 void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {
-    mapped_frame_uniforms->viewproj = current_scene->cam.proj((float)swpc->extent.width / (float)swpc->extent.height) * current_scene->cam.view();
+    mapped_frame_uniforms->proj = current_scene->cam.proj((float)swpc->extent.width / (float)swpc->extent.height);
+    mapped_frame_uniforms->view = current_scene->cam.view();
 
     active_meshes.clear();
     traverse_scene_graph(current_scene->root.get(), fs);

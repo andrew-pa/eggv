@@ -46,9 +46,8 @@ endfunction()
 
 add_spirv_shader(vertex src/shaders/simple.vert.glsl simple.vert.spv)
 add_spirv_shader(vertex src/shaders/full.vert.glsl full.vert.spv)
-add_spirv_shader(tesscontrol src/shaders/simple.tesscontrol.glsl simple.tesscontrol.spv)
-add_spirv_shader(tesseval src/shaders/simple.tesseval.glsl simple.tesseval.spv)
 add_spirv_shader(fragment src/shaders/simple.frag.glsl simple.frag.spv)
+add_spirv_shader(fragment src/shaders/gbuffer.frag.glsl gbuffer.frag.spv)
 
 message("${COMPILED_SHADERS}")
 
@@ -87,10 +86,11 @@ target_link_libraries(imgui glfw Vulkan::Vulkan)
 add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/main.cpp src/swap_chain.cpp
     inc/renderer.h src/renderer.cpp
+    inc/deferred_nodes.h src/deferred_nodes.cpp
     inc/mesh_gen.h inc/par_shapes.h src/mesh_gen.cpp
     inc/scene_graph.h src/scene_graph.cpp
     inc/eggv_app.h src/eggv_app.cpp
-    simple.vert.spv simple.frag.spv simple.tesscontrol.spv simple.tesseval.spv full.vert.spv)
+    simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv)
 target_compile_features(eggv PRIVATE cxx_std_17)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid)
 

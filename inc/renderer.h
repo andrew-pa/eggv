@@ -29,7 +29,7 @@ struct render_node_prototype {
     virtual vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) = 0;
     virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) {}
     virtual std::optional<vk::UniqueCommandBuffer> generate_command_buffer(class renderer*, struct render_node* node) { return {}; }
-    virtual void build_gui(struct render_node* node) {}
+    virtual void build_gui(class renderer*, struct render_node* node) {}
     virtual const char* name() const = 0;
     virtual ~render_node_prototype() {}
 };
@@ -77,7 +77,7 @@ struct mesh {
 };
 
 struct frame_uniforms {
-    mat4 viewproj;
+    mat4 view, proj;
 };
 
 struct renderer {

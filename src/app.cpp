@@ -24,6 +24,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	const char* msg,
 	void* userData)
 {
+    if(std::strncmp("Device Extension", msg, 16) == 0) return VK_FALSE;
 	vk::DebugReportFlagsEXT flg{ (vk::DebugReportFlagBitsEXT)flags };
 	if (flg & vk::DebugReportFlagBitsEXT::eDebug) std::cout << "[DEBUG]";
 	else if (flg & vk::DebugReportFlagBitsEXT::eError) std::cout << "\n[\033[31mERROR\033[0m]";
