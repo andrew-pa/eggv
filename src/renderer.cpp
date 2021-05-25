@@ -151,7 +151,6 @@ struct output_render_node_prototype : public render_node_prototype {
     output_render_node_prototype() {
         inputs = {
             framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
-            framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth},
         };
         outputs = {};
     }
@@ -210,7 +209,6 @@ renderer::renderer(device* dev, std::shared_ptr<scene> s) : dev(dev), current_sc
     auto test = std::make_shared<render_node>(prototypes[1]);
     render_graph.push_back(test);
     screen_output_node->inputs[0] = {test, 0};
-    screen_output_node->inputs[1] = {test, 1};
 
     frame_uniforms_buf = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
             vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
@@ -232,9 +230,13 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
         switch(desc.type) {
             case framebuffer_type::color:
                 format = swpc->format;
+                break;
             case framebuffer_type::depth:
+                format = vk::Format::eD32Sfloat; //swpc->depth_buf->info.format;
+                break;
             case framebuffer_type::depth_stencil:
-                format = swpc->depth_buf->info.format;
+                format = vk::Format::eD24UnormS8Uint;
+                break;
         }
     }
     auto newfb = std::make_unique<image>(this->dev, vk::ImageType::e2D,
@@ -351,10 +353,7 @@ void renderer::compile_render_graph() {
     // assign the actual screen backbuffers
     auto&[color_src_node, color_src_ix] = screen_output_node->inputs[0];
     if(color_src_node != nullptr) color_src_node->outputs[color_src_ix] = 1;
-    auto&[depth_src_node, depth_src_ix] = screen_output_node->inputs[1];
-    if(depth_src_node != nullptr) depth_src_node->outputs[depth_src_ix] = 2;
     prototypes[0]->inputs[0].format = swpc->format;
-    prototypes[0]->inputs[1].format = swpc->depth_buf->info.format;
     for(auto& node : render_graph) {
         for(size_t i = 0; i < node->outputs.size(); ++i) {
             if(node->outputs[i] == 0)
@@ -368,19 +367,12 @@ void renderer::compile_render_graph() {
             swpc->format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
             vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
             vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR },
-
-        { vk::AttachmentDescriptionFlags(), //depth buffer
-            swpc->depth_buf->info.format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare,
-            vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-            vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal }
     };
     std::map<framebuffer_ref, uint32_t> attachement_refs;
     attachement_refs[1] = 0;
-    attachement_refs[2] = 1;
 
     clear_values.clear();
     clear_values.push_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.2f, 0.9f, 1.f}));
-    clear_values.push_back(vk::ClearDepthStencilValue(1.f, 0));
     for(const auto& fb : buffers) {
         std::cout << "fb " << fb.first << "\n";
         if(!std::get<1>(fb.second)) continue;
@@ -486,122 +478,144 @@ void renderer::create_swapchain_dependencies(swap_chain* sc) {
 
 void renderer::build_gui() {
     if (!ImGui::Begin("Renderer")) { ImGui::End(); return; }
-    if(ImGui::Button("Recompile"))
-        should_recompile = true;
-    ImGui::SameLine();
-    ImGui::Text("%zu active meshes", active_meshes.size());
 
-    if(ImGui::BeginTable("##RenderFramebufferTable", 2)) {
-        ImGui::TableSetupColumn("ID");
-        ImGui::TableSetupColumn("In use?");
-        ImGui::TableHeadersRow();
-        for(const auto& [id, _fb] : buffers) {
-            const auto&[img, allocated, imv, type] = _fb;
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::Text("%lu", id);
-            ImGui::TableNextColumn();
-            ImGui::Text("%s", allocated ? "Y" : "N");
-        }
-        ImGui::EndTable();
-    }
+    if(ImGui::BeginTabBar("##rendertabs")) {
+        if(ImGui::BeginTabItem("Pipeline")) {
+            ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
 
-    ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
+            ImNodes::BeginNodeEditor();
 
-    ImNodes::BeginNodeEditor();
+            gui_node_attribs.clear();
+            gui_links.clear();
+            int next_attrib_id = 1;
+            std::vector<std::shared_ptr<render_node>> deleted_nodes;
 
-    gui_node_attribs.clear();
-    gui_links.clear();
-    int next_attrib_id = 1;
-    std::vector<std::shared_ptr<render_node>> deleted_nodes;
+            for (const auto& node : render_graph) {
+                auto i = (size_t)node.get();
+                ImNodes::BeginNode(i);
+                ImNodes::BeginNodeTitleBar();
+                ImGui::Text("%s", node->prototype->name());
+                ImGui::SameLine();
+                if(ImGui::SmallButton(" x ")) {
+                    deleted_nodes.push_back(node);
+                }
+                ImNodes::EndNodeTitleBar();
+                node->prototype->build_gui(this, node.get());
 
-    for (const auto& node : render_graph) {
-        auto i = (size_t)node.get();
-        ImNodes::BeginNode(i);
-        ImNodes::BeginNodeTitleBar();
-        ImGui::Text("%s", node->prototype->name());
-        ImGui::SameLine();
-        if(ImGui::SmallButton(" x ")) {
-            deleted_nodes.push_back(node);
-        }
-        ImNodes::EndNodeTitleBar();
-        node->prototype->build_gui(this, node.get());
+                for (int input_ix = 0; input_ix < node->prototype->inputs.size(); ++input_ix) {
+                    auto id = next_attrib_id++;
+                    gui_node_attribs[id] = {node, input_ix, false};
+                    ImNodes::BeginInputAttribute(id, ImNodesPinShape_Circle);
+                    ImGui::Text("%s", node->prototype->inputs[input_ix].name.c_str());
+                    ImNodes::EndInputAttribute();
+                }
 
-        for (int input_ix = 0; input_ix < node->prototype->inputs.size(); ++input_ix) {
-            auto id = next_attrib_id++;
-            gui_node_attribs[id] = {node, input_ix, false};
-            ImNodes::BeginInputAttribute(id, ImNodesPinShape_Circle);
-            ImGui::Text("%s", node->prototype->inputs[input_ix].name.c_str());
-            ImNodes::EndInputAttribute();
-        }
+                for (int output_ix = 0; output_ix < node->prototype->outputs.size(); ++output_ix) {
+                    auto id = next_attrib_id++;
+                    gui_node_attribs[id] = {node, output_ix, true};
+                    ImNodes::BeginOutputAttribute(id, ImNodesPinShape_Circle);
+                    ImGui::Text("%s [%lu]", node->prototype->outputs[output_ix].name.c_str(), node->outputs[output_ix]);
+                    ImNodes::EndOutputAttribute();
+                }
 
-        for (int output_ix = 0; output_ix < node->prototype->outputs.size(); ++output_ix) {
-            auto id = next_attrib_id++;
-            gui_node_attribs[id] = {node, output_ix, true};
-            ImNodes::BeginOutputAttribute(id, ImNodesPinShape_Circle);
-            ImGui::Text("%s [%lu]", node->prototype->outputs[output_ix].name.c_str(), node->outputs[output_ix]);
-            ImNodes::EndOutputAttribute();
-        }
+                ImNodes::EndNode();
 
-        ImNodes::EndNode();
-
-        /*for (int input_ix = 0; input_ix < node->prototype->inputs.size(); ++input_ix) {
-            auto input_id = (i << 16 | input_ix);
-            auto& [src_node, src_index] = node->inputs[input_ix];
-            ImNodes::Link(i + input_id + src_index, 1 << 31 | ((int)src_node.get()) << 16 | src_index, input_id);
-        }*/
-    }
-
-    for (const auto& [attrib_id, scnd] : gui_node_attribs) {
-        const auto& [node, input_ix, is_output] = scnd;
-        if (is_output) continue;
-        auto out_attrib_id = std::find_if(gui_node_attribs.begin(), gui_node_attribs.end(), [&](const auto& p) {
-            return std::get<2>(p.second) && std::get<0>(p.second) == node->inputs[input_ix].first
-                && std::get<1>(p.second) == node->inputs[input_ix].second;
-        });
-        if (out_attrib_id == gui_node_attribs.end()) continue;
-        ImNodes::Link(gui_links.size(), attrib_id, out_attrib_id->first);
-        gui_links.push_back({ attrib_id, out_attrib_id->first });
-    }
-
-    if(ImGui::BeginPopupContextWindow()) {
-        ImGui::Text("Create new node...");
-        ImGui::Separator();
-        for(const auto& node_type : prototypes) {
-            if(ImGui::MenuItem(node_type->name())) {
-                render_graph.push_back(std::make_shared<render_node>(node_type));
+                /*for (int input_ix = 0; input_ix < node->prototype->inputs.size(); ++input_ix) {
+                  auto input_id = (i << 16 | input_ix);
+                  auto& [src_node, src_index] = node->inputs[input_ix];
+                  ImNodes::Link(i + input_id + src_index, 1 << 31 | ((int)src_node.get()) << 16 | src_index, input_id);
+                  }*/
             }
+
+            for (const auto& [attrib_id, scnd] : gui_node_attribs) {
+                const auto& [node, input_ix, is_output] = scnd;
+                if (is_output) continue;
+                auto out_attrib_id = std::find_if(gui_node_attribs.begin(), gui_node_attribs.end(), [&](const auto& p) {
+                        return std::get<2>(p.second) && std::get<0>(p.second) == node->inputs[input_ix].first
+                        && std::get<1>(p.second) == node->inputs[input_ix].second;
+                        });
+                if (out_attrib_id == gui_node_attribs.end()) continue;
+                ImNodes::Link(gui_links.size(), attrib_id, out_attrib_id->first);
+                gui_links.push_back({ attrib_id, out_attrib_id->first });
+            }
+
+            if(ImGui::BeginPopupContextWindow()) {
+                ImGui::Text("Create new node...");
+                ImGui::Separator();
+                for(const auto& node_type : prototypes) {
+                    if(ImGui::MenuItem(node_type->name())) {
+                        render_graph.push_back(std::make_shared<render_node>(node_type));
+                    }
+                }
+                ImGui::EndPopup();
+            }
+
+            /* ImNodes::MiniMap(0.1f, ImNodesMiniMapLocation_TopRight); */
+
+            ImGui::SetCursorPos(ImVec2(8,8));
+            if(ImGui::Button("Recompile"))
+                should_recompile = true;
+
+            ImNodes::EndNodeEditor();
+
+            int start_attrib, end_attrib;
+            if(ImNodes::IsLinkCreated(&start_attrib, &end_attrib)) {
+                if(std::get<2>(gui_node_attribs[start_attrib])) { // make sure start=input and end=output
+                    std::swap(start_attrib, end_attrib);
+                }
+                auto&[input_node, input_ix, is_input] = gui_node_attribs[start_attrib];
+                auto&[output_node, output_ix, is_output] = gui_node_attribs[end_attrib];
+                input_node->inputs[input_ix] = {output_node, output_ix};
+            }
+
+            int link_id;
+            if(ImNodes::IsLinkDestroyed(&link_id)) {
+                auto&[start_attrib, end_attrib] = gui_links[link_id];
+                auto&[input_node, input_ix, is_input] = gui_node_attribs[start_attrib];
+                auto&[output_node, output_ix, is_output] = gui_node_attribs[end_attrib];
+                input_node->inputs[input_ix] = {nullptr,0};
+                output_node->outputs[output_ix] = 0;
+            }
+
+            for(auto n : deleted_nodes) {
+                auto f = std::find(render_graph.begin(), render_graph.end(), n);
+                if(f != render_graph.end())
+                    render_graph.erase(f);
+            }
+            ImGui::EndTabItem();
         }
-        ImGui::EndPopup();
-    }
 
-    /* ImNodes::MiniMap(0.1f, ImNodesMiniMapLocation_TopRight); */
+        if(ImGui::BeginTabItem("Statistics")) {
+            ImGui::Text("%zu active meshes, %zu running subpasses", active_meshes.size(), subpass_order.size());
 
-    ImNodes::EndNodeEditor();
+            ImGui::Separator();
+            ImGui::Text("Framebuffers:");
+            if(ImGui::BeginTable("##RenderFramebufferTable", 4)) {
+                ImGui::TableSetupColumn("ID");
+                ImGui::TableSetupColumn("In use?");
+                ImGui::TableSetupColumn("Format");
+                ImGui::TableSetupColumn("Size");
+                ImGui::TableHeadersRow();
+                for(const auto& [id, _fb] : buffers) {
+                    const auto&[img, allocated, imv, type] = _fb;
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%lu", id);
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", allocated ? "Y" : "N");
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", vk::to_string(img->info.format).c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%u x %u", img->info.extent.width, img->info.extent.height);
+                }
+                ImGui::EndTable();
+            }
 
-    int start_attrib, end_attrib;
-    if(ImNodes::IsLinkCreated(&start_attrib, &end_attrib)) {
-        if(std::get<2>(gui_node_attribs[start_attrib])) { // make sure start=input and end=output
-            std::swap(start_attrib, end_attrib);
+            ImGui::EndTabItem();
         }
-        auto&[input_node, input_ix, is_input] = gui_node_attribs[start_attrib];
-        auto&[output_node, output_ix, is_output] = gui_node_attribs[end_attrib];
-        input_node->inputs[input_ix] = {output_node, output_ix};
-    }
 
-    int link_id;
-    if(ImNodes::IsLinkDestroyed(&link_id)) {
-        auto&[start_attrib, end_attrib] = gui_links[link_id];
-        auto&[input_node, input_ix, is_input] = gui_node_attribs[start_attrib];
-        auto&[output_node, output_ix, is_output] = gui_node_attribs[end_attrib];
-        input_node->inputs[input_ix] = {nullptr,0};
-        output_node->outputs[output_ix] = 0;
-    }
 
-    for(auto n : deleted_nodes) {
-        auto f = std::find(render_graph.begin(), render_graph.end(), n);
-        if(f != render_graph.end())
-            render_graph.erase(f);
+        ImGui::EndTabBar();
     }
     ImGui::End();
 }

@@ -29,7 +29,6 @@ std::vector<vk::UniqueFramebuffer> swap_chain::create_framebuffers(vk::RenderPas
 		std::vector<vk::ImageView> att = {
 			image_views[i].get(),
 		};
-                if(include_depth) att.push_back(depth_view.get());
 		additional_image_views(i, att);
 		framebuffers[i] = dev->dev->createFramebufferUnique(vk::FramebufferCreateInfo{
 			vk::FramebufferCreateFlags(),
@@ -79,19 +78,7 @@ void swap_chain::create(app* app) {
 	sch = dev->dev->createSwapchainKHRUnique(cfo);
 
 	images = dev->dev->getSwapchainImagesKHR(sch.get());
-	depth_buf = std::make_unique<image>(dev, vk::ImageType::e2D, vk::Extent3D{ extent.width, extent.height, 1 }, vk::Format::eD32Sfloat, vk::ImageTiling::eOptimal,
-		vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal);
-	/*	auto tbf = std::move(dev->alloc_cmd_buffers()[0]);
-		tbf->begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
-		auto subresrange = vk::ImageSubresourceRange{ vk::ImageAspectFlagBits::eDepth, 0,1,0,1 };
-		tbf->pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTopOfPipe, vk::DependencyFlags(), {}, {}, {
-			vk::ImageMemoryBarrier{vk::AccessFlags(), vk::AccessFlags(),
-				vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal,
-				VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, depth_buf->operator vk::Image(), subresrange}
-		});
-		tbf->end();
-		dev->graphics_qu.submit({ vk::SubmitInfo{0,nullptr,nullptr,1,&tbf.get()} }, nullptr);*/
-	vk::ImageViewCreateInfo ivcfo;
+        vk::ImageViewCreateInfo ivcfo;
 	ivcfo.viewType = vk::ImageViewType::e2D;
 	ivcfo.format = format;
 	ivcfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
@@ -104,10 +91,4 @@ void swap_chain::create(app* app) {
 		ivcfo.image = img;
 		image_views.push_back(dev->dev->createImageViewUnique(ivcfo));
 	}
-
-	ivcfo.format = vk::Format::eD32Sfloat;
-	ivcfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
-	ivcfo.image = depth_buf->operator vk::Image();
-	depth_view = dev->dev->createImageViewUnique(ivcfo);
-	dev->graphics_qu.waitIdle();
 }

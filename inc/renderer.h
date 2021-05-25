@@ -52,6 +52,11 @@ struct render_node {
     std::unique_ptr<render_node_data> data;
 
     render_node(std::shared_ptr<render_node_prototype> prototype);
+
+    inline std::optional<framebuffer_ref> input_framebuffer(size_t i) const {
+        if(inputs[i].first == nullptr) return {};
+        return inputs[i].first->outputs[inputs[i].second];
+    }
 };
 
 struct vertex {

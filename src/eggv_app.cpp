@@ -120,6 +120,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(dev.get(), nullptr)
 {
     r.prototypes.push_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
+    r.prototypes.push_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
 
     current_scene = create_scene(dev.get());
 

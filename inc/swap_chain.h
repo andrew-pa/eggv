@@ -11,8 +11,8 @@ struct swap_chain {
 	vk::Format format;
 	vk::UniqueSemaphore image_ava_sp, render_fin_sp;
 
-	std::unique_ptr<image> depth_buf;
-	vk::UniqueImageView depth_view;
+	/*std::unique_ptr<image> depth_buf;
+	vk::UniqueImageView depth_view;*/
 
 	result<uint32_t, vk::Result> aquire_next();
 	void present(uint32_t index);

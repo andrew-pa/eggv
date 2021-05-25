@@ -48,6 +48,8 @@ add_spirv_shader(vertex src/shaders/simple.vert.glsl simple.vert.spv)
 add_spirv_shader(vertex src/shaders/full.vert.glsl full.vert.spv)
 add_spirv_shader(fragment src/shaders/simple.frag.glsl simple.frag.spv)
 add_spirv_shader(fragment src/shaders/gbuffer.frag.glsl gbuffer.frag.spv)
+add_spirv_shader(vertex src/shaders/entire-screen.vert.glsl entire-screen.vert.spv)
+add_spirv_shader(fragment src/shaders/directional-light.frag.glsl directional-light.frag.spv)
 
 message("${COMPILED_SHADERS}")
 
@@ -90,7 +92,7 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/mesh_gen.h inc/par_shapes.h src/mesh_gen.cpp
     inc/scene_graph.h src/scene_graph.cpp
     inc/eggv_app.h src/eggv_app.cpp
-    simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv)
+    simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv entire-screen.vert.spv directional-light.frag.spv)
 target_compile_features(eggv PRIVATE cxx_std_17)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid)
 
