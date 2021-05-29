@@ -187,42 +187,37 @@ void eggv_app::init_swapchain_depd() {
 }
 
 void eggv_app::init_render_pass() {
-	std::vector<vk::AttachmentDescription> attachments = {
-		{ vk::AttachmentDescriptionFlags(), //swapchain color
-					swapchain->format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eLoad, vk::AttachmentStoreOp::eStore,
-					vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-					vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR },
+    std::vector<vk::AttachmentDescription> attachments = {
+        { vk::AttachmentDescriptionFlags(), //swapchain color
+            swapchain->format, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eLoad, vk::AttachmentStoreOp::eStore,
+            vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
+            vk::ImageLayout::ePresentSrcKHR, vk::ImageLayout::ePresentSrcKHR },
+    };
 
-		/*{ vk::AttachmentDescriptionFlags(), //depth
-					vk::Format::eD32Sfloat, vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare,
-					vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-					vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal }*/
-	};
-	std::vector<vk::AttachmentReference> refs {
-		{ 1, vk::ImageLayout::eDepthStencilAttachmentOptimal },
-		{ 0, vk::ImageLayout::eColorAttachmentOptimal },
-	};
+    std::vector<vk::AttachmentReference> refs {
+        { 0, vk::ImageLayout::eColorAttachmentOptimal },
+    };
 
-	std::vector<vk::SubpassDescription> subpasses = {
-		vk::SubpassDescription{ vk::SubpassDescriptionFlags(), vk::PipelineBindPoint::eGraphics,
-				0, nullptr, 1, refs.data() + 1, nullptr, nullptr }
-	};
+    std::vector<vk::SubpassDescription> subpasses = {
+        vk::SubpassDescription{ vk::SubpassDescriptionFlags(), vk::PipelineBindPoint::eGraphics,
+            0, nullptr, 1, refs.data(), nullptr, nullptr }
+    };
 
-	std::vector<vk::SubpassDependency> depds = {
-		{ VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-			vk::PipelineStageFlagBits::eColorAttachmentOutput,
-			vk::AccessFlagBits::eColorAttachmentRead,
-			vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite },
-	};
+    std::vector<vk::SubpassDependency> depds = {
+        { VK_SUBPASS_EXTERNAL, 0, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::AccessFlagBits::eColorAttachmentRead,
+            vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite },
+    };
 
-	/* rviewport.init_render_pass(attachments, refs, subpasses, depds); */
+    /* rviewport.init_render_pass(attachments, refs, subpasses, depds); */
 
-	gui_render_pass = dev->dev->createRenderPassUnique(vk::RenderPassCreateInfo{
-		vk::RenderPassCreateFlags(),
-		(uint32_t)attachments.size(), attachments.data(),
-		(uint32_t)subpasses.size(), subpasses.data(),
-		(uint32_t)depds.size(), depds.data()
-	});
+    gui_render_pass = dev->dev->createRenderPassUnique(vk::RenderPassCreateInfo{
+        vk::RenderPassCreateFlags(),
+        (uint32_t)attachments.size(), attachments.data(),
+        (uint32_t)subpasses.size(), subpasses.data(),
+        (uint32_t)depds.size(), depds.data()
+    });
 }
 
 void eggv_app::init_gui() {
@@ -291,7 +286,7 @@ void eggv_app::resize() {
 }*/
 
 void eggv_app::build_gui(frame_state* fs) {
-	//ImGui::ShowDemoWindow();
+	ImGui::ShowDemoWindow();
 	ImGui::ShowMetricsWindow();
         r.build_gui();
         current_scene->build_gui(fs);

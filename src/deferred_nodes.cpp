@@ -138,9 +138,7 @@ directional_light_render_node_prototype::directional_light_render_node_prototype
     };
 
     desc_layout = dev->create_desc_set_layout({
-        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eInputAttachment, 3, vk::ShaderStageFlagBits::eFragment),
     });
 
     vk::PushConstantRange push_consts[] = {
@@ -148,7 +146,7 @@ directional_light_render_node_prototype::directional_light_render_node_prototype
     };
 
     pipeline_layout = dev->dev->createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo {
-        {}, 1, &desc_layout.get(), 2, push_consts
+        {}, 1, &desc_layout.get(), 1, push_consts
     });
 }
 
@@ -167,6 +165,11 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
 {
     auto start_img_info_index = img_infos.size();
     img_infos.push_back(vk::DescriptorImageInfo(nullptr, std::get<2>(r->buffers[node->input_framebuffer(0).value()]).get(), vk::ImageLayout::eShaderReadOnlyOptimal));
+    img_infos.push_back(vk::DescriptorImageInfo(nullptr, std::get<2>(r->buffers[node->input_framebuffer(1).value()]).get(), vk::ImageLayout::eShaderReadOnlyOptimal));
+    img_infos.push_back(vk::DescriptorImageInfo(nullptr, std::get<2>(r->buffers[node->input_framebuffer(2).value()]).get(), vk::ImageLayout::eShaderReadOnlyOptimal));
+
+    writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 0, 0, 3,
+                vk::DescriptorType::eInputAttachment, &img_infos[start_img_info_index]));
 }
 
 vk::UniquePipeline directional_light_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {

@@ -49,6 +49,11 @@ swap_chain::~swap_chain() {}
 
 void swap_chain::create(app* app) {
 	auto surf_caps = dev->pdevice.getSurfaceCapabilitiesKHR(app->surface);
+        /*std::cout << "Surface capabilities:\n"
+            << "\tMin images  = " << surf_caps.minImageCount << "\n"
+            << "\tMax images  = " << surf_caps.maxImageCount << "\n"
+            << "\tComp alpha  = " << vk::to_string(surf_caps.supportedCompositeAlpha) << "\n"
+            << "\tUsage flags = " << vk::to_string(surf_caps.supportedUsageFlags) << "\n";*/
 	uint32_t image_count = surf_caps.minImageCount + 1;
 	if (surf_caps.maxImageCount > 0 && image_count > surf_caps.maxImageCount)
 		image_count = surf_caps.maxImageCount;

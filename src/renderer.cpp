@@ -2,6 +2,8 @@
 #include "imgui.h"
 #include "imnodes.h"
 
+// is setting the perserveAttachment counts on the subpasses necessary?
+
 inline vk::ImageUsageFlags usage_for_type(framebuffer_type ty) {
     switch(ty) {
         case framebuffer_type::color:
@@ -289,9 +291,11 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
         }
     }
     depth_atch_start = reference_pool.data() + reference_pool.size();
+    bool has_depth = false;
     for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
         if(node->prototype->outputs[i].type == framebuffer_type::depth ||
                 node->prototype->outputs[i].type == framebuffer_type::depth_stencil && node->outputs[i] != 0) {
+            has_depth = true;
             reference_pool.push_back(vk::AttachmentReference {
                     attachement_refs.at(node->outputs[i]),
                     vk::ImageLayout::eDepthStencilAttachmentOptimal
@@ -299,6 +303,7 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
             break; //only one is possible
         }
     }
+    if(!has_depth) depth_atch_start = nullptr;
 
     node->subpass_index = (uint32_t)subpasses.size();
     subpass_order.push_back(node);
@@ -381,7 +386,7 @@ void renderer::compile_render_graph() {
                 std::get<0>(fb.second)->info.format,
                 vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
                 vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-                vk::ImageLayout::eUndefined, vk::ImageLayout::eUndefined });
+                vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral });
         switch(std::get<3>(fb.second)) {
             case framebuffer_type::color:
                 clear_values.push_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.f, 0.f, 0.f}));
