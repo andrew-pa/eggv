@@ -3,6 +3,7 @@
 #include "app.h"
 #include "swap_chain.h"
 #include "scene_graph.h"
+#include "mem_arena.h"
 
 typedef size_t framebuffer_ref;
 
@@ -18,6 +19,12 @@ struct framebuffer_desc {
         : name(name), format(fmt), type(ty) {}
 };
 
+
+struct render_node_data {
+    virtual json serialize() const = 0;
+    virtual ~render_node_data() {}
+};
+
 struct render_node_prototype {
     vk::UniqueDescriptorSetLayout desc_layout;
     vk::UniquePipelineLayout pipeline_layout;
@@ -25,17 +32,15 @@ struct render_node_prototype {
 
     virtual void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
             std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) {}
-    virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes, std::vector<vk::DescriptorBufferInfo>& buf_infos, std::vector<vk::DescriptorImageInfo>& img_infos) {}
+    virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) {}
     virtual vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) = 0;
     virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) {}
     virtual std::optional<vk::UniqueCommandBuffer> generate_command_buffer(class renderer*, struct render_node* node) { return {}; }
     virtual void build_gui(class renderer*, struct render_node* node) {}
-    virtual const char* name() const = 0;
+    virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return nullptr; }
+    virtual const char* name() const { return "fail"; }
+    virtual size_t id() const = 0;
     virtual ~render_node_prototype() {}
-};
-
-struct render_node_data {
-    virtual ~render_node_data() {}
 };
 
 struct render_node {
@@ -52,11 +57,14 @@ struct render_node {
     std::unique_ptr<render_node_data> data;
 
     render_node(std::shared_ptr<render_node_prototype> prototype);
+    render_node(renderer*, size_t id, json data);
 
     inline std::optional<framebuffer_ref> input_framebuffer(size_t i) const {
         if(inputs[i].first == nullptr) return {};
         return inputs[i].first->outputs[inputs[i].second];
     }
+
+    json serialize() const;
 };
 
 struct vertex {
@@ -104,7 +112,10 @@ struct renderer {
     framebuffer_ref allocate_framebuffer(const framebuffer_desc&);
     void compile_render_graph();
     void generate_subpasses(std::shared_ptr<render_node>, std::vector<vk::SubpassDescription>&, std::vector<vk::SubpassDependency>& dependencies,
-            const std::map<framebuffer_ref, uint32_t>& attachement_refs, std::vector<vk::AttachmentReference>& reference_pool);
+            const std::map<framebuffer_ref, uint32_t>& attachement_refs, arena<vk::AttachmentReference>& reference_pool);
+
+    void deserialize_render_graph(json data);
+    json serialize_render_graph();
 
     void traverse_scene_graph(scene_object*, frame_state*);
     bool should_recompile;

@@ -1,6 +1,7 @@
 #include "renderer.h"
 #include "imgui.h"
 #include "imnodes.h"
+#include <iomanip>
 
 // is setting the perserveAttachment counts on the subpasses necessary?
 
@@ -52,6 +53,7 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
         });
     }
 
+    size_t id() const override { return 0x0000fffd; }
     const char* name() const override { return "Simple Geometry"; }
 
     virtual void collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
@@ -62,11 +64,11 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
         outputs.push_back(&node->desc_set);
     }
 
-    virtual void update_descriptor_sets(class renderer* r, struct render_node* node, std::vector<vk::WriteDescriptorSet>& writes, std::vector<vk::DescriptorBufferInfo>& buf_infos, std::vector<vk::DescriptorImageInfo>& img_infos) override 
+    virtual void update_descriptor_sets(class renderer* r, struct render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override 
     {
-        buf_infos.push_back(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)));
+        auto b = buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)));
         writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer,
-                    nullptr, &buf_infos[buf_infos.size()-1]));
+                    nullptr, b));
     }
 
     virtual vk::UniquePipeline generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
@@ -157,6 +159,7 @@ struct output_render_node_prototype : public render_node_prototype {
         outputs = {};
     }
 
+    size_t id() const override { return 0x0000ffff; }
     const char* name() const override { return "Display Output"; }
 
     virtual vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
@@ -173,6 +176,7 @@ struct color_preview_render_node_prototype : public render_node_prototype {
         outputs = {};
     }
 
+    size_t id() const override { return 0x0000fffe; }
     const char* name() const override { return "Preview [Color]"; }
 
     virtual vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
@@ -187,8 +191,6 @@ struct color_preview_render_node_prototype : public render_node_prototype {
     }
 };
 
-
-
 render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
     : prototype(prototype),
         inputs(prototype->inputs.size(), {nullptr,0}),
@@ -200,10 +202,48 @@ render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
 {
 }
 
+render_node::render_node(renderer* r, size_t id, json data)
+    : id(id), subpass_commands(std::nullopt)
+{
+    auto prototype_id = data.at("prototype_id").get<int>();
+    auto prototypep = std::find_if(r->prototypes.begin(), r->prototypes.end(),
+            [&](auto p){ return p->id() == prototype_id; });
+    if(prototypep != r->prototypes.end())
+        prototype = *prototypep;
+    else {
+        throw std::runtime_error("failed to load render node, unknown node prototype with id=" 
+                + std::to_string(prototype_id));
+    }
+    outputs = std::vector<framebuffer_ref>(prototype->outputs.size(), 0);
+    inputs  = std::vector<std::pair<std::shared_ptr<render_node>, size_t>>(prototype->inputs.size(), {nullptr,0});
+    this->data = std::move(prototype->deserialize_node_data(data.at("data")));
+}
+
+json render_node::serialize() const {
+    std::cout << "a\n";
+    std::vector<json> ser_inputs;
+    for(const auto& [inp_node, inp_ix] : this->inputs) {
+        ser_inputs.push_back(json{
+            {"src_node", inp_node->id},
+            {"src_idx", inp_ix}
+        });
+    }
+    std::cout << "b\n";
+    return {
+        { "prototype_id", this->prototype->id() },
+        { "inputs", ser_inputs },
+        { "data", this->data != nullptr ? this->data->serialize() : json(nullptr) }
+    };
+}
+
 renderer::renderer(device* dev, std::shared_ptr<scene> s) : dev(dev), current_scene(s), next_id(10), desc_pool(nullptr), should_recompile(false) {
     prototypes = {
         std::make_shared<output_render_node_prototype>(),
         std::make_shared<simple_geom_render_node_prototype>(dev),
+        std::make_shared<color_preview_render_node_prototype>(),
+        std::make_shared<color_preview_render_node_prototype>(),
+        std::make_shared<color_preview_render_node_prototype>(),
+        std::make_shared<color_preview_render_node_prototype>(),
         std::make_shared<color_preview_render_node_prototype>(),
     };
     screen_output_node = std::make_shared<render_node>(prototypes[0]);
@@ -259,7 +299,7 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
 
 void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector<vk::SubpassDescription>& subpasses,
         std::vector<vk::SubpassDependency>& dependencies,
-        const std::map<framebuffer_ref, uint32_t>& attachement_refs, std::vector<vk::AttachmentReference>& reference_pool)
+        const std::map<framebuffer_ref, uint32_t>& attachement_refs, arena<vk::AttachmentReference>& reference_pool)
 {
     if(node->visited) return;
     node->visited = true;
@@ -270,33 +310,42 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
 
     if(node.get() == screen_output_node.get()) return;
 
-    vk::AttachmentReference *input_atch_start, *color_atch_start, *depth_atch_start;
-    input_atch_start = reference_pool.data() + reference_pool.size();
+    vk::AttachmentReference *input_atch_start = nullptr, *color_atch_start = nullptr,
+        *depth_atch_start = nullptr;
+
+    input_atch_start = reference_pool.alloc_array(node->inputs.size());
+    auto input_atch_next = input_atch_start;
     for(const auto& [input_node, input_index] : node->inputs) {
         framebuffer_ref fb = input_node->outputs[input_index];
-        reference_pool.push_back(vk::AttachmentReference {
+        *(input_atch_next++) = (vk::AttachmentReference {
             attachement_refs.at(fb),
             vk::ImageLayout::eShaderReadOnlyOptimal 
         });
     }
+
     uint32_t num_color_out = 0;
-    color_atch_start = reference_pool.data() + reference_pool.size();
     for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
         if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
-            reference_pool.push_back(vk::AttachmentReference {
-                    attachement_refs.at(node->outputs[i]),
-                    vk::ImageLayout::eColorAttachmentOptimal
-            });
             num_color_out++;
         }
     }
-    depth_atch_start = reference_pool.data() + reference_pool.size();
+    color_atch_start = reference_pool.alloc_array(num_color_out);
+    auto color_atch_next = color_atch_start;
+    for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
+        if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
+            *(color_atch_next++) = (vk::AttachmentReference {
+                    attachement_refs.at(node->outputs[i]),
+                    vk::ImageLayout::eColorAttachmentOptimal
+            });
+        }
+    }
+
     bool has_depth = false;
     for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
         if(node->prototype->outputs[i].type == framebuffer_type::depth ||
                 node->prototype->outputs[i].type == framebuffer_type::depth_stencil && node->outputs[i] != 0) {
             has_depth = true;
-            reference_pool.push_back(vk::AttachmentReference {
+            depth_atch_start = reference_pool.alloc(vk::AttachmentReference {
                     attachement_refs.at(node->outputs[i]),
                     vk::ImageLayout::eDepthStencilAttachmentOptimal
             });
@@ -401,8 +450,7 @@ void renderer::compile_render_graph() {
     // collect all subpasses and generate subpass dependencies, one per node except output
     std::vector<vk::SubpassDescription> subpasses;
     std::vector<vk::SubpassDependency> dependencies;
-    std::vector<vk::AttachmentReference> reference_pool;
-    reference_pool.reserve(8);
+    arena<vk::AttachmentReference> reference_pool;
     subpass_order.clear();
     generate_subpasses(screen_output_node, subpasses, dependencies, attachement_refs, reference_pool);
 
@@ -437,12 +485,12 @@ void renderer::compile_render_graph() {
         auto node = subpass_order[i];
         node->prototype->collect_descriptor_layouts(node.get(), pool_sizes, layouts, outputs);
     }
-    std::cout << "desc_pool = " << desc_pool.get() << "\n";
+    /* std::cout << "desc_pool = " << desc_pool.get() << "\n"; */
     desc_pool = std::move(dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
         vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         (uint32)outputs.size(), (uint32)pool_sizes.size(), pool_sizes.data()
     }));
-    std::cout << "desc_pool = " << desc_pool.get() << "\n";
+    /* std::cout << "desc_pool = " << desc_pool.get() << "\n"; */
     auto sets = dev->dev->allocateDescriptorSetsUnique(vk::DescriptorSetAllocateInfo {
         desc_pool.get(), (uint32)layouts.size(), layouts.data()
     });
@@ -454,8 +502,8 @@ void renderer::compile_render_graph() {
     // create each subpass pipeline and command buffer if possible
     // also gather descriptor writes
     std::vector<vk::WriteDescriptorSet> desc_writes;
-    std::vector<vk::DescriptorBufferInfo> buf_infos;
-    std::vector<vk::DescriptorImageInfo> img_infos;
+    arena<vk::DescriptorBufferInfo> buf_infos;
+    arena<vk::DescriptorImageInfo> img_infos;
     for(size_t i = 0; i < subpass_order.size(); ++i) {
         auto node = subpass_order[i];
         node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
@@ -473,7 +521,7 @@ void renderer::compile_render_graph() {
 }
 
 void renderer::create_swapchain_dependencies(swap_chain* sc) {
-    std::cout << "renderer::create_swapchain_dependencies\n";
+    /* std::cout << "renderer::create_swapchain_dependencies\n"; */
     swpc = sc;
     full_viewport = vk::Viewport(0, 0, swpc->extent.width, swpc->extent.height, 0.f, 1.f);
     full_scissor = vk::Rect2D({}, swpc->extent);
@@ -481,8 +529,86 @@ void renderer::create_swapchain_dependencies(swap_chain* sc) {
     this->compile_render_graph();
 }
 
+json renderer::serialize_render_graph() {
+    json nodes;
+    for(const auto& n : render_graph) {
+        std::cout << n->id << "\n";
+        nodes[std::to_string(n->id)] = n->serialize();
+        std::cout << nodes << "\n\n";
+    }
+    return json {
+        {"nodes", nodes},
+        {"ui_state", ImNodes::SaveCurrentEditorStateToIniString()}
+    };
+}
+
+void renderer::deserialize_render_graph(json data) {
+    render_graph.clear();
+    for(const auto& [id, node] : data.at("nodes").items()) {
+        render_graph.push_back(std::make_shared<render_node>(this, std::atoll(id.c_str()), node));
+    }
+    for(const auto& [id, node_data] : data.at("nodes").items()) {
+        auto idn = std::atoll(id.c_str());
+        auto node = *std::find_if(render_graph.begin(), render_graph.end(), [&](auto n) { return n->id == idn; });
+        auto inputs = node_data.at("inputs");
+        assert(inputs.size() == node->prototype->inputs.size());
+        for(size_t i = 0; i < node->prototype->inputs.size(); ++i) {
+            auto src_id = inputs[i].at("src_node").get<size_t>();
+            auto src = *std::find_if(render_graph.begin(), render_graph.end(), [&](auto n) { return n->id == src_id; });
+            node->inputs[i] = { src, inputs[i].at("src_idx").get<size_t>() };
+        }
+        if(node->prototype == prototypes[0])
+            screen_output_node = node;
+    }
+    auto ui_state = data.at("ui_state").get<std::string>();
+    ImNodes::LoadCurrentEditorStateFromIniString(ui_state.c_str(), ui_state.size());
+}
+
+#include "ImGuiFileDialog.h"
+
+using igfd::ImGuiFileDialog;
+
 void renderer::build_gui() {
-    if (!ImGui::Begin("Renderer")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Renderer", nullptr, ImGuiWindowFlags_MenuBar)) { ImGui::End(); return; }
+    
+    if(ImGui::BeginMenuBar()) {
+        if(ImGui::BeginMenu("File")) {
+            if(ImGui::MenuItem("New graph")) {
+                render_graph.clear();
+                render_graph.push_back(screen_output_node);
+                auto test = std::make_shared<render_node>(prototypes[1]);
+                render_graph.push_back(test);
+                screen_output_node->inputs[0] = {test, 0};
+            }
+            if(ImGui::MenuItem("Load graph")) {
+                ImGuiFileDialog::Instance()->OpenDialog("LoadRenderGraphDlg", "Choose Render Graph", ".json", ".");
+            }
+            if(ImGui::MenuItem("Save graph")) {
+                ImGuiFileDialog::Instance()->OpenDialog("SaveRenderGraphDlg", "Choose Render Graph", ".json", ".");
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
+
+    if(ImGuiFileDialog::Instance()->FileDialog("LoadRenderGraphDlg")) {
+        if(ImGuiFileDialog::Instance()->IsOk) {
+            std::ifstream input(ImGuiFileDialog::Instance()->GetFilePathName());
+            json data;
+            input >> data;
+            this->deserialize_render_graph(data);
+        }
+        ImGuiFileDialog::Instance()->CloseDialog("LoadRenderGraphDlg");
+    }
+
+    if(ImGuiFileDialog::Instance()->FileDialog("SaveRenderGraphDlg")) {
+        if(ImGuiFileDialog::Instance()->IsOk) {
+            std::ofstream output(ImGuiFileDialog::Instance()->GetFilePathName());
+            output << std::setw(4) << serialize_render_graph();
+        }
+        ImGuiFileDialog::Instance()->CloseDialog("SaveRenderGraphDlg");
+    }
+
 
     if(ImGui::BeginTabBar("##rendertabs")) {
         if(ImGui::BeginTabItem("Pipeline")) {
@@ -496,7 +622,7 @@ void renderer::build_gui() {
             std::vector<std::shared_ptr<render_node>> deleted_nodes;
 
             for (const auto& node : render_graph) {
-                auto i = (size_t)node.get();
+                auto i = node->id;
                 ImNodes::BeginNode(i);
                 ImNodes::BeginNodeTitleBar();
                 ImGui::Text("%s", node->prototype->name());
@@ -548,6 +674,7 @@ void renderer::build_gui() {
                 ImGui::Text("Create new node...");
                 ImGui::Separator();
                 for(const auto& node_type : prototypes) {
+                    /* std::cout << node_type->name() << "\n"; */
                     if(ImGui::MenuItem(node_type->name())) {
                         render_graph.push_back(std::make_shared<render_node>(node_type));
                     }

@@ -115,12 +115,31 @@ std::shared_ptr<scene> create_scene(device* dev) {
     return s;
 }
 
+struct output_render_node_prototype : public render_node_prototype { 
+    output_render_node_prototype() {
+        inputs = {
+            framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
+        };
+        outputs = {};
+    }
+
+    size_t id() const override { return 0x0000ffff; }
+    const char* name() const override { return "Display Output"; }
+
+    virtual vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
+        return vk::UniquePipeline(nullptr);
+    }
+};
+
+
+
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
     : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(dev.get(), nullptr)
 {
-    r.prototypes.push_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
-    r.prototypes.push_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
+    r.prototypes.emplace_back(std::make_shared<output_render_node_prototype>());
+    r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
+    r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
 
     current_scene = create_scene(dev.get());
 
