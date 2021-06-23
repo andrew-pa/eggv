@@ -1,4 +1,5 @@
 #include "eggv_app.h"
+            
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -137,7 +138,17 @@ struct output_render_node_prototype : public render_node_prototype {
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
     : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(dev.get(), nullptr)
 {
-    r.prototypes.emplace_back(std::make_shared<output_render_node_prototype>());
+    std::vector<vk::DescriptorPoolSize> pool_sizes = {
+        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1) // for ImGUI
+    };
+
+    desc_pool = dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
+        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1000, (uint32_t)pool_sizes.size(), pool_sizes.data()
+    });
+
+    this->init_swapchain_depd();
+    this->init_gui();
+
     r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
 
@@ -149,19 +160,19 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
             if(i >= cargs.size()) throw;
             load_plugin(cargs[i++]);
         }
+
+        if(cargs[i] == "-rg") {
+            i++;
+            if(i >= cargs.size()) throw;
+            std::ifstream input(cargs[i++]);
+            json data; input >> data;
+            r.deserialize_render_graph(data);
+        }
     }
 
     r.current_scene = current_scene;
-    std::vector<vk::DescriptorPoolSize> pool_sizes = {
-        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1) // for ImGUI
-    };
 
-    desc_pool = dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
-            vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1000, (uint32_t)pool_sizes.size(), pool_sizes.data()
-            });
 
-    this->init_swapchain_depd();
-    this->init_gui();
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
     upload_cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });

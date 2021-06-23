@@ -12,10 +12,11 @@ layout(set = 0, binding = 3) uniform camera {
 } cam;
 
 void main() {
-    vec3 L = (cam.view * vec4(0.1, 0.9, 0.0, 0.0)).xyz;
+    vec3 L = (cam.view * vec4(0.0, 1.0, 0.0, 0.0)).xyz;
 
     vec3 nor = subpassLoad(input_normal).xyz;
     vec2 txc = subpassLoad(input_texcoord_mat).xy;
 
-    frag_color = vec4(max(0., dot(nor, L)) * mix(vec3(1.0,0.5,0.0),vec3(0.0,1.0,0.5),sin(txc.x+txc.y)), 1.0);
+    vec3 col = mix(vec3(1.0,0.5,0.0),vec3(0.0,1.0,0.5),sin(txc.x+txc.y));
+    frag_color = vec4(dot(nor, -L)*col, 1.0);
 }

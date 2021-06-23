@@ -5,10 +5,10 @@
 gbuffer_geom_render_node_prototype::gbuffer_geom_render_node_prototype(device* dev) {
     inputs = {};
     outputs = {
-        framebuffer_desc{"position", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
-        framebuffer_desc{"normal", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
-        framebuffer_desc{"texture_material", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
-        framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth}
+        framebuffer_desc{"position", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
+        framebuffer_desc{"normal", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
+        framebuffer_desc{"texture_material", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
+        framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::output}
     };
 
     desc_layout = dev->create_desc_set_layout({
@@ -128,12 +128,13 @@ void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer
 
 directional_light_render_node_prototype::directional_light_render_node_prototype(device* dev) {
     inputs = {
+        framebuffer_desc{"input_color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::blend_input},
         framebuffer_desc{"position", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
         framebuffer_desc{"normal", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
         framebuffer_desc{"texture_material", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
     };
     outputs = {
-        framebuffer_desc{"color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
+        framebuffer_desc{"color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
     };
 
     desc_layout = dev->create_desc_set_layout({
@@ -169,7 +170,7 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
     for(int i = 0; i < 3; ++i) {
         writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), i, 0, 1, vk::DescriptorType::eInputAttachment,
                     img_infos.alloc(vk::DescriptorImageInfo(nullptr,
-                            std::get<2>(r->buffers[node->input_framebuffer(i).value()]).get(),
+                            std::get<2>(r->buffers[node->input_framebuffer(i + 1).value()]).get(),
                             vk::ImageLayout::eShaderReadOnlyOptimal))));
     }
 
@@ -211,10 +212,12 @@ vk::UniquePipeline directional_light_render_node_prototype::generate_pipeline(re
     };
 
     vk::PipelineColorBlendAttachmentState color_blend_att[] = {
-        vk::PipelineColorBlendAttachmentState{},
+        vk::PipelineColorBlendAttachmentState(true,
+                vk::BlendFactor::eSrcAlpha, vk::BlendFactor::eSrcAlpha, vk::BlendOp::eAdd,
+                vk::BlendFactor::eOne, vk::BlendFactor::eOne, vk::BlendOp::eAdd,
+                vk::ColorComponentFlagBits::eR|vk::ColorComponentFlagBits::eG
+                    |vk::ColorComponentFlagBits::eB |vk::ColorComponentFlagBits::eA) 
     };
-    color_blend_att[0].colorWriteMask = vk::ColorComponentFlagBits::eR
-        |vk::ColorComponentFlagBits::eG |vk::ColorComponentFlagBits::eB |vk::ColorComponentFlagBits::eA;
     auto color_blending_state = vk::PipelineColorBlendStateCreateInfo{
         {}, false, vk::LogicOp::eCopy, 1, color_blend_att
     };

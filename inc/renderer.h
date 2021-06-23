@@ -11,14 +11,18 @@ enum class framebuffer_type {
     color, depth, depth_stencil
 };
 
+enum class framebuffer_mode {
+    shader_input, blend_input, output
+};
+
 struct framebuffer_desc {
     std::string name;
     vk::Format format;
     framebuffer_type type;
-    framebuffer_desc(std::string name, vk::Format fmt, framebuffer_type ty)
-        : name(name), format(fmt), type(ty) {}
+    framebuffer_mode mode;
+    framebuffer_desc(std::string name, vk::Format fmt, framebuffer_type ty, framebuffer_mode mode = framebuffer_mode::shader_input)
+        : name(name), format(fmt), type(ty), mode(mode) {}
 };
-
 
 struct render_node_data {
     virtual json serialize() const = 0;
@@ -111,6 +115,7 @@ struct renderer {
 
     framebuffer_ref allocate_framebuffer(const framebuffer_desc&);
     void compile_render_graph();
+    void propagate_blended_framebuffers(std::shared_ptr<render_node> node);
     void generate_subpasses(std::shared_ptr<render_node>, std::vector<vk::SubpassDescription>&, std::vector<vk::SubpassDependency>& dependencies,
             const std::map<framebuffer_ref, uint32_t>& attachement_refs, arena<vk::AttachmentReference>& reference_pool);
 

@@ -36,7 +36,7 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
         };
         outputs = {
             framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
-            framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth},
+            framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::output},
         };
 
         desc_layout = dev->create_desc_set_layout({
@@ -156,7 +156,9 @@ struct output_render_node_prototype : public render_node_prototype {
         inputs = {
             framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
         };
-        outputs = {};
+        outputs = {
+            framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
+        };
     }
 
     size_t id() const override { return 0x0000ffff; }
@@ -223,16 +225,20 @@ json render_node::serialize() const {
     std::cout << "a\n";
     std::vector<json> ser_inputs;
     for(const auto& [inp_node, inp_ix] : this->inputs) {
-        ser_inputs.push_back(json{
-            {"src_node", inp_node->id},
-            {"src_idx", inp_ix}
-        });
+        if(inp_node == nullptr) {
+            ser_inputs.push_back(nullptr);
+        } else {
+            ser_inputs.push_back(json{
+                    {"src_node", inp_node->id},
+                    {"src_idx", inp_ix}
+                    });
+        }
     }
     std::cout << "b\n";
     return {
         { "prototype_id", this->prototype->id() },
-        { "inputs", ser_inputs },
-        { "data", this->data != nullptr ? this->data->serialize() : json(nullptr) }
+            { "inputs", ser_inputs },
+            { "data", this->data != nullptr ? this->data->serialize() : json(nullptr) }
     };
 }
 
@@ -240,10 +246,6 @@ renderer::renderer(device* dev, std::shared_ptr<scene> s) : dev(dev), current_sc
     prototypes = {
         std::make_shared<output_render_node_prototype>(),
         std::make_shared<simple_geom_render_node_prototype>(dev),
-        std::make_shared<color_preview_render_node_prototype>(),
-        std::make_shared<color_preview_render_node_prototype>(),
-        std::make_shared<color_preview_render_node_prototype>(),
-        std::make_shared<color_preview_render_node_prototype>(),
         std::make_shared<color_preview_render_node_prototype>(),
     };
     screen_output_node = std::make_shared<render_node>(prototypes[0]);
@@ -315,12 +317,17 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
 
     input_atch_start = reference_pool.alloc_array(node->inputs.size());
     auto input_atch_next = input_atch_start;
-    for(const auto& [input_node, input_index] : node->inputs) {
+    uint32_t num_input_atch = 0;
+    for(size_t i = 0; i < node->inputs.size(); ++i) {
+        // skip blend fbs since they only need output attachment
+        if(node->prototype->inputs[i].mode == framebuffer_mode::blend_input) continue;
+        const auto& [input_node, input_index] = node->inputs[i];
         framebuffer_ref fb = input_node->outputs[input_index];
         *(input_atch_next++) = (vk::AttachmentReference {
             attachement_refs.at(fb),
-            vk::ImageLayout::eShaderReadOnlyOptimal 
+            vk::ImageLayout::eShaderReadOnlyOptimal
         });
+        num_input_atch++;
     }
 
     uint32_t num_color_out = 0;
@@ -359,7 +366,7 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     subpasses.push_back(vk::SubpassDescription {
         vk::SubpassDescriptionFlags(),
         vk::PipelineBindPoint::eGraphics,
-        (uint32_t)node->inputs.size(), input_atch_start,
+        num_input_atch, input_atch_start,
         num_color_out, color_atch_start,
         nullptr, depth_atch_start,
     });
@@ -368,8 +375,9 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     // see: https://developer.samsung.com/galaxy-gamedev/resources/articles/renderpasses.html
     // assuming that we are always consuming inputs in fragment shaders
     for(const auto& [input_node, input_index] : node->inputs) {
+        if(input_node == nullptr) continue;
         const auto& fb_desc = input_node->prototype->outputs[input_index];
-        if(fb_desc.type == framebuffer_type::color) {
+        if(fb_desc.type == framebuffer_type::color && fb_desc.mode != framebuffer_mode::blend_input) {
             dependencies.push_back(vk::SubpassDependency {
                 input_node->subpass_index, node->subpass_index,
                 vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -391,6 +399,21 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     }
 }
 
+void renderer::propagate_blended_framebuffers(std::shared_ptr<render_node> node) {
+    for(size_t i = 0; i < node->inputs.size(); ++i) {
+        if(node->inputs[i].first != nullptr && node->inputs[i].first != screen_output_node) {
+            this->propagate_blended_framebuffers(node->inputs[i].first);
+        }
+        if(node->prototype->inputs[i].mode == framebuffer_mode::blend_input) {
+            if(node->inputs[i].first != nullptr) {
+                node->outputs[i] = node->input_framebuffer(i).value();
+            } else {
+                node->outputs[i] = this->allocate_framebuffer(node->prototype->outputs[i]);
+            }
+        }
+    }
+}
+
 void renderer::compile_render_graph() {
     // free all framebuffers we still have and do other clean up
     dev->graphics_qu.waitIdle();
@@ -407,13 +430,18 @@ void renderer::compile_render_graph() {
     // assign the actual screen backbuffers
     auto&[color_src_node, color_src_ix] = screen_output_node->inputs[0];
     if(color_src_node != nullptr) color_src_node->outputs[color_src_ix] = 1;
+    screen_output_node->outputs[0] = 1;
     prototypes[0]->inputs[0].format = swpc->format;
     for(auto& node : render_graph) {
         for(size_t i = 0; i < node->outputs.size(); ++i) {
-            if(node->outputs[i] == 0)
+            // assign a new framebuffer to each output that is unassigned and not a blend input
+            if(node->outputs[i] == 0 &&
+                    !(i < node->prototype->inputs.size() && node->prototype->inputs[i].mode == framebuffer_mode::blend_input))
                 node->outputs[i] = this->allocate_framebuffer(node->prototype->outputs[i]);
         }
     }
+    // copy blend mode framebuffers so that nodes that take a blend mode framebuffer also output to the same framebuffer
+    this->propagate_blended_framebuffers(screen_output_node);
 
     // generate attachments
     std::vector<vk::AttachmentDescription> attachments {
@@ -426,7 +454,7 @@ void renderer::compile_render_graph() {
     attachement_refs[1] = 0;
 
     clear_values.clear();
-    clear_values.push_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.2f, 0.9f, 1.f}));
+    clear_values.push_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.0f, 0.0f, 0.f}));
     for(const auto& fb : buffers) {
         std::cout << "fb " << fb.first << "\n";
         if(!std::get<1>(fb.second)) continue;
@@ -553,6 +581,7 @@ void renderer::deserialize_render_graph(json data) {
         auto inputs = node_data.at("inputs");
         assert(inputs.size() == node->prototype->inputs.size());
         for(size_t i = 0; i < node->prototype->inputs.size(); ++i) {
+            if(inputs[i].is_null()) continue;
             auto src_id = inputs[i].at("src_node").get<size_t>();
             auto src = *std::find_if(render_graph.begin(), render_graph.end(), [&](auto n) { return n->id == src_id; });
             node->inputs[i] = { src, inputs[i].at("src_idx").get<size_t>() };
@@ -591,25 +620,6 @@ void renderer::build_gui() {
         ImGui::EndMenuBar();
     }
 
-    if(ImGuiFileDialog::Instance()->FileDialog("LoadRenderGraphDlg")) {
-        if(ImGuiFileDialog::Instance()->IsOk) {
-            std::ifstream input(ImGuiFileDialog::Instance()->GetFilePathName());
-            json data;
-            input >> data;
-            this->deserialize_render_graph(data);
-        }
-        ImGuiFileDialog::Instance()->CloseDialog("LoadRenderGraphDlg");
-    }
-
-    if(ImGuiFileDialog::Instance()->FileDialog("SaveRenderGraphDlg")) {
-        if(ImGuiFileDialog::Instance()->IsOk) {
-            std::ofstream output(ImGuiFileDialog::Instance()->GetFilePathName());
-            output << std::setw(4) << serialize_render_graph();
-        }
-        ImGuiFileDialog::Instance()->CloseDialog("SaveRenderGraphDlg");
-    }
-
-
     if(ImGui::BeginTabBar("##rendertabs")) {
         if(ImGui::BeginTabItem("Pipeline")) {
             ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
@@ -633,6 +643,7 @@ void renderer::build_gui() {
                 ImNodes::EndNodeTitleBar();
                 node->prototype->build_gui(this, node.get());
 
+                // TODO: could we have blended inputs be represented by having the input dot and the output dot on the same line
                 for (int input_ix = 0; input_ix < node->prototype->inputs.size(); ++input_ix) {
                     auto id = next_attrib_id++;
                     gui_node_attribs[id] = {node, input_ix, false};
@@ -687,6 +698,24 @@ void renderer::build_gui() {
             ImGui::SetCursorPos(ImVec2(8,8));
             if(ImGui::Button("Recompile"))
                 should_recompile = true;
+
+            if(ImGuiFileDialog::Instance()->FileDialog("LoadRenderGraphDlg")) {
+                if(ImGuiFileDialog::Instance()->IsOk) {
+                    std::ifstream input(ImGuiFileDialog::Instance()->GetFilePathName());
+                    json data;
+                    input >> data;
+                    this->deserialize_render_graph(data);
+                }
+                ImGuiFileDialog::Instance()->CloseDialog("LoadRenderGraphDlg");
+            }
+
+            if(ImGuiFileDialog::Instance()->FileDialog("SaveRenderGraphDlg")) {
+                if(ImGuiFileDialog::Instance()->IsOk) {
+                    std::ofstream output(ImGuiFileDialog::Instance()->GetFilePathName());
+                    output << std::setw(4) << serialize_render_graph();
+                }
+                ImGuiFileDialog::Instance()->CloseDialog("SaveRenderGraphDlg");
+            }
 
             ImNodes::EndNodeEditor();
 

@@ -23,6 +23,6 @@ void main() {
     vec4 _world_pos =  pc.world * vec4(pos, 1.0);
     vec4 _view_pos = cam.view * _world_pos;
     view_pos = _view_pos.xyz;
-    view_nor = (cam.view * vec4(nor, 0.0)).xyz;
+    view_nor = (cam.view * pc.world * vec4(nor, 0.0)).xyz;
     gl_Position = (cam.proj * _view_pos);
 }

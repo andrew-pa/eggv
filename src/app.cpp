@@ -148,6 +148,8 @@ app::app(const std::string& title, vec2 winsize)
 
 	dev = std::make_unique<device>(this);
 	swapchain = std::make_unique<swap_chain>(this, dev.get());
+
+    srand(std::chrono::system_clock::now().time_since_epoch().count());
 }
 
 void app::run(bool pdfps)
