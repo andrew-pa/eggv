@@ -6,17 +6,24 @@ layout(input_attachment_index = 2, set = 0, binding = 2) uniform subpassInput in
 
 layout(location = 0) out vec4 frag_color;
 
+layout(push_constant) uniform light_u {
+    vec4 direction;
+    vec4 color;
+} light;
+
 layout(set = 0, binding = 3) uniform camera {
     mat4 view;
     mat4 proj;
 } cam;
 
 void main() {
-    vec3 L = (cam.view * vec4(0.0, 1.0, 0.0, 0.0)).xyz;
+    vec3 L = (cam.view * light.direction).xyz;
 
     vec3 nor = subpassLoad(input_normal).xyz;
     vec2 txc = subpassLoad(input_texcoord_mat).xy;
 
-    vec3 col = mix(vec3(1.0,0.5,0.0),vec3(0.0,1.0,0.5),sin(txc.x+txc.y));
-    frag_color = vec4(dot(nor, -L)*col, 1.0);
+    vec3 col = vec3(1.0, 1.0, 0.9);
+    vec3 diffuse = max(0., dot(nor, -L)) * col * light.color.xyz;
+    vec3 ambient = col*vec3(0.1);
+    frag_color = vec4(diffuse+ambient,1.0);
 }

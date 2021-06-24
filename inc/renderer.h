@@ -122,7 +122,7 @@ struct renderer {
     void deserialize_render_graph(json data);
     json serialize_render_graph();
 
-    void traverse_scene_graph(scene_object*, frame_state*);
+    void traverse_scene_graph(scene_object*, frame_state*, const mat4& T);
     bool should_recompile;
     
     std::map<int, std::tuple<std::shared_ptr<render_node>, size_t, bool /*input|output*/>> gui_node_attribs;
@@ -133,6 +133,7 @@ struct renderer {
     std::shared_ptr<scene> current_scene;
 
     std::vector<std::tuple<mesh*, mat4>> active_meshes;
+    std::vector<std::tuple<light_trait*, mat4>> active_lights;
     std::unique_ptr<buffer> frame_uniforms_buf;
     vk::Viewport full_viewport; vk::Rect2D full_scissor;
 

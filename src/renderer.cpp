@@ -456,7 +456,7 @@ void renderer::compile_render_graph() {
     clear_values.clear();
     clear_values.push_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.0f, 0.0f, 0.f}));
     for(const auto& fb : buffers) {
-        std::cout << "fb " << fb.first << "\n";
+        /* std::cout << "fb " << fb.first << "\n"; */
         if(!std::get<1>(fb.second)) continue;
         attachement_refs[fb.first] = attachments.size();
         attachments.push_back(vk::AttachmentDescription { vk::AttachmentDescriptionFlags(),
@@ -781,19 +781,26 @@ void renderer::build_gui() {
     ImGui::End();
 }
 
-void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs) {
+void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const mat4& parent_T) {
+    mat4 T = parent_T;
+    for(auto&[_, t] : obj->traits) {
+        t->append_transform(obj, T, fs);
+    }
+
     auto mt = obj->traits.find(TRAIT_ID_MESH);
     if(mt != obj->traits.end()) {
         auto mmt = (mesh_trait*)mt->second.get();
-        mat4 T = mat4(1); //need to get T from parent
-        for(auto&[_, t] : obj->traits) {
-            t->append_transform(obj, T, fs);
-        }
         active_meshes.push_back({mmt->m.get(), T});
     }
-    
+
+    auto lt = obj->traits.find(TRAIT_ID_LIGHT);
+    if(lt != obj->traits.end()) {
+        auto llt = (light_trait*)lt->second.get();
+        active_lights.push_back({llt, T});
+    }
+
     for(auto c : obj->children)
-        traverse_scene_graph(c.get(), fs);
+        traverse_scene_graph(c.get(), fs, T);
 }
 
 void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {
@@ -801,7 +808,8 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* 
     mapped_frame_uniforms->view = current_scene->cam.view();
 
     active_meshes.clear();
-    traverse_scene_graph(current_scene->root.get(), fs);
+    active_lights.clear();
+    traverse_scene_graph(current_scene->root.get(), fs, mat4(1));
 
     render_pass_begin_info.framebuffer = framebuffers[image_index].get();
     cb.beginRenderPass(render_pass_begin_info,

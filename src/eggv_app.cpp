@@ -75,13 +75,14 @@ std::shared_ptr<scene> create_scene(device* dev) {
     auto s = std::make_shared<scene>(
         std::vector<std::shared_ptr<trait_factory>>{
             std::make_shared<transform_trait_factory>(),
-            std::make_shared<mesh_trait_factory>()
+            std::make_shared<mesh_trait_factory>(),
+            std::make_shared<light_trait_factory>()
         },
         std::make_shared<scene_object>("Root"),
         camera{vec3(0.f, -5.f, -15.f), vec3(0.f), pi<float>()/4.f}
     );
 
-    auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
+    /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
     {
         auto obj = std::make_shared<scene_object>("plane");
         auto tfm = transform_trait_factory::create_info(vec3(-4.f,0.f,-4.f), glm::angleAxis(pi<float>()/2.0f, vec3(1.f, 0.f, 0.f)), vec3(8.f));
@@ -89,7 +90,7 @@ std::shared_ptr<scene> create_scene(device* dev) {
         auto cfo = mesh_trait_factory::create_info(); cfo.m = test_mesh;
         s->trait_factories[1]->add_to(obj.get(), &cfo);
         s->root->children.push_back(obj);
-    }
+    }*/
 
     auto test_mesh2 = std::make_shared<mesh>(mesh_gen::generate_trefoil_knot(dev, 64, 256, 2.0f));
     {
@@ -102,12 +103,29 @@ std::shared_ptr<scene> create_scene(device* dev) {
     }
 
     auto test_mesh3 = std::make_shared<mesh>(mesh_gen::generate_sphere(dev, 64, 64));
-    {
+    for(int i = -1; i <= 1; ++i) {
+    for(int j = -1; j <= 1; ++j) {
+        if(i == 0 && j == 0) continue;
         auto obj = std::make_shared<scene_object>("sphere");
-        auto tfm = transform_trait_factory::create_info(vec3(2.0f,-0.6f,2.0f),quat(),vec3(0.6f));
+        auto tfm = transform_trait_factory::create_info(vec3(2.0f * i,0.6f,2.0f*j),quat(),vec3(0.6f));
         s->trait_factories[0]->add_to(obj.get(), &tfm);
         auto cfo = mesh_trait_factory::create_info(); cfo.m = test_mesh3;
         s->trait_factories[1]->add_to(obj.get(), &cfo);
+        s->root->children.push_back(obj);
+    }
+    }
+
+    {
+        auto obj = std::make_shared<scene_object>("light");
+        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, 1.f, 0.f), vec3(.4f,.4f,0.35f));
+        s->trait_factories[2]->add_to(obj.get(), &lco);
+        s->root->children.push_back(obj);
+    }
+
+    {
+        auto obj = std::make_shared<scene_object>("light1");
+        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, .5f, 1.f), vec3(.1f,.1f,0.15f));
+        s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
 

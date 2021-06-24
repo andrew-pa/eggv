@@ -45,7 +45,7 @@ struct camera {
     vec3 position, target;
 
     camera(vec3 pos, vec3 targ, float fov)
-        :fov(fov), position(pos), target(targ) {}
+        : fov(fov), position(pos), target(targ) {}
 
     void update(frame_state* fs);
 
@@ -95,3 +95,36 @@ struct transform_trait_factory : public trait_factory {
                 c==nullptr?vec3(0.f):c->translation, c==nullptr?quat(0.f,0.f,0.f,1.f):c->rotation, c==nullptr?vec3(1.f):c->scale);
     }
 };
+
+enum class light_type {
+    directional, point
+};
+
+const trait_id TRAIT_ID_LIGHT = 0x0000'0010;
+struct light_trait : public trait {
+    light_type type;
+    vec3 param;
+    vec3 color;
+
+    light_trait(trait_factory* f, light_type t, vec3 p, vec3 c) : type(t), param(p), color(c), trait(f) {}
+
+    void build_gui(struct scene_object*, frame_state*) override;
+};
+
+struct light_trait_factory : public trait_factory {
+    struct create_info {
+        light_type type;
+        vec3 param, color;
+        create_info(light_type t, vec3 p, vec3 c) : type(t), param(p), color(c) {}
+    };
+
+    trait_id id() const override { return TRAIT_ID_LIGHT; }
+    std::string name() const override { return "Light"; }
+    void add_to(scene_object* obj, void* ci) override {
+        auto c = ((create_info*)ci);
+        obj->traits[id()] = std::make_unique<light_trait>(this,
+                c==nullptr?light_type::directional:c->type, c==nullptr?vec3():c->param, c==nullptr?vec3(1.f):c->color);
+    }
+};
+
+

@@ -245,5 +245,11 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(ren
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
-    cb.draw(3, 1, 0, 0);
+    /* std::cout << r->active_lights.size() << "\n"; */
+    for(const auto& [light, T] : r->active_lights) {
+        if(light->type != light_type::directional) continue;
+        cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
+                0, { vec4(light->param,0.f), vec4(light->color,0.f) });
+        cb.draw(3, 1, 0, 0);
+    }
 }

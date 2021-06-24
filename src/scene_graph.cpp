@@ -70,3 +70,12 @@ void transform_trait::build_gui(struct scene_object*, frame_state*) {
     this->rotation = glm::normalize(this->rotation);
     ImGui::DragFloat3("Scale", (float*)&this->scale, 0.05f, 0.f, FLT_MAX);
 }
+
+void light_trait::build_gui(scene_object* obj, frame_state*) {
+    ImGui::Combo("Type", (int*)&this->type, "Directional\0Point\0");
+    if(type == light_type::directional) {
+        ImGui::DragFloat3("Direction", (float*)&this->param, 0.01f);
+        this->param = normalize(this->param);
+    } else if(type == light_type::point) { }
+    ImGui::ColorEdit3("Color", (float*)&this->color);
+}
