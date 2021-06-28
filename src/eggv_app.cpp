@@ -154,7 +154,7 @@ struct output_render_node_prototype : public render_node_prototype {
 
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
-    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true)
+    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f)
 {
     r.init(dev.get());
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
@@ -187,6 +187,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
             std::ifstream input(cargs[i++]);
             json data; input >> data;
             r.deserialize_render_graph(data);
+            r.compile_render_graph();
         }
     }
 
@@ -211,7 +212,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
 }
 
 void eggv_app::load_plugin(const std::string& path) {
-    char* error = dlerror();
+    /*char* error = dlerror();
     auto hndl = dlopen(path.c_str(), RTLD_LAZY);
     if((error = dlerror()) != nullptr) {
         std::cout << "failed to load plugin: " << error << "\n";
@@ -223,7 +224,7 @@ void eggv_app::load_plugin(const std::string& path) {
         return;
     }
     load(dev.get(), &r.prototypes, &current_scene->trait_factories);
-    plugins.push_back({path, hndl});
+    plugins.push_back({path, hndl});*/
 }
 
 void eggv_app::init_swapchain_depd() {
@@ -349,9 +350,23 @@ void eggv_app::update(float t, float dt) {
     frame_state fs(t, dt);
     current_scene->update(&fs, this);
 
-    if(glfwGetKey(this->wnd, GLFW_KEY_F2) == GLFW_RELEASE) {
-        gui_visible = !gui_visible;
-    }
+    if(ui_key_cooldown <= 0.f) {
+        if (glfwGetKey(this->wnd, GLFW_KEY_F2) == GLFW_PRESS) {
+            gui_visible = !gui_visible;
+            ui_key_cooldown = 0.2f;
+        }
+		else if (glfwGetKey(this->wnd, GLFW_KEY_F3) == GLFW_PRESS) {
+			current_scene->cam.mouse_enabled = !current_scene->cam.mouse_enabled;
+			ui_key_cooldown = 0.2f;
+			if (current_scene->cam.mouse_enabled) {
+				glfwSetInputMode(this->wnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			} else {
+				glfwSetInputMode(this->wnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			}
+		}
+	} else {
+		ui_key_cooldown -= dt;
+	}
 }
 
 vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
@@ -374,8 +389,9 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb.get());
         cb->endRenderPass();
-        cb->end();
     }
+
+	cb->end();
 
     return cb.get();
 }
@@ -385,7 +401,7 @@ eggv_app::~eggv_app() {
         for(const auto&[_, hndl] : plugins) {
             /* auto unload = (void(*)(void))dlsym(hndl, "eggv_plugin_unload"); */
             /* unload(); */
-            dlclose(hndl);
+            //dlclose(hndl);
         }
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();

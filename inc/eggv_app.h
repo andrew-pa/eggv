@@ -24,6 +24,8 @@ class eggv_app : public app {
     void init_gui();
 
     void build_gui();
+
+    float ui_key_cooldown;
 public:
     eggv_app(const std::vector<std::string>& cargs);
 

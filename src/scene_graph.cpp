@@ -21,14 +21,7 @@ void camera::update(frame_state* fs, app* app) {
     /*     } */
     /*     //position.z = max(0.f, position.z - ImGui::GetIO().MouseWheel * 0.2f); */
     /* } */
-    if(glfwGetKey(app->wnd, GLFW_KEY_F3) == GLFW_PRESS) {
-        mouse_enabled = !mouse_enabled;
-        if(mouse_enabled) {
-            glfwSetInputMode(app->wnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        } else {
-            glfwSetInputMode(app->wnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        }
-    }
+    
     if(glfwGetKey(app->wnd, GLFW_KEY_W) != GLFW_RELEASE) {
         position += speed*look*fs->dt;
     } else if(glfwGetKey(app->wnd, GLFW_KEY_S) != GLFW_RELEASE) {

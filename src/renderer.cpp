@@ -133,7 +133,7 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
             render_pass, subpass
         );
 
-        return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
+        return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
     }
 
     virtual void generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb) override {
@@ -598,7 +598,7 @@ void renderer::deserialize_render_graph(json data) {
 
 #include "ImGuiFileDialog.h"
 
-using igfd::ImGuiFileDialog;
+//using igfd::ImGuiFileDialog;
 
 void renderer::build_gui() {
     if (!ImGui::Begin("Renderer", nullptr, ImGuiWindowFlags_MenuBar)) { ImGui::End(); return; }
@@ -701,26 +701,27 @@ void renderer::build_gui() {
             ImGui::SetCursorPos(ImVec2(8,8));
             if(ImGui::Button("Recompile"))
                 should_recompile = true;
+            if(ImGuiFileDialog::Instance()->Display("SaveRenderGraphDlg")) {
+                if(ImGuiFileDialog::Instance()->IsOk()) {
+                    std::ofstream output(ImGuiFileDialog::Instance()->GetFilePathName());
+                    output << std::setw(4) << serialize_render_graph();
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
 
-            if(ImGuiFileDialog::Instance()->FileDialog("LoadRenderGraphDlg")) {
-                if(ImGuiFileDialog::Instance()->IsOk) {
+            ImNodes::EndNodeEditor();
+
+            if(ImGuiFileDialog::Instance()->Display("LoadRenderGraphDlg")) {
+                if(ImGuiFileDialog::Instance()->IsOk()) {
                     std::ifstream input(ImGuiFileDialog::Instance()->GetFilePathName());
                     json data;
                     input >> data;
                     this->deserialize_render_graph(data);
                 }
-                ImGuiFileDialog::Instance()->CloseDialog("LoadRenderGraphDlg");
+                ImGuiFileDialog::Instance()->Close();
             }
 
-            if(ImGuiFileDialog::Instance()->FileDialog("SaveRenderGraphDlg")) {
-                if(ImGuiFileDialog::Instance()->IsOk) {
-                    std::ofstream output(ImGuiFileDialog::Instance()->GetFilePathName());
-                    output << std::setw(4) << serialize_render_graph();
-                }
-                ImGuiFileDialog::Instance()->CloseDialog("SaveRenderGraphDlg");
-            }
 
-            ImNodes::EndNodeEditor();
 
             int start_attrib, end_attrib;
             if(ImNodes::IsLinkCreated(&start_attrib, &end_attrib)) {

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(eggv VERSION 0.1 LANGUAGES CXX)
+project(eggv VERSION 0.2 LANGUAGES CXX)
 
 #############################
 ### include dependencies ###
@@ -56,9 +56,9 @@ message("${COMPILED_SHADERS}")
 #############################
 ###    targets            ###
 
-include_directories(inc/ depd/glm depd/vk_mem_alloc/src/
+include_directories(inc/ depd/glm depd/vk_mem_alloc/include/
     depd/imgui/ depd/imgui/backends/ depd/imnodes/
-    depd/ImGuiFileDialog/ImGuiFileDialog/
+    depd/ImGuiFileDialog/
     depd/midifile/include/)
 
 if(WIN32)
@@ -77,8 +77,8 @@ set(IMGUI_SRC_FILES depd/imgui/imconfig.h depd/imgui/imgui.h depd/imgui/imgui.cp
     depd/imgui/imstb_textedit.h depd/imgui/imstb_truetype.h depd/imgui/imgui_tables.cpp
     depd/imgui/backends/imgui_impl_glfw.h depd/imgui/backends/imgui_impl_glfw.cpp
     depd/imgui/backends/imgui_impl_vulkan.h depd/imgui/backends/imgui_impl_vulkan.cpp
-    depd/ImGuiFileDialog/ImGuiFileDialog/ImGuiFileDialog.h depd/ImGuiFileDialog/ImGuiFileDialog/ImGuiFileDialog.cpp
-    depd/ImGuiFileDialog/ImGuiFileDialog/ImGuiFileDialogConfig.h
+    depd/ImGuiFileDialog/ImGuiFileDialog.h depd/ImGuiFileDialog/ImGuiFileDialog.cpp
+    depd/ImGuiFileDialog/ImGuiFileDialogConfig.h
     depd/imnodes/imnodes.h depd/imnodes/imnodes_internal.h depd/imnodes/imnodes.cpp)
 
 add_library(imgui ${IMGUI_SRC_FILES})
