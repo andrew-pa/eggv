@@ -16,6 +16,8 @@ class eggv_app : public app {
     std::shared_ptr<scene> current_scene;
     renderer r;
 
+    bool gui_visible;
+
     void init_swapchain_depd();
 
     void init_render_pass();

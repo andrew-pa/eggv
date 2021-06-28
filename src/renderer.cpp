@@ -242,7 +242,10 @@ json render_node::serialize() const {
     };
 }
 
-renderer::renderer(device* dev, std::shared_ptr<scene> s) : dev(dev), current_scene(s), next_id(10), desc_pool(nullptr), should_recompile(false) {
+renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_recompile(false) {}
+
+void renderer::init(device* _dev) {
+    this->dev = _dev;
     prototypes = {
         std::make_shared<output_render_node_prototype>(),
         std::make_shared<simple_geom_render_node_prototype>(dev),

@@ -124,7 +124,7 @@ std::shared_ptr<scene> create_scene(device* dev) {
 
     {
         auto obj = std::make_shared<scene_object>("light1");
-        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, .5f, 1.f), vec3(.1f,.1f,0.15f));
+        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, -.5f, 1.f), vec3(.1f,.1f,0.15f));
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
@@ -154,8 +154,9 @@ struct output_render_node_prototype : public render_node_prototype {
 
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
-    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(dev.get(), nullptr)
+    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true)
 {
+    r.init(dev.get());
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1) // for ImGUI
     };
@@ -171,6 +172,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
 
     current_scene = create_scene(dev.get());
+    r.current_scene = current_scene;
 
     for(int i = 1; i < cargs.size(); ++i) {
         if(cargs[i] == "-p") {
@@ -334,10 +336,10 @@ void eggv_app::resize() {
 }*/
 
 void eggv_app::build_gui(frame_state* fs) {
-	ImGui::ShowDemoWindow();
-	ImGui::ShowMetricsWindow();
-        r.build_gui();
-        current_scene->build_gui(fs);
+    ImGui::ShowDemoWindow();
+    ImGui::ShowMetricsWindow();
+    r.build_gui();
+    current_scene->build_gui(fs);
 }
 #pragma endregion
 
@@ -345,31 +347,37 @@ void eggv_app::build_gui(frame_state* fs) {
 void eggv_app::update(float t, float dt) {
     if(r.should_recompile) r.compile_render_graph();
     frame_state fs(t, dt);
-    current_scene->update(&fs);
+    current_scene->update(&fs, this);
+
+    if(glfwGetKey(this->wnd, GLFW_KEY_F2) == GLFW_RELEASE) {
+        gui_visible = !gui_visible;
+    }
 }
 
 vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
-	auto& cb = command_buffers[image_index];
-	cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+    auto& cb = command_buffers[image_index];
+    cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
-	frame_state fs(t, dt);
-	r.render(cb.get(), image_index, &fs);
+    frame_state fs(t, dt);
+    r.render(cb.get(), image_index, &fs);
 
-	cb->beginRenderPass(vk::RenderPassBeginInfo{
-		gui_render_pass.get(), framebuffers[image_index].get(),
-		vk::Rect2D(vk::Offset2D(), swapchain->extent), 0, nullptr
-		}, vk::SubpassContents::eInline);
+    if(gui_visible) {
+        cb->beginRenderPass(vk::RenderPassBeginInfo{
+                gui_render_pass.get(), framebuffers[image_index].get(),
+                vk::Rect2D(vk::Offset2D(), swapchain->extent), 0, nullptr
+                }, vk::SubpassContents::eInline);
 
-	ImGui_ImplVulkan_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-	this->build_gui(&fs);
-	ImGui::Render();
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb.get());
-	cb->endRenderPass();
-	cb->end();
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        this->build_gui(&fs);
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb.get());
+        cb->endRenderPass();
+        cb->end();
+    }
 
-	return cb.get();
+    return cb.get();
 }
 #pragma endregion
 

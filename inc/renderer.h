@@ -137,7 +137,8 @@ struct renderer {
     std::unique_ptr<buffer> frame_uniforms_buf;
     vk::Viewport full_viewport; vk::Rect2D full_scissor;
 
-    renderer(device* dev, std::shared_ptr<scene> s);
+    renderer();
+    void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
     void build_gui();
     void render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs);

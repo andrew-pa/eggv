@@ -41,13 +41,13 @@ struct scene_object {
 };
 
 struct camera {
-    float fov;
-    vec3 position, target;
+    float fov, speed;
+    vec3 position, look, right, up;
+    bool mouse_enabled;
 
-    camera(vec3 pos, vec3 targ, float fov)
-        : fov(fov), position(pos), target(targ) {}
+    camera(vec3 pos, vec3 targ, float fov);
 
-    void update(frame_state* fs);
+    void update(frame_state* fs, app*);
 
     mat4 proj(float aspect_ratio);
     mat4 view();
@@ -63,7 +63,7 @@ public:
 
     scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root, camera cam) : trait_factories(trait_factories), root(root), cam(cam), selected_object(root) {}
 
-    void update(frame_state* fs);
+    void update(frame_state* fs, app*);
     void build_gui(frame_state* fs);
 };
 
