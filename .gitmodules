@@ -11,9 +11,10 @@
 	path = depd/imgui
 	url = https://github.com/ocornut/imgui
 	branch = docking
-; [submodule "depd/ImGuiFileDialog"]
-; 	path = depd/ImGuiFileDialog
-; 	url = https://github.com/aiekick/ImGuiFileDialog
+[submodule "depd/ImGuiFileDialog"]
+	path = depd/ImGuiFileDialog
+	url = https://github.com/aiekick/ImGuiFileDialog
+	branch = Lib_Only
 [submodule "depd/dirent"]
 	path = depd/dirent
 	url = https://github.com/tronkko/dirent
