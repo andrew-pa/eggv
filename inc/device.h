@@ -91,5 +91,7 @@ struct device {
 
     vk::ShaderModule load_shader(const std::string& path);
 
+        void clear_tmps();
+
 	~device();
 };

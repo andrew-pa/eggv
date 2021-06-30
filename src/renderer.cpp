@@ -205,7 +205,7 @@ render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
 }
 
 render_node::render_node(renderer* r, size_t id, json data)
-    : id(id), subpass_commands(std::nullopt)
+    : id(id), subpass_commands(std::nullopt), subpass_index(123456789)
 {
     auto prototype_id = data.at("prototype_id").get<int>();
     auto prototypep = std::find_if(r->prototypes.begin(), r->prototypes.end(),
@@ -242,7 +242,7 @@ json render_node::serialize() const {
     };
 }
 
-renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_recompile(false) {}
+renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_recompile(false), log_compile(false) {}
 
 void renderer::init(device* _dev) {
     this->dev = _dev;
@@ -306,14 +306,19 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
         std::vector<vk::SubpassDependency>& dependencies,
         const std::map<framebuffer_ref, uint32_t>& attachement_refs, arena<vk::AttachmentReference>& reference_pool)
 {
-    if(node->visited) return;
+    if(node->visited) { return; }
+    if(log_compile) std::cout << "generate_subpasses for " << node->inputs.size() << " children of " << node->id << ":" << node->prototype->name() << "\n";
     node->visited = true;
     for(const auto& [input_node, input_index] : node->inputs) {
         if(input_node == nullptr) continue;
         generate_subpasses(input_node, subpasses, dependencies, attachement_refs, reference_pool);
     }
+    if(log_compile) std::cout << "generate_subpasses for " << node->id << ":" << node->prototype->name() << "\n";
 
-    if(node.get() == screen_output_node.get()) return;
+    if(node.get() == screen_output_node.get()) {
+        if(log_compile) std::cout << "\toutput node, skipped\n";
+        return;
+    }
 
     vk::AttachmentReference *input_atch_start = nullptr, *color_atch_start = nullptr,
         *depth_atch_start = nullptr;
@@ -365,6 +370,7 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     if(!has_depth) depth_atch_start = nullptr;
 
     node->subpass_index = (uint32_t)subpasses.size();
+    if(log_compile) std::cout << "\tassigning node subpass index #" << node->subpass_index << "\n";
     subpass_order.push_back(node);
     subpasses.push_back(vk::SubpassDescription {
         vk::SubpassDescriptionFlags(),
@@ -378,7 +384,7 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     // see: https://developer.samsung.com/galaxy-gamedev/resources/articles/renderpasses.html
     // assuming that we are always consuming inputs in fragment shaders
     for(const auto& [input_node, input_index] : node->inputs) {
-        if(input_node == nullptr) continue;
+        if(input_node == nullptr || input_node == screen_output_node) continue;
         const auto& fb_desc = input_node->prototype->outputs[input_index];
         if(fb_desc.type == framebuffer_type::color && fb_desc.mode != framebuffer_mode::blend_input) {
             dependencies.push_back(vk::SubpassDependency {
@@ -420,6 +426,7 @@ void renderer::propagate_blended_framebuffers(std::shared_ptr<render_node> node)
 void renderer::compile_render_graph() {
     // free all framebuffers we still have and do other clean up
     dev->graphics_qu.waitIdle();
+    dev->present_qu.waitIdle();
     for(auto& buf : buffers) {
         std::get<1>(buf.second) = false;
     }
@@ -484,6 +491,15 @@ void renderer::compile_render_graph() {
     arena<vk::AttachmentReference> reference_pool;
     subpass_order.clear();
     generate_subpasses(screen_output_node, subpasses, dependencies, attachement_refs, reference_pool);
+
+    if(log_compile) {
+        std::cout << "subpass dependencies:\n";
+        for(size_t i = 0; i < dependencies.size(); ++i) {
+            auto& d = dependencies[i];
+            std::cout << i << ": src=" << d.srcSubpass << " dst=" << d.dstSubpass << "\n";
+        }
+        std::cout << "----------------------\n";
+    }
 
     // create render pass
     vk::RenderPassCreateInfo rpcfo {
@@ -618,6 +634,10 @@ void renderer::build_gui() {
             if(ImGui::MenuItem("Save graph")) {
                 ImGuiFileDialog::Instance()->OpenDialog("SaveRenderGraphDlg", "Choose Render Graph", ".json", ".");
             }
+            ImGui::EndMenu();
+        }
+        if(ImGui::BeginMenu("Options")) {
+            ImGui::MenuItem("Compilation log", nullptr, &log_compile);
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();

@@ -154,10 +154,10 @@ app::app(const std::string& title, vec2 winsize)
 
 void app::run(bool pdfps)
 {
-	const float target_delta_time = 1.f / 120.f;
+	/* const float target_delta_time = 1.f / 120.f; */
 
-	uint fc = 0;
-	float ft = 0.f;
+	/*uint fc = 0;
+	float ft = 0.f;*/
 	tm.reset();
 	while (!glfwWindowShouldClose(wnd))
 	{
@@ -175,25 +175,27 @@ void app::run(bool pdfps)
 		dev->graphics_qu.submit(sfo, nullptr);
 		swapchain->present(image_index);
 		post_submit(image_index);
-		update(tm.time(), tm.delta_time());
-
-		fc++;
-		ft += tm.delta_time();
 		glfwPollEvents();
-		if (tm.delta_time() < target_delta_time) {
-			auto missing_delta = target_delta_time - tm.delta_time();
-			//if(missing_delta > 0.f)
-				//this_thread::sleep_for(chrono::milliseconds((long)ceil(missing_delta)));
-		}
+		update(tm.time(), tm.delta_time());
+		/* fc++; */
+		/* ft += tm.delta_time(); */
+                dev->present_qu.waitIdle();
+                /* dev->clear_tmps(); */
 	}
+        dev->graphics_qu.waitIdle();
+        dev->present_qu.waitIdle();
+        std::cout << "quit\n";
 }
 
 app::~app()
 {
+    dev->graphics_qu.waitIdle();
+    dev->present_qu.waitIdle();
+    dev->clear_tmps();
 	swapchain.reset();
 	dev.reset();
 	vkDestroySurfaceKHR((VkInstance)instance, (VkSurfaceKHR)surface, nullptr);
-#ifdef _DEBUG
+#ifdef DEBUG
 	DestroyDebugReportCallbackEXT((VkInstance)instance, report_callback, nullptr);
 #endif
 	instance.destroy();

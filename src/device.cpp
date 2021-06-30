@@ -73,6 +73,11 @@ vk::CommandBuffer device::alloc_tmp_cmd_buffer(vk::CommandBufferLevel lvl) {
     return ccb;
 }
 
+void device::clear_tmps() {
+    if(tmp_cmd_buffers.size() > 0) tmp_cmd_buffers.clear();
+    if(tmp_upload_buffers.size() > 0) tmp_upload_buffers.clear();
+}
+
 vk::UniqueDescriptorSetLayout device::create_desc_set_layout(std::vector<vk::DescriptorSetLayoutBinding> bindings) {
 	return dev->createDescriptorSetLayoutUnique(vk::DescriptorSetLayoutCreateInfo{ vk::DescriptorSetLayoutCreateFlags(), (uint32_t)bindings.size(), bindings.data() });
 }
@@ -98,6 +103,8 @@ vk::ShaderModule device::load_shader(const std::string& path) {
 
 
 device::~device() {
+        graphics_qu.waitIdle();
+        present_qu.waitIdle();
 	for (auto& s : shader_module_cashe)
 		s.second.reset();
 	vmaDestroyAllocator(allocator);

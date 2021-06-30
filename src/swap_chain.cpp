@@ -13,7 +13,6 @@ result<uint32_t, vk::Result> swap_chain::aquire_next() {
 void swap_chain::present(uint32_t index) {
 	vk::PresentInfoKHR ifo{ 1, &render_fin_sp.get(), 1, &sch.get(), &index };
 	dev->present_qu.presentKHR(ifo);
-	dev->present_qu.waitIdle(); //it seems this line isn't stricly necessary?
 }
 
 void swap_chain::recreate(app* app) {

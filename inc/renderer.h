@@ -123,7 +123,7 @@ struct renderer {
     json serialize_render_graph();
 
     void traverse_scene_graph(scene_object*, frame_state*, const mat4& T);
-    bool should_recompile;
+    bool should_recompile, log_compile;
     
     std::map<int, std::tuple<std::shared_ptr<render_node>, size_t, bool /*input|output*/>> gui_node_attribs;
     std::vector<std::pair<int, int>> gui_links;

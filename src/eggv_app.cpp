@@ -207,8 +207,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
 
     dev->graphics_qu.waitIdle();
     ImGui_ImplVulkan_DestroyFontUploadObjects();
-    dev->tmp_cmd_buffers.clear();
-    dev->tmp_upload_buffers.clear();
+    dev->clear_tmps();
 }
 
 void eggv_app::load_plugin(const std::string& path) {
@@ -315,6 +314,7 @@ void eggv_app::init_gui() {
 }
 
 void eggv_app::resize() {
+        dev->present_qu.waitIdle();
 	command_buffers.clear();
 	framebuffers.clear();
 	swapchain->recreate(this);
