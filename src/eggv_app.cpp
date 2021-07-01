@@ -129,6 +129,16 @@ std::shared_ptr<scene> create_scene(device* dev) {
         s->root->children.push_back(obj);
     }
 
+    {
+        auto obj = std::make_shared<scene_object>("plight");
+        auto tfm = transform_trait_factory::create_info(vec3(2.0f,-0.7f,-1.5f),quat(),vec3(1.0f));
+        s->trait_factories[0]->add_to(obj.get(), &tfm);
+        auto lco = light_trait_factory::create_info(light_type::point, vec3(1.6f, 0.f, 0.f), vec3(.0f,.4f,.0f));
+        s->trait_factories[2]->add_to(obj.get(), &lco);
+        s->root->children.push_back(obj);
+    }
+
+
 
 
     return s;
@@ -170,6 +180,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
 
     r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
+    r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
 
     current_scene = create_scene(dev.get());
     r.current_scene = current_scene;

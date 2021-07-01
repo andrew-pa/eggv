@@ -6,10 +6,10 @@ layout(location = 2) in vec2 in_tex_coord;
 
 layout(push_constant) uniform push_constants {
     mat4 world;
-    vec4 color;
+    vec4 param, color, light_view_pos;
 } pc;
 
-layout(binding = 0) uniform camera {
+layout(binding = 3) uniform camera {
     mat4 view;
     mat4 proj;
 } cam;

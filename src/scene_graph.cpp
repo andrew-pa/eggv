@@ -129,6 +129,8 @@ void light_trait::build_gui(scene_object* obj, frame_state*) {
     if(type == light_type::directional) {
         ImGui::DragFloat3("Direction", (float*)&this->param, 0.01f);
         this->param = normalize(this->param);
-    } else if(type == light_type::point) { }
+    } else if(type == light_type::point) {
+        ImGui::DragFloat("Falloff", &this->param.x, 0.01f, 0.001f, 1000.f);
+    }
     ImGui::ColorEdit3("Color", (float*)&this->color);
 }

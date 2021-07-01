@@ -16,5 +16,5 @@ layout(push_constant) uniform push_constants {
 void main() {
     position_buf = vec4(view_pos, 0.0);
     normal_buf = vec4(view_nor, 0.0);
-    texture_material_buf = vec4(tex_coord, 0.0, 0.0);
+    texture_material_buf = vec4(tex_coord, 1.0, 0.0);
 }

@@ -1,5 +1,27 @@
 {
     "nodes": {
+        "1502567884": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 1714636915
+                },
+                {
+                    "src_idx": 0,
+                    "src_node": 1681692777
+                },
+                {
+                    "src_idx": 1,
+                    "src_node": 1681692777
+                },
+                {
+                    "src_idx": 2,
+                    "src_node": 1681692777
+                }
+            ],
+            "prototype_id": 65538
+        },
         "1681692777": {
             "data": null,
             "inputs": [],
@@ -32,11 +54,11 @@
             "inputs": [
                 {
                     "src_idx": 0,
-                    "src_node": 1714636915
+                    "src_node": 1502567884
                 }
             ],
             "prototype_id": 65535
         }
     },
-    "ui_state": "[editor]\npanning=0,0\n\n[node.1804289383]\norigin=425,66\n\n[node.1714636915]\norigin=413,275\n\n[node.1681692777]\norigin=32,69\n"
+    "ui_state": "[editor]\npanning=0,0\n\n[node.1804289383]\norigin=425,66\n\n[node.1714636915]\norigin=366,261\n\n[node.1681692777]\norigin=32,69\n\n[node.1502567884]\norigin=367,465\n"
 }
