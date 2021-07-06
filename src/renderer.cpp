@@ -876,10 +876,10 @@ renderer::~renderer() {
     }
 }
 
-mesh::mesh(device* dev, size_t vcount, size_t icount, std::function<void(void*)> write_buffer)
+mesh::mesh(device* dev, size_t vcount, size_t _vsize, size_t icount, std::function<void(void*)> write_buffer)
     : vertex_count(vcount), index_count(icount)
 {
-    auto vsize = sizeof(vertex)*vcount,
+    auto vsize = _vsize*vcount,
          isize = sizeof(uint16)*icount;
     auto staging_buffer = std::make_unique<buffer>(dev, vsize+isize,
             vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible);

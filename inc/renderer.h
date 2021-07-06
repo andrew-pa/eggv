@@ -89,11 +89,11 @@ struct mesh {
     std::unique_ptr<buffer> index_buffer;
     size_t vertex_count, index_count;
 
-    mesh(device* dev, size_t vcount, size_t icount, std::function<void(void*)> write_buffer);
+    mesh(device* dev, size_t vcount, size_t vsize, size_t icount, std::function<void(void*)> write_buffer);
 
     template<typename VertexT>
     mesh(device* dev, const std::vector<VertexT>& vertices, const std::vector<uint16>& indices)
-        : mesh(dev, vertices.size(), indices.size(), [&](void* staging_map) {
+        : mesh(dev, vertices.size(), sizeof(VertexT), indices.size(), [&](void* staging_map) {
             memcpy(staging_map, vertices.data(), sizeof(VertexT)*vertices.size());
             memcpy((char*)staging_map + sizeof(VertexT)*vertices.size(), indices.data(), sizeof(uint16)*indices.size());
         })

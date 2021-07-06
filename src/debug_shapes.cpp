@@ -108,7 +108,7 @@ vk::UniquePipeline debug_shape_render_node_prototype::generate_pipeline(renderer
     };
 
     vk::PipelineColorBlendAttachmentState color_blend_att[] = {
-        vk::PipelineColorBlendAttachmentState(true,
+        vk::PipelineColorBlendAttachmentState(false,
                 vk::BlendFactor::eOne, vk::BlendFactor::eOne, vk::BlendOp::eAdd,
                 vk::BlendFactor::eOne, vk::BlendFactor::eOne, vk::BlendOp::eAdd,
                 vk::ColorComponentFlagBits::eR|vk::ColorComponentFlagBits::eG
