@@ -11,10 +11,5 @@ layout(push_constant) uniform push_constants {
 } pc;
 
 void main() {
-    if(pc.color.w == 0.0) {
-	    frag_color = pc.color;
-    } else if(pc.color.w == 1.0) {
-        frag_color = mix(vec4(abs(view_nor),1.), pc.color*0.5,
-            0.5+0.5*sin(length(tex_coord*8.0))+0.05*cos(tex_coord.x*20.0)+0.05*cos(tex_coord.y*20.0) );
-    }
+   frag_color = pc.color;
 }

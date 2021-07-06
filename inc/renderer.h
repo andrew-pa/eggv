@@ -79,8 +79,8 @@ struct vertex {
 };
 
 constexpr static vk::VertexInputAttributeDescription vertex_attribute_description[] = {
-    vk::VertexInputAttributeDescription{0, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(vertex, position)},
-    vk::VertexInputAttributeDescription{1, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(vertex, normal)},
+    vk::VertexInputAttributeDescription{0, 0, vk::Format::eR32G32B32Sfloat, offsetof(vertex, position)},
+    vk::VertexInputAttributeDescription{1, 0, vk::Format::eR32G32B32Sfloat, offsetof(vertex, normal)},
     vk::VertexInputAttributeDescription{2, 0, vk::Format::eR32G32Sfloat,       offsetof(vertex, texcoord)},
 };
 
@@ -90,7 +90,16 @@ struct mesh {
     size_t vertex_count, index_count;
 
     mesh(device* dev, size_t vcount, size_t icount, std::function<void(void*)> write_buffer);
-    mesh(device* dev, const std::vector<vertex>& vertices, const std::vector<uint16>& indices);
+
+    template<typename VertexT>
+    mesh(device* dev, const std::vector<VertexT>& vertices, const std::vector<uint16>& indices)
+        : mesh(dev, vertices.size(), indices.size(), [&](void* staging_map) {
+            memcpy(staging_map, vertices.data(), sizeof(VertexT)*vertices.size());
+            memcpy((char*)staging_map + sizeof(VertexT)*vertices.size(), indices.data(), sizeof(uint16)*indices.size());
+        })
+    {
+    }
+
 };
 
 struct frame_uniforms {
@@ -134,8 +143,11 @@ struct renderer {
 
     std::vector<std::tuple<mesh*, mat4>> active_meshes;
     std::vector<std::tuple<light_trait*, mat4>> active_lights;
+    std::vector<viewport_shape> active_shapes;
     std::unique_ptr<buffer> frame_uniforms_buf;
     vk::Viewport full_viewport; vk::Rect2D full_scissor;
+
+    bool show_shapes;
 
     renderer();
     void init(device* dev);

@@ -21,6 +21,8 @@ struct trait {
 
     virtual void build_gui(struct scene_object*, frame_state*) { }
 
+    virtual void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {}
+
     virtual ~trait() {}
 };
 
@@ -109,6 +111,7 @@ struct light_trait : public trait {
     light_trait(trait_factory* f, light_type t, vec3 p, vec3 c) : type(t), param(p), color(c), trait(f) {}
 
     void build_gui(struct scene_object*, frame_state*) override;
+    void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) override;
 };
 
 struct light_trait_factory : public trait_factory {

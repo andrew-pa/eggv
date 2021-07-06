@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include "imnodes.h"
 #include <iomanip>
+#include "debug_shapes.h"
 
 // is setting the perserveAttachment counts on the subpasses necessary?
 
@@ -250,6 +251,7 @@ void renderer::init(device* _dev) {
         std::make_shared<output_render_node_prototype>(),
         std::make_shared<simple_geom_render_node_prototype>(dev),
         std::make_shared<color_preview_render_node_prototype>(),
+        std::make_shared<debug_shape_render_node_prototype>(dev)
     };
     screen_output_node = std::make_shared<render_node>(prototypes[0]);
     render_graph.push_back(screen_output_node);
@@ -638,6 +640,7 @@ void renderer::build_gui() {
         }
         if(ImGui::BeginMenu("Options")) {
             ImGui::MenuItem("Compilation log", nullptr, &log_compile);
+            ImGui::MenuItem("Viewport shapes", nullptr, &show_shapes);
             ImGui::EndMenu();
         }
         ImGui::EndMenuBar();
@@ -771,7 +774,8 @@ void renderer::build_gui() {
         }
 
         if(ImGui::BeginTabItem("Statistics")) {
-            ImGui::Text("%zu active meshes, %zu running subpasses", active_meshes.size(), subpass_order.size());
+            ImGui::Text("%zu active meshes, %zu active lights, %zu active shapes, %zu running subpasses",
+                    active_meshes.size(), active_lights.size(), active_shapes.size(), subpass_order.size());
 
             ImGui::Separator();
             ImGui::Text("Framebuffers:");
@@ -811,6 +815,12 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
         t->append_transform(obj, T, fs);
     }
 
+    if(show_shapes) {
+        for(auto&[_, t] : obj->traits) {
+            t->collect_viewport_shapes(obj, fs, T, obj == current_scene->selected_object.get(), this->active_shapes);
+        }
+    }
+
     auto mt = obj->traits.find(TRAIT_ID_MESH);
     if(mt != obj->traits.end()) {
         auto mmt = (mesh_trait*)mt->second.get();
@@ -833,6 +843,7 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* 
 
     active_meshes.clear();
     active_lights.clear();
+    active_shapes.clear();
     traverse_scene_graph(current_scene->root.get(), fs, mat4(1));
 
     render_pass_begin_info.framebuffer = framebuffers[image_index].get();
@@ -851,6 +862,9 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* 
             cb.nextSubpass(subpass_order[i+1]->subpass_commands.has_value() ? vk::SubpassContents::eSecondaryCommandBuffers
                     : vk::SubpassContents::eInline);
         }
+    }
+
+    if(show_shapes && active_shapes.size() > 0) {
     }
 
     cb.endRenderPass();
@@ -888,13 +902,13 @@ mesh::mesh(device* dev, size_t vcount, size_t icount, std::function<void(void*)>
     dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
 }
 
-mesh::mesh(device* dev, const std::vector<vertex>& vertices, const std::vector<uint16>& indices)
+/*mesh::mesh(device* dev, const std::vector<vertex>& vertices, const std::vector<uint16>& indices)
     : mesh(dev, vertices.size(), indices.size(), [&](void* staging_map) {
         memcpy(staging_map, vertices.data(), sizeof(vertex)*vertices.size());
         memcpy((char*)staging_map + sizeof(vertex)*vertices.size(), indices.data(), sizeof(uint16)*indices.size());
     })
 {
-}
+}*/
 
 void mesh_trait::build_gui(struct scene_object*, frame_state*) {
     ImGui::Text("%zu vertices, %zu indices", m->vertex_count, m->index_count);

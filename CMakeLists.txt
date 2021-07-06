@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.9)
 
 project(eggv VERSION 0.2 LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+
 #############################
 ### include dependencies ###
 
@@ -92,11 +94,12 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/mem_arena.h
     inc/renderer.h src/renderer.cpp
     inc/deferred_nodes.h src/deferred_nodes.cpp
+    inc/debug_shapes.h src/debug_shapes.cpp
     inc/mesh_gen.h inc/par_shapes.h src/mesh_gen.cpp
     inc/scene_graph.h src/scene_graph.cpp
     inc/eggv_app.h src/eggv_app.cpp
     simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv entire-screen.vert.spv directional-light.frag.spv point-light.vert.spv point-light.frag.spv)
-target_compile_features(eggv PRIVATE cxx_std_17)
+target_compile_features(eggv PUBLIC cxx_std_17)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid)
 
 

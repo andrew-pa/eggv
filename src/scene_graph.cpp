@@ -134,3 +134,9 @@ void light_trait::build_gui(scene_object* obj, frame_state*) {
     }
     ImGui::ColorEdit3("Color", (float*)&this->color);
 }
+
+void light_trait::collect_viewport_shapes(scene_object* ob, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {
+    if(this->type == light_type::point) {
+        shapes.push_back(viewport_shape(viewport_shape_type::axis, this->color, T));
+    }
+}

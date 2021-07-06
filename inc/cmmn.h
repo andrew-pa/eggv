@@ -292,21 +292,16 @@ inline vec4 deserialize_v4(const json& j) {
 }
 
 enum class viewport_shape_type {
-    box, axis, line, arrow
+    box, axis
 };
 
 struct viewport_shape {
-        viewport_shape_type type;
-	vec3 pos[2];
-	vec3 color;
-        mat4 T;
+    viewport_shape_type type;
+    vec4 color;
+    mat4 T;
 
-        viewport_shape(viewport_shape_type ty = viewport_shape_type::arrow, vec3 a = vec3(0.), vec3 b = vec3(0.), vec3 col = vec3(1.), mat4 T = mat4(0))
-            : type(ty), color(col), T(T)
-        {
-            pos[0] = a;
-            pos[1] = b;
-        }
+    viewport_shape(viewport_shape_type ty = viewport_shape_type::axis, vec3 col = vec3(1.), mat4 T = mat4(1))
+        : type(ty), color(col, 1.f), T(T) {}
 };
 
 /*template<typename T>

@@ -137,6 +137,15 @@ std::shared_ptr<scene> create_scene(device* dev) {
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
+    {
+        auto obj = std::make_shared<scene_object>("plight");
+        auto tfm = transform_trait_factory::create_info(vec3(-2.0f,-0.7f,-1.5f),quat(),vec3(1.0f));
+        s->trait_factories[0]->add_to(obj.get(), &tfm);
+        auto lco = light_trait_factory::create_info(light_type::point, vec3(1.6f, 0.f, 0.f), vec3(.4f,.0f,.0f));
+        s->trait_factories[2]->add_to(obj.get(), &lco);
+        s->root->children.push_back(obj);
+    }
+
 
 
 
