@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(eggv VERSION 0.2 LANGUAGES CXX)
+project(eggv VERSION 0.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -30,6 +30,8 @@ add_subdirectory(depd/json)
 
 set(UUID_BUILD_TESTS OFF)
 add_subdirectory(depd/stduuid)
+
+add_subdirectory(depd/assimp)
 
 #############################
 ###    compile shaders    ###
@@ -100,7 +102,5 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/eggv_app.h src/eggv_app.cpp
     simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv entire-screen.vert.spv directional-light.frag.spv point-light.vert.spv point-light.frag.spv)
 target_compile_features(eggv PUBLIC cxx_std_17)
-target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid)
-
-
+target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid assimp)
 

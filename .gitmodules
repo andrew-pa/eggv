@@ -27,3 +27,6 @@
 [submodule "depd/imnodes"]
 	path = depd/imnodes
 	url = https://github.com/Nelarius/imnodes
+[submodule "depd/assimp"]
+	path = depd/assimp
+	url = https://github.com/assimp/assimp

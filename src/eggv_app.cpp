@@ -1,5 +1,6 @@
 #include "eggv_app.h"
             
+#include "glm/gtx/quaternion.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -76,10 +77,10 @@ std::shared_ptr<scene> create_scene(device* dev) {
         std::vector<std::shared_ptr<trait_factory>>{
             std::make_shared<transform_trait_factory>(),
             std::make_shared<mesh_trait_factory>(),
-            std::make_shared<light_trait_factory>()
+            std::make_shared<light_trait_factory>(),
+            std::make_shared<camera_trait_factory>()
         },
-        std::make_shared<scene_object>("Root"),
-        camera{vec3(0.f, -5.f, -15.f), vec3(0.f), pi<float>()/4.f}
+        std::make_shared<scene_object>("Root")
     );
 
     /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
@@ -91,6 +92,27 @@ std::shared_ptr<scene> create_scene(device* dev) {
         s->trait_factories[1]->add_to(obj.get(), &cfo);
         s->root->children.push_back(obj);
     }*/
+
+    {
+        auto obj = std::make_shared<scene_object>("camera");
+        auto tfm = transform_trait_factory::create_info(
+                vec3(0.f,-5.f,-15.f),
+                quatLookAt(normalize(vec3(0.f,5.f,15.f)), vec3(0.f, 1.f, 0.f)));
+        s->trait_factories[0]->add_to(obj.get(), &tfm);
+        s->trait_factories[3]->add_to(obj.get(), nullptr);
+        s->root->children.push_back(obj);
+        s->active_camera = obj;
+    }
+    {
+        auto obj = std::make_shared<scene_object>("camera 2");
+        auto tfm = transform_trait_factory::create_info(
+                vec3(-15.f,-5.f,0.f),
+                quatLookAt(normalize(vec3(15.f,5.f,0.f)), vec3(0.f, 1.f, 0.f)));
+        s->trait_factories[0]->add_to(obj.get(), &tfm);
+        s->trait_factories[3]->add_to(obj.get(), nullptr);
+        s->root->children.push_back(obj);
+    }
+
 
     auto test_mesh2 = std::make_shared<mesh>(mesh_gen::generate_trefoil_knot(dev, 64, 256, 2.0f));
     {
@@ -133,7 +155,7 @@ std::shared_ptr<scene> create_scene(device* dev) {
         auto obj = std::make_shared<scene_object>("plight");
         auto tfm = transform_trait_factory::create_info(vec3(2.0f,-0.7f,-1.5f),quat(),vec3(1.0f));
         s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto lco = light_trait_factory::create_info(light_type::point, vec3(1.6f, 0.f, 0.f), vec3(.0f,.4f,.0f));
+        auto lco = light_trait_factory::create_info(light_type::point, vec3(0.3f, 0.f, 0.f), vec3(.5f,.4f,.0f));
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
@@ -141,7 +163,7 @@ std::shared_ptr<scene> create_scene(device* dev) {
         auto obj = std::make_shared<scene_object>("plight");
         auto tfm = transform_trait_factory::create_info(vec3(-2.0f,-0.7f,-1.5f),quat(),vec3(1.0f));
         s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto lco = light_trait_factory::create_info(light_type::point, vec3(1.6f, 0.f, 0.f), vec3(.4f,.0f,.0f));
+        auto lco = light_trait_factory::create_info(light_type::point, vec3(1.5f, 0.f, 0.f), vec3(.45f,.0f,.35f));
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
@@ -152,24 +174,6 @@ std::shared_ptr<scene> create_scene(device* dev) {
 
     return s;
 }
-
-struct output_render_node_prototype : public render_node_prototype { 
-    output_render_node_prototype() {
-        inputs = {
-            framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
-        };
-        outputs = {};
-    }
-
-    size_t id() const override { return 0x0000ffff; }
-    const char* name() const override { return "Display Output"; }
-
-    virtual vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
-        return vk::UniquePipeline(nullptr);
-    }
-};
-
-
 
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
@@ -367,7 +371,7 @@ void eggv_app::build_gui(frame_state* fs) {
 #pragma region Render Loop
 void eggv_app::update(float t, float dt) {
     if(r.should_recompile) r.compile_render_graph();
-    frame_state fs(t, dt);
+    frame_state fs(t, dt, current_scene);
     current_scene->update(&fs, this);
 
     if(ui_key_cooldown <= 0.f) {
@@ -375,25 +379,62 @@ void eggv_app::update(float t, float dt) {
             gui_visible = !gui_visible;
             ui_key_cooldown = 0.2f;
         }
-		else if (glfwGetKey(this->wnd, GLFW_KEY_F3) == GLFW_PRESS) {
-			current_scene->cam.mouse_enabled = !current_scene->cam.mouse_enabled;
-			ui_key_cooldown = 0.2f;
-			if (current_scene->cam.mouse_enabled) {
-				glfwSetInputMode(this->wnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-			} else {
-				glfwSetInputMode(this->wnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			}
-		}
-	} else {
-		ui_key_cooldown -= dt;
-	}
+        else if (glfwGetKey(this->wnd, GLFW_KEY_F3) == GLFW_PRESS) {
+            cam_mouse_enabled = !cam_mouse_enabled;
+            ui_key_cooldown = 0.2f;
+            if (cam_mouse_enabled) {
+                glfwSetInputMode(this->wnd, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            } else {
+                glfwSetInputMode(this->wnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
+        }
+    } else {
+        ui_key_cooldown -= dt;
+    }
+
+    if(!ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow)) {
+        const float speed = 5.0f;
+        auto cam = (camera_trait*)current_scene->active_camera->traits.find(TRAIT_ID_CAMERA)->second.get();
+        auto trf = (transform_trait*)current_scene->active_camera->traits.find(TRAIT_ID_TRANSFORM)->second.get();
+        mat3 rot = glm::toMat3(trf->rotation);
+        auto& look = rot[2];
+        auto& right = rot[0];
+        auto& up = rot[1];
+        if(glfwGetKey(wnd, GLFW_KEY_W) != GLFW_RELEASE) {
+            trf->translation -= speed*look*dt;
+        } else if(glfwGetKey(wnd, GLFW_KEY_S) != GLFW_RELEASE) {
+            trf->translation += speed*look*dt;
+        }
+        if(glfwGetKey(wnd, GLFW_KEY_A) != GLFW_RELEASE) {
+            trf->translation -= speed*right*dt;
+        } else if(glfwGetKey(wnd, GLFW_KEY_D) != GLFW_RELEASE) {
+            trf->translation += speed*right*dt;
+        }
+        if(glfwGetKey(wnd, GLFW_KEY_Q) != GLFW_RELEASE) {
+            trf->translation -= speed*up*dt;
+        } else if(glfwGetKey(wnd, GLFW_KEY_E) != GLFW_RELEASE) {
+            trf->translation += speed*up*dt;
+        }
+        if(glfwGetKey(wnd, GLFW_KEY_R) != GLFW_RELEASE) {
+            trf->rotation = quat(0.f, 0.f, 0.f, 1.f);
+        }
+
+        if(cam_mouse_enabled) {
+            double xpos, ypos;
+            glfwGetCursorPos(wnd, &xpos, &ypos);
+            vec2 sz = vec2(size());
+            vec2 np = ((vec2(xpos, ypos) / sz)*2.f - 1.f) * pi<float>()/2.f;
+            trf->rotation = glm::normalize(
+                    glm::angleAxis(np.y, right)*glm::angleAxis(-np.x, vec3(0.f, 1.f, 0.f)));
+        }
+    }
 }
 
 vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
     auto& cb = command_buffers[image_index];
     cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
-    frame_state fs(t, dt);
+    frame_state fs(t, dt, current_scene);
     r.render(cb.get(), image_index, &fs);
 
     if(gui_visible) {

@@ -833,13 +833,18 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
         active_lights.push_back({llt, T});
     }
 
+    if(obj == current_scene->active_camera.get()) {
+        auto cam = (camera_trait*)obj->traits.find(TRAIT_ID_CAMERA)->second.get();
+        mapped_frame_uniforms->proj = glm::perspective(cam->fov,
+                (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 100.f);
+        mapped_frame_uniforms->view = inverse(T);
+    }
+
     for(auto c : obj->children)
         traverse_scene_graph(c.get(), fs, T);
 }
 
 void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {
-    mapped_frame_uniforms->proj = current_scene->cam.proj((float)swpc->extent.width / (float)swpc->extent.height);
-    mapped_frame_uniforms->view = current_scene->cam.view();
 
     active_meshes.clear();
     active_lights.clear();

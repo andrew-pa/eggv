@@ -1,13 +1,13 @@
 #pragma once
 #include "cmmn.h"
-#include "device.h"
 
 typedef uint32_t trait_id;
 
 struct frame_state {
     float t, dt;
+    std::shared_ptr<class scene> current_scene;
     
-    frame_state(float t, float dt) : t(t), dt(dt) {}
+    frame_state(float t, float dt, std::shared_ptr<class scene> cur_scn) : t(t), dt(dt), current_scene(cur_scn) {}
 };
 
 struct trait {
@@ -23,6 +23,8 @@ struct trait {
 
     virtual void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {}
 
+    virtual json serialize() const { return {}; }
+
     virtual ~trait() {}
 };
 
@@ -31,28 +33,17 @@ struct trait_factory {
     virtual std::string name() const = 0;
 
     virtual void add_to(struct scene_object* obj, void* create_info) = 0;
+    virtual void deserialize(struct scene_object* obj, json data) = 0;
+
     virtual ~trait_factory() {}
 };
 
-struct scene_object {
+struct scene_object : public std::enable_shared_from_this<scene_object> {
     std::optional<std::string> name;
     std::map<trait_id, std::unique_ptr<trait>> traits;
     std::vector<std::shared_ptr<scene_object>> children;
 
     scene_object(std::optional<std::string> name = {}) : name(name), traits{}, children{} {}
-};
-
-struct camera {
-    float fov, speed;
-    vec3 position, look, right, up;
-    bool mouse_enabled;
-
-    camera(vec3 pos, vec3 targ, float fov);
-
-    void update(frame_state* fs, app*);
-
-    mat4 proj(float aspect_ratio);
-    mat4 view();
 };
 
 class scene {
@@ -61,11 +52,11 @@ public:
     std::vector<std::shared_ptr<trait_factory>> trait_factories;
     std::shared_ptr<scene_object> root;
     std::shared_ptr<scene_object> selected_object;
-    camera cam;
+    std::shared_ptr<scene_object> active_camera;
 
-    scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root, camera cam) : trait_factories(trait_factories), root(root), cam(cam), selected_object(root) {}
+    scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root) : trait_factories(trait_factories), root(root), selected_object(root) {}
 
-    void update(frame_state* fs, app*);
+    void update(frame_state* fs, class app*);
     void build_gui(frame_state* fs);
 };
 
@@ -91,6 +82,7 @@ struct transform_trait_factory : public trait_factory {
 
     trait_id id() const override { return TRAIT_ID_TRANSFORM; }
     std::string name() const override { return "Transform"; }
+    void deserialize(struct scene_object* obj, json data) override;
     void add_to(scene_object* obj, void* ci) override {
         auto c = ((create_info*)ci);
         obj->traits[id()] = std::make_unique<transform_trait>(this,
@@ -123,6 +115,7 @@ struct light_trait_factory : public trait_factory {
 
     trait_id id() const override { return TRAIT_ID_LIGHT; }
     std::string name() const override { return "Light"; }
+    void deserialize(struct scene_object* obj, json data) override;
     void add_to(scene_object* obj, void* ci) override {
         auto c = ((create_info*)ci);
         obj->traits[id()] = std::make_unique<light_trait>(this,
@@ -130,4 +123,28 @@ struct light_trait_factory : public trait_factory {
     }
 };
 
+const trait_id TRAIT_ID_CAMERA = 0x0000'0011;
+struct camera_trait : public trait {
+    float fov;
+
+    camera_trait(trait_factory* f, float fov) : trait(f), fov(fov) {}
+
+    void build_gui(struct scene_object*, frame_state*) override;
+    void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) override;
+};
+
+struct camera_trait_factory : public trait_factory {
+    struct create_info {
+        float fov;
+    };
+
+    trait_id id() const override { return TRAIT_ID_CAMERA; }
+    std::string name() const override { return "Camera"; }
+    void deserialize(struct scene_object* obj, json data) override;
+
+    void add_to(scene_object* obj, void* ci) override {
+        auto c = ((create_info*)ci);
+        obj->traits[id()] = std::make_unique<camera_trait>(this, c!=nullptr?c->fov:pi<float>()/4.0f);
+    }
+};
 
