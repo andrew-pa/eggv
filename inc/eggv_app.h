@@ -17,6 +17,7 @@ class eggv_app : public app {
     renderer r;
 
     bool gui_visible, cam_mouse_enabled;
+    std::map<std::string, bool> gui_open_windows;
 
     void init_swapchain_depd();
 

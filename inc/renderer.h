@@ -152,7 +152,7 @@ struct renderer {
     renderer();
     void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
-    void build_gui();
+    void build_gui(frame_state*);
     void render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs);
     ~renderer();
 };

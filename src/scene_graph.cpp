@@ -57,31 +57,35 @@ void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {
 #include "ImGuiFileDialog.h"
 
 void scene::build_gui(frame_state* fs) {
-    ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_MenuBar);
-    if(ImGui::BeginMenuBar()) {
-        if(ImGui::BeginMenu("File")) {
-            if(ImGui::MenuItem("Open scene...")) {
-                ImGuiFileDialog::Instance()->OpenDialog("LoadSceneGraphDlg", "Open scene", ".json", ".");
+    if(fs->gui_open_windows->at("Scene")) {
+        ImGui::Begin("Scene", &fs->gui_open_windows->at("Scene"), ImGuiWindowFlags_MenuBar);
+        if(ImGui::BeginMenuBar()) {
+            if(ImGui::BeginMenu("File")) {
+                if(ImGui::MenuItem("Open scene...")) {
+                    ImGuiFileDialog::Instance()->OpenDialog("LoadSceneGraphDlg", "Open scene", ".json", ".");
+                }
+                if(ImGui::MenuItem("Save scene...")) {
+                    ImGuiFileDialog::Instance()->OpenDialog("SaveSceneGraphDlg", "Save scene", ".json", ".");
+                }
+                ImGui::EndMenu();
             }
-            if(ImGui::MenuItem("Save scene...")) {
-                ImGuiFileDialog::Instance()->OpenDialog("SaveSceneGraphDlg", "Save scene", ".json", ".");
-            }
-            ImGui::EndMenu();
+            ImGui::EndMenuBar();
         }
-        ImGui::EndMenuBar();
+        build_scene_graph_tree(root);
+        ImGui::End();
     }
-    build_scene_graph_tree(root);
-    ImGui::End();
 
-    ImGui::Begin("Selected Object");
-    if (selected_object != nullptr) {
-        for (auto& [id, t] : selected_object->traits) {
-            if (ImGui::CollapsingHeader(t->parent->name().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-                t->build_gui(selected_object.get(), fs);
+    if(fs->gui_open_windows->at("Selected Object")) {
+        ImGui::Begin("Selected Object", &fs->gui_open_windows->at("Selected Object"));
+        if (selected_object != nullptr) {
+            for (auto& [id, t] : selected_object->traits) {
+                if (ImGui::CollapsingHeader(t->parent->name().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    t->build_gui(selected_object.get(), fs);
+                }
             }
         }
+        ImGui::End();
     }
-    ImGui::End();
 
     if(ImGuiFileDialog::Instance()->Display("SaveSceneGraphDlg")) {
         if(ImGuiFileDialog::Instance()->IsOk()) {

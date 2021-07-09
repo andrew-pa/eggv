@@ -177,7 +177,15 @@ std::shared_ptr<scene> create_scene(device* dev) {
 
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
-    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f)
+    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
+        cam_mouse_enabled(false),
+      gui_open_windows({
+        {"Renderer", true},
+        {"Scene", true},
+        {"Selected Object", true},
+        {"ImGui Demo", false},
+        {"ImGui Metrics", false},
+      })
 {
     r.init(dev.get());
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
@@ -361,9 +369,14 @@ void eggv_app::resize() {
 }*/
 
 void eggv_app::build_gui(frame_state* fs) {
-    ImGui::ShowDemoWindow();
-    ImGui::ShowMetricsWindow();
-    r.build_gui();
+    ImGui::Begin("Windows");
+    for(auto&[name, open] : *(fs->gui_open_windows)) {
+        ImGui::MenuItem(name.c_str(), nullptr, &open);
+    }
+    ImGui::End();
+    if(fs->gui_open_windows->at("ImGui Demo")) ImGui::ShowDemoWindow(&fs->gui_open_windows->at("ImGui Demo"));
+    if(fs->gui_open_windows->at("ImGui Metrics")) ImGui::ShowMetricsWindow(&fs->gui_open_windows->at("ImGui Metrics"));
+    r.build_gui(fs);
     current_scene->build_gui(fs);
 }
 #pragma endregion
@@ -371,7 +384,7 @@ void eggv_app::build_gui(frame_state* fs) {
 #pragma region Render Loop
 void eggv_app::update(float t, float dt) {
     if(r.should_recompile) r.compile_render_graph();
-    frame_state fs(t, dt, current_scene);
+    frame_state fs(t, dt, current_scene, &gui_open_windows);
     current_scene->update(&fs, this);
 
     if(ui_key_cooldown <= 0.f) {
@@ -434,7 +447,7 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
     auto& cb = command_buffers[image_index];
     cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
-    frame_state fs(t, dt, current_scene);
+    frame_state fs(t, dt, current_scene, &gui_open_windows);
     r.render(cb.get(), image_index, &fs);
 
     if(gui_visible) {

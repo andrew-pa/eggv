@@ -7,8 +7,9 @@ typedef uint32_t trait_id;
 struct frame_state {
     float t, dt;
     std::shared_ptr<class scene> current_scene;
+    std::map<std::string, bool>* gui_open_windows;
     
-    frame_state(float t, float dt, std::shared_ptr<class scene> cur_scn) : t(t), dt(dt), current_scene(cur_scn) {}
+    frame_state(float t, float dt, std::shared_ptr<class scene> cur_scn, std::map<std::string, bool>* gow) : t(t), dt(dt), current_scene(cur_scn), gui_open_windows(gow) {}
 };
 
 struct trait {

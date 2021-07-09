@@ -618,8 +618,9 @@ void renderer::deserialize_render_graph(json data) {
 
 //using igfd::ImGuiFileDialog;
 
-void renderer::build_gui() {
-    if (!ImGui::Begin("Renderer", nullptr, ImGuiWindowFlags_MenuBar)) { ImGui::End(); return; }
+void renderer::build_gui(frame_state* fs) {
+    if(!fs->gui_open_windows->at("Renderer")) return;
+    if (!ImGui::Begin("Renderer", &fs->gui_open_windows->at("Renderer"), ImGuiWindowFlags_MenuBar)) { ImGui::End(); return; }
     
     if(ImGui::BeginMenuBar()) {
         if(ImGui::BeginMenu("File")) {
