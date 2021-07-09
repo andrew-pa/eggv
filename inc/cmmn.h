@@ -273,7 +273,7 @@ inline json serialize(vec3 v) {
 }
 
 inline json serialize(vec4 v) {
-	return { v.x, v.y, v.z };
+	return { v.x, v.y, v.z, v.w };
 }
 
 inline json serialize(mat4 v) {

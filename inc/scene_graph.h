@@ -1,5 +1,6 @@
 #pragma once
 #include "cmmn.h"
+#include "uuid.h"
 
 typedef uint32_t trait_id;
 
@@ -39,15 +40,17 @@ struct trait_factory {
 };
 
 struct scene_object : public std::enable_shared_from_this<scene_object> {
+    uuids::uuid id;
     std::optional<std::string> name;
     std::map<trait_id, std::unique_ptr<trait>> traits;
     std::vector<std::shared_ptr<scene_object>> children;
 
-    scene_object(std::optional<std::string> name = {}) : name(name), traits{}, children{} {}
+    scene_object(std::optional<std::string> name = {}, uuids::uuid id = uuids::uuid());
 };
 
 class scene {
     void build_scene_graph_tree(std::shared_ptr<scene_object> obj);
+    json serialize_graph(std::shared_ptr<scene_object> obj) const;
 public:
     std::vector<std::shared_ptr<trait_factory>> trait_factories;
     std::shared_ptr<scene_object> root;
@@ -56,8 +59,12 @@ public:
 
     scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root) : trait_factories(trait_factories), root(root), selected_object(root) {}
 
+    scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, json data);
+
     void update(frame_state* fs, class app*);
     void build_gui(frame_state* fs);
+
+    json serialize() const;
 };
 
 #include <glm/gtc/quaternion.hpp>
@@ -68,6 +75,7 @@ struct transform_trait : public trait {
     quat rotation;
     transform_trait(trait_factory* p, vec3 t, quat r, vec3 s) : translation(t), rotation(r), scale(s), trait(p) {}
 
+    json serialize() const override;
     void append_transform(struct scene_object*, mat4& T, frame_state*) override;
     void build_gui(struct scene_object*, frame_state*) override;
 };
@@ -102,6 +110,7 @@ struct light_trait : public trait {
 
     light_trait(trait_factory* f, light_type t, vec3 p, vec3 c) : type(t), param(p), color(c), trait(f) {}
 
+    json serialize() const override;
     void build_gui(struct scene_object*, frame_state*) override;
     void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) override;
 };
@@ -129,6 +138,7 @@ struct camera_trait : public trait {
 
     camera_trait(trait_factory* f, float fov) : trait(f), fov(fov) {}
 
+    json serialize() const override;
     void build_gui(struct scene_object*, frame_state*) override;
     void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) override;
 };
