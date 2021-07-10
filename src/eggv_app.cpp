@@ -72,16 +72,17 @@ void generate_cube(float width, float height, float depth, std::function<void(ve
 	index(20); index(22); index(23);
 }
 
-std::shared_ptr<scene> create_scene(device* dev) {
-    auto s = std::make_shared<scene>(
-        std::vector<std::shared_ptr<trait_factory>>{
-            std::make_shared<transform_trait_factory>(),
+std::vector<std::shared_ptr<trait_factory>> collect_factories() {
+    return std::vector<std::shared_ptr<trait_factory>>{
+        std::make_shared<transform_trait_factory>(),
             std::make_shared<mesh_trait_factory>(),
             std::make_shared<light_trait_factory>(),
             std::make_shared<camera_trait_factory>()
-        },
-        std::make_shared<scene_object>("Root")
-    );
+    };
+}
+
+std::shared_ptr<scene> create_scene(device* dev) {
+    auto s = std::make_shared<scene>(collect_factories(), std::make_shared<scene_object>("Root"));
 
     /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
     {
@@ -203,8 +204,6 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
 
-    current_scene = create_scene(dev.get());
-    r.current_scene = current_scene;
 
     for(int i = 1; i < cargs.size(); ++i) {
         if(cargs[i] == "-p") {
@@ -221,8 +220,17 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
             r.deserialize_render_graph(data);
             r.compile_render_graph();
         }
+
+        if(cargs[i] == "-s") {
+            i++;
+            if(i >= cargs.size()) throw;
+            std::ifstream input(cargs[i++]);
+            json data; input >> data;
+            current_scene = std::make_shared<scene>(collect_factories(), data);
+        }
     }
 
+    if(current_scene == nullptr) current_scene = create_scene(dev.get());
     r.current_scene = current_scene;
 
 

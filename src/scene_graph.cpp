@@ -151,7 +151,7 @@ void transform_trait::build_gui(struct scene_object*, frame_state*) {
 void transform_trait_factory::deserialize(struct scene_object* obj, json data) {
     auto r = data.at("r");
     auto cfo = create_info(::deserialize_v3(data.at("t")),
-            quat(r[0], r[1], r[2], r[3]),
+            quat(r[3], r[0], r[1], r[2]),
             ::deserialize_v3(data.at("s")));
     this->add_to(obj, &cfo);
 }
