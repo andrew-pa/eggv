@@ -208,6 +208,6 @@ void camera_trait::collect_viewport_shapes(scene_object* ob, frame_state*, const
 }
 
 void camera_trait_factory::deserialize(struct scene_object* obj, json data) {
-    auto cfo = create_info { .fov = data.at("fov") };
+    auto cfo = create_info(data.at("fov"));
     this->add_to(obj, &cfo);
 }

@@ -30,3 +30,6 @@
 [submodule "depd/assimp"]
 	path = depd/assimp
 	url = https://github.com/assimp/assimp
+[submodule "depd/mio"]
+	path = depd/mio
+	url = https://github.com/mandreyel/mio

@@ -57,6 +57,7 @@ public:
     std::shared_ptr<scene_object> root;
     std::shared_ptr<scene_object> selected_object;
     std::shared_ptr<scene_object> active_camera;
+    std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
 
     scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root) : trait_factories(trait_factories), root(root), selected_object(root) {}
 
@@ -147,6 +148,7 @@ struct camera_trait : public trait {
 struct camera_trait_factory : public trait_factory {
     struct create_info {
         float fov;
+        create_info(float fov = 3.14159 / 4.0) : fov(fov) {}
     };
 
     trait_id id() const override { return TRAIT_ID_CAMERA; }
@@ -158,4 +160,3 @@ struct camera_trait_factory : public trait_factory {
         obj->traits[id()] = std::make_unique<camera_trait>(this, c!=nullptr?c->fov:pi<float>()/4.0f);
     }
 };
-

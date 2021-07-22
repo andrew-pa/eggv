@@ -178,7 +178,7 @@ std::shared_ptr<scene> create_scene(device* dev) {
 
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
-    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
+    : app("erg", vec2(1280, 960)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
         cam_mouse_enabled(false),
       gui_open_windows({
         {"Renderer", true},
