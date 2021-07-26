@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include <glm/gtx/polar_coordinates.hpp>
 #include "app.h"
+#include "geometry_set.h"
 
 static std::mt19937 default_random_gen;
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
@@ -40,12 +41,19 @@ void scene::update(frame_state* fs, app* app) {
 }
 
 void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {
-    auto node_open = ImGui::TreeNodeEx(obj->name.value_or("<unnamed>").c_str(),
+    auto node_open = ImGui::TreeNodeEx(uuids::to_string(obj->id).c_str(),
         ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick
         | (selected_object == obj ? ImGuiTreeNodeFlags_Selected : 0)
-        | (obj->children.size() == 0 ? ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet : 0));
+        | (obj->children.size() == 0 ? ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet : 0), "%s", obj->name.value_or("<unnamed>").c_str());
     if(ImGui::IsItemClicked())
         selected_object = obj;
+    if(ImGui::BeginPopupContextItem()) {
+        if(ImGui::MenuItem("New Object")) {
+            auto ch = std::make_shared<scene_object>();
+            obj->children.push_back(ch);
+        }
+        ImGui::EndPopup();
+    }
     if (node_open) {
         for (const auto& c : obj->children) {
             build_scene_graph_tree(c);
@@ -55,6 +63,22 @@ void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {
 }
 
 #include "ImGuiFileDialog.h"
+void InputTextResizable(const char* label, std::optional<std::string>* str) {
+    ImGui::InputText(label, (char*)str->value_or("<unnamed>").c_str(), str->value_or("<unnamed>").size()+1, ImGuiInputTextFlags_CallbackResize,
+            (ImGuiInputTextCallback)([](ImGuiInputTextCallbackData* data) {
+                if (data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
+                    std::optional<std::string>* str = (std::optional<std::string>*)data->UserData;
+                    if(str->has_value()) {
+                        str->value().resize(data->BufTextLen);
+                        data->Buf = (char*)str->value().c_str();
+                    } else {
+                        *str = std::string(data->Buf, data->BufTextLen);
+                    }
+                }
+                    return 0;
+                }
+            ), (void*)str);
+}
 
 void scene::build_gui(frame_state* fs) {
     if(fs->gui_open_windows->at("Scene")) {
@@ -78,11 +102,70 @@ void scene::build_gui(frame_state* fs) {
     if(fs->gui_open_windows->at("Selected Object")) {
         ImGui::Begin("Selected Object", &fs->gui_open_windows->at("Selected Object"));
         if (selected_object != nullptr) {
+            InputTextResizable("Name", &selected_object->name);
+            std::optional<trait_id> removed_trait;
             for (auto& [id, t] : selected_object->traits) {
                 if (ImGui::CollapsingHeader(t->parent->name().c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
                     t->build_gui(selected_object.get(), fs);
+                    if(ImGui::Button((std::string("Remove ") + t->parent->name()).c_str())) {
+                        removed_trait = id;
+                    }
                 }
             }
+            if(removed_trait.has_value())
+                selected_object->traits.erase(removed_trait.value());
+            if(ImGui::BeginPopupContextWindow()) {
+                if(ImGui::BeginMenu("Add trait")) {
+                    for(const auto& tf : this->trait_factories) {
+                        if(ImGui::MenuItem(tf->name().c_str())) {
+                            tf->add_to(selected_object.get(), nullptr);
+                        }
+                    }
+                    ImGui::EndMenu();
+                }
+                ImGui::EndPopup();
+            }
+        }
+        ImGui::End();
+    }
+
+    if(fs->gui_open_windows->at("Geometry Sets")) {
+        ImGui::Begin("Geometry Sets", &fs->gui_open_windows->at("Geometry Sets"));
+        if(ImGui::BeginTable("##GeomSets", 2, ImGuiTableFlags_Resizable)) {
+            ImGui::TableSetupColumn("Path");
+            ImGui::TableSetupColumn("Meshes");
+            ImGui::TableHeadersRow();
+            for(const auto& gs : this->geometry_sets) {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", gs->path.c_str());
+                ImGui::TableNextColumn();
+                if(ImGui::BeginTable((std::string("##MeshInfo") + gs->path).c_str(), 5)) {
+                    ImGui::TableSetupColumn("Name");
+                    ImGui::TableSetupColumn("# Vertices");
+                    ImGui::TableSetupColumn("# Indices");
+                    ImGui::TableSetupColumn("Material Ix");
+                    ImGui::TableSetupColumn("Volume");
+                    ImGui::TableHeadersRow();
+                    for(size_t i = 0; i < gs->num_meshes(); ++i) {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        auto h = gs->header(i);
+                        ImGui::Text("%s", gs->mesh_name(i));
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%i", h.num_vertices);
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%i", h.num_indices);
+                        ImGui::TableNextColumn();
+                        ImGui::Text("%i", h.material_index);
+                        ImGui::TableNextColumn();
+                        vec3 ext = h.aabb_max - h.aabb_min;
+                        ImGui::Text("%f", ext.x*ext.y*ext.z);
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            ImGui::EndTable();
         }
         ImGui::End();
     }

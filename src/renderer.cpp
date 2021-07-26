@@ -916,6 +916,12 @@ mesh::mesh(device* dev, size_t vcount, size_t _vsize, size_t icount, std::functi
 {
 }*/
 
+#include "geometry_set.h"
 void mesh_trait::build_gui(struct scene_object*, frame_state*) {
     ImGui::Text("%zu vertices, %zu indices", m->vertex_count, m->index_count);
+    ImGui::Text("Geometry set: %s", this->geo_src->path.c_str());
+    if(ImGui::InputInt("Mesh index", (int*)&this->mesh_index)) {
+        this->mesh_index = this->mesh_index % this->geo_src->num_meshes();
+        m = geo_src->load_mesh(this->mesh_index);
+    }
 }

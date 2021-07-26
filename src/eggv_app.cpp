@@ -10,6 +10,7 @@
 #include <uuid.h>
 #include "mesh_gen.h"
 #include "deferred_nodes.h"
+#include "geometry_set.h"
 
 void generate_cube(float width, float height, float depth, std::function<void(vec3, vec3, vec3, vec2)> vertex, std::function<void(size_t)> index) {
 	float w2 = 0.5f * width;
@@ -83,16 +84,18 @@ std::vector<std::shared_ptr<trait_factory>> collect_factories() {
 
 std::shared_ptr<scene> create_scene(device* dev) {
     auto s = std::make_shared<scene>(collect_factories(), std::make_shared<scene_object>("Root"));
-
-    /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
+    auto gs = std::make_shared<geometry_set>(dev, "test.geo");
+    s->geometry_sets.push_back(gs);
+    //
+    // /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
     {
-        auto obj = std::make_shared<scene_object>("plane");
-        auto tfm = transform_trait_factory::create_info(vec3(-4.f,0.f,-4.f), glm::angleAxis(pi<float>()/2.0f, vec3(1.f, 0.f, 0.f)), vec3(8.f));
+        auto obj = std::make_shared<scene_object>("ob");
+        auto tfm = transform_trait_factory::create_info();
         s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto cfo = mesh_trait_factory::create_info(); cfo.m = test_mesh;
+        auto cfo = mesh_create_info(); cfo.geo_src = gs; cfo.mesh_index = 0;
         s->trait_factories[1]->add_to(obj.get(), &cfo);
         s->root->children.push_back(obj);
-    }*/
+    }
 
     {
         auto obj = std::make_shared<scene_object>("camera");
@@ -114,30 +117,30 @@ std::shared_ptr<scene> create_scene(device* dev) {
         s->root->children.push_back(obj);
     }
 
-
-    auto test_mesh2 = std::make_shared<mesh>(mesh_gen::generate_trefoil_knot(dev, 64, 256, 2.0f));
-    {
-        auto obj = std::make_shared<scene_object>("trefoil knot");
-        auto tfm = transform_trait_factory::create_info(vec3(0.f,-.65f,0.f));
-        s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto cfo = mesh_trait_factory::create_info(); cfo.m = test_mesh2;
-        s->trait_factories[1]->add_to(obj.get(), &cfo);
-        s->root->children.push_back(obj);
-    }
-
-    auto test_mesh3 = std::make_shared<mesh>(mesh_gen::generate_sphere(dev, 64, 64));
-    for(int i = -1; i <= 1; ++i) {
-    for(int j = -1; j <= 1; ++j) {
-        if(i == 0 && j == 0) continue;
-        auto obj = std::make_shared<scene_object>("sphere");
-        auto tfm = transform_trait_factory::create_info(vec3(2.0f * i,0.6f,2.0f*j),quat(),vec3(0.6f));
-        s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto cfo = mesh_trait_factory::create_info(); cfo.m = test_mesh3;
-        s->trait_factories[1]->add_to(obj.get(), &cfo);
-        s->root->children.push_back(obj);
-    }
-    }
-
+    //
+    // auto test_mesh2 = std::make_shared<mesh>(mesh_gen::generate_trefoil_knot(dev, 64, 256, 2.0f));
+    // {
+    //     auto obj = std::make_shared<scene_object>("trefoil knot");
+    //     auto tfm = transform_trait_factory::create_info(vec3(0.f,-.65f,0.f));
+    //     s->trait_factories[0]->add_to(obj.get(), &tfm);
+    //     auto cfo = mesh_trait_factory::create_info(); cfo.m = test_mesh2;
+    //     s->trait_factories[1]->add_to(obj.get(), &cfo);
+    //     s->root->children.push_back(obj);
+    // }
+    //
+    // auto test_mesh3 = std::make_shared<mesh>(mesh_gen::generate_sphere(dev, 64, 64));
+    // for(int i = -1; i <= 1; ++i) {
+    // for(int j = -1; j <= 1; ++j) {
+    //     if(i == 0 && j == 0) continue;
+    //     auto obj = std::make_shared<scene_object>("sphere");
+    //     auto tfm = transform_trait_factory::create_info(vec3(2.0f * i,0.6f,2.0f*j),quat(),vec3(0.6f));
+    //     s->trait_factories[0]->add_to(obj.get(), &tfm);
+    //     auto cfo = mesh_trait_factory::create_info(); cfo.m = test_mesh3;
+    //     s->trait_factories[1]->add_to(obj.get(), &cfo);
+    //     s->root->children.push_back(obj);
+    // }
+    // }
+    //
     {
         auto obj = std::make_shared<scene_object>("light");
         auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, 1.f, 0.f), vec3(.4f,.4f,0.35f));
@@ -170,19 +173,20 @@ std::shared_ptr<scene> create_scene(device* dev) {
     }
 
 
-
-
-
-    return s;
+    //
+    //
+    //
+     return s;
 }
 
 #pragma region Initialization
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
-    : app("erg", vec2(1280, 960)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
+    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
         cam_mouse_enabled(false),
       gui_open_windows({
         {"Renderer", true},
         {"Scene", true},
+        {"Geometry Sets", true},
         {"Selected Object", true},
         {"ImGui Demo", false},
         {"ImGui Metrics", false},
@@ -232,8 +236,6 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
 
     if(current_scene == nullptr) current_scene = create_scene(dev.get());
     r.current_scene = current_scene;
-
-
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
     upload_cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });

@@ -106,10 +106,18 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
 target_compile_features(eggv PUBLIC cxx_std_17)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid mio::mio)
 
-add_executable(eggv_import inc/cmmn.h inc/scene_graph.h src/scene_graph.cpp inc/mesh.h
+add_executable(eggv_import inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
+    src/app.cpp src/device.cpp src/swap_chain.cpp
+    inc/mem_arena.h
+    inc/renderer.h src/renderer.cpp inc/mesh.h
+    inc/deferred_nodes.h src/deferred_nodes.cpp
+    inc/debug_shapes.h src/debug_shapes.cpp
+    inc/mesh_gen.h inc/par_shapes.h src/mesh_gen.cpp
+    inc/geometry_set.h src/geometry_set.cpp
+    inc/scene_graph.h src/scene_graph.cpp
     src/import.cpp)
 target_compile_features(eggv_import PUBLIC cxx_std_17)
-target_link_libraries(eggv_import glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid assimp)
+target_link_libraries(eggv_import glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid assimp mio::mio)
 
 
 

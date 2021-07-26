@@ -15,7 +15,6 @@ constexpr static vk::VertexInputAttributeDescription vertex_attribute_descriptio
     vk::VertexInputAttributeDescription{2, 0, vk::Format::eR32G32Sfloat,       offsetof(vertex, texcoord)},
 };
 
-#ifndef EGGV_IMPORT
 #include "device.h"
 struct mesh {
     std::unique_ptr<buffer> vertex_buffer;
@@ -34,31 +33,29 @@ struct mesh {
     }
 
 };
-#else
-struct mesh {};
-#endif
+
+struct mesh_create_info {
+    std::shared_ptr<class geometry_set> geo_src;
+    size_t mesh_index;
+};
 
 const trait_id TRAIT_ID_MESH = 0x00010001;
 struct mesh_trait : public trait {
     std::shared_ptr<mesh> m;
     std::shared_ptr<class geometry_set> geo_src;
     size_t mesh_index;
-    mesh_trait(trait_factory* p, std::shared_ptr<mesh> m) : m(m), trait(p) {}
+    mesh_trait(trait_factory* p, mesh_create_info* ci);
     void append_transform(struct scene_object*, mat4& T, frame_state*) override {}
     void build_gui(struct scene_object*, frame_state*) override;
 };
 
 struct mesh_trait_factory : public trait_factory {
-    struct create_info {
-        std::shared_ptr<mesh> m;
-    };
-
     trait_id id() const override { return TRAIT_ID_MESH; }
     std::string name() const override { return "Mesh"; }
     void deserialize(struct scene_object* obj, json data) override {}
     void add_to(scene_object* obj, void* ci) override {
         obj->traits[id()] = std::make_unique<mesh_trait>(this,
-                ((create_info*)ci)->m);
+                ((mesh_create_info*)ci));
     }
 };
 
