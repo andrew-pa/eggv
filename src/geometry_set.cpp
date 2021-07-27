@@ -11,7 +11,8 @@ std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
         auto h = this->header(index);
         auto msh = std::make_shared<mesh>(dev, (size_t)h.num_vertices, sizeof(vertex), (size_t)h.num_indices, [&](void* stg_buf) {
             memcpy(stg_buf, data.data() + h.vertex_ptr, sizeof(vertex)*h.num_vertices);
-            memcpy(stg_buf, data.data() + h.index_ptr, sizeof(uint16)*h.num_indices);
+            memcpy((char*)stg_buf + sizeof(vertex)*h.num_vertices, data.data() + h.index_ptr,
+                sizeof(uint16)*h.num_indices);
         });
         this->mesh_cashe[index] = msh;
         return msh;

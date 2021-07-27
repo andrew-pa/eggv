@@ -84,18 +84,24 @@ std::vector<std::shared_ptr<trait_factory>> collect_factories() {
 
 std::shared_ptr<scene> create_scene(device* dev) {
     auto s = std::make_shared<scene>(collect_factories(), std::make_shared<scene_object>("Root"));
-    auto gs = std::make_shared<geometry_set>(dev, "test.geo");
+    auto gs = std::make_shared<geometry_set>(dev, "sponza.geo");
     s->geometry_sets.push_back(gs);
     //
     // /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
+	auto geo = std::make_shared<scene_object>("geo");
     {
-        auto obj = std::make_shared<scene_object>("ob");
+        auto tfm = transform_trait_factory::create_info(vec3(), quat(1.f, 0.f, 0.f, 0.f), vec3(0.05f));
+        s->trait_factories[0]->add_to(geo.get(), &tfm);
+    }
+    for(size_t i = 0; i < gs->num_meshes(); ++i) {
+        auto obj = std::make_shared<scene_object>(gs->mesh_name(i));
         auto tfm = transform_trait_factory::create_info();
         s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto cfo = mesh_create_info(); cfo.geo_src = gs; cfo.mesh_index = 0;
+        auto cfo = mesh_create_info(); cfo.geo_src = gs; cfo.mesh_index = i;
         s->trait_factories[1]->add_to(obj.get(), &cfo);
-        s->root->children.push_back(obj);
+        geo->children.push_back(obj);
     }
+    s->root->children.push_back(geo);
 
     {
         auto obj = std::make_shared<scene_object>("camera");
@@ -143,14 +149,14 @@ std::shared_ptr<scene> create_scene(device* dev) {
     //
     {
         auto obj = std::make_shared<scene_object>("light");
-        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, 1.f, 0.f), vec3(.4f,.4f,0.35f));
+        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, 1.f, 0.f), vec3(4.f,4.f,3.5f));
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
 
     {
         auto obj = std::make_shared<scene_object>("light1");
-        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, -.5f, 1.f), vec3(.1f,.1f,0.15f));
+        auto lco = light_trait_factory::create_info(light_type::directional, vec3(0.f, -.5f, 1.f), vec3(1.f,1.f,0.2f));
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
@@ -214,18 +220,14 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
             i++;
             if(i >= cargs.size()) throw;
             load_plugin(cargs[i++]);
-        }
-
-        if(cargs[i] == "-rg") {
+        } else if(cargs[i] == "-rg") {
             i++;
             if(i >= cargs.size()) throw;
             std::ifstream input(cargs[i++]);
             json data; input >> data;
             r.deserialize_render_graph(data);
             r.compile_render_graph();
-        }
-
-        if(cargs[i] == "-s") {
+        } else if(cargs[i] == "-s") {
             i++;
             if(i >= cargs.size()) throw;
             std::ifstream input(cargs[i++]);
@@ -410,6 +412,9 @@ void eggv_app::update(float t, float dt) {
             } else {
                 glfwSetInputMode(this->wnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             }
+        }
+        else if (glfwGetKey(this->wnd, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            exit(0);
         }
     } else {
         ui_key_cooldown -= dt;

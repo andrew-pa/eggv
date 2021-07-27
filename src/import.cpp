@@ -7,18 +7,19 @@
 #include <assimp/scene.h>
 
 int main(int argc, char* argv[]) {
-    char *input_path = nullptr, *output_path = nullptr;
+    char *input_path = nullptr, *output_path = nullptr, *scene_path = nullptr;
     bool write_scene = false;
 
     for(int i = 0; i < argc; ++i) {
         if(strcmp(argv[i], "-i") == 0) {
             input_path = argv[++i];
         }
-        if(strcmp(argv[i], "-o") == 0) {
+        else if(strcmp(argv[i], "-o") == 0) {
             output_path = argv[++i];
         }
-        if (strcmp(argv[i], "-scene") == 0) {
+        else if (strcmp(argv[i], "-scene") == 0) {
             write_scene = true;
+            scene_path = argv[++i];
         }
     }
 
@@ -26,13 +27,15 @@ int main(int argc, char* argv[]) {
 
     Assimp::Importer imp;
     imp.ReadFile(input_path, aiProcess_GenBoundingBoxes | aiProcessPreset_TargetRealtime_MaxQuality);
+    std::cout << "\t loaded model\n";
     
     auto scene = imp.GetScene();
-    std::ofstream output(std::string(output_path) + ".geo");
+    std::ofstream output(output_path, std::ios::binary);
     output.write((char*)&scene->mNumMeshes, (std::streamsize)sizeof(int32_t));
     output.seekp(sizeof(geom_file::mesh_header) * scene->mNumMeshes, std::ios::cur);
     for (size_t mesh_ix = 0; mesh_ix < scene->mNumMeshes; ++mesh_ix) {
         auto mesh = scene->mMeshes[mesh_ix];
+        std::cout << "\t writing mesh #" << mesh_ix << " \"" << mesh->mName.C_Str() << "\"\n";
         auto name_fptr = output.tellp();
         output.write(mesh->mName.C_Str(), mesh->mName.length+1);
         auto vert_fptr = output.tellp();
@@ -70,6 +73,9 @@ int main(int argc, char* argv[]) {
         );
         output.write((char*)&header, sizeof(geom_file::mesh_header));
         output.seekp(resume_fptr);
+    }
+
+    if (write_scene) {
     }
 
     return 0;

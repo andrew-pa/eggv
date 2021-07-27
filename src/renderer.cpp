@@ -837,7 +837,7 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
     if(obj == current_scene->active_camera.get()) {
         auto cam = (camera_trait*)obj->traits.find(TRAIT_ID_CAMERA)->second.get();
         mapped_frame_uniforms->proj = glm::perspective(cam->fov,
-                (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 100.f);
+                (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f);
         mapped_frame_uniforms->view = inverse(T);
     }
 

@@ -140,7 +140,7 @@ void scene::build_gui(frame_state* fs) {
                 ImGui::TableNextColumn();
                 ImGui::Text("%s", gs->path.c_str());
                 ImGui::TableNextColumn();
-                if(ImGui::BeginTable((std::string("##MeshInfo") + gs->path).c_str(), 5)) {
+                if(ImGui::BeginTable((std::string("##MeshInfo") + gs->path).c_str(), 5, ImGuiTableFlags_Resizable)) {
                     ImGui::TableSetupColumn("Name");
                     ImGui::TableSetupColumn("# Vertices");
                     ImGui::TableSetupColumn("# Indices");
@@ -253,9 +253,9 @@ void light_trait::build_gui(scene_object* obj, frame_state*) {
         ImGui::DragFloat3("Direction", (float*)&this->param, 0.01f);
         this->param = normalize(this->param);
     } else if(type == light_type::point) {
-        ImGui::DragFloat("Falloff", &this->param.x, 0.01f, 0.001f, 1000.f);
+        ImGui::DragFloat("Falloff", &this->param.x, 0.0001f, 0.001f, 1000.f);
     }
-    ImGui::ColorEdit3("Color", (float*)&this->color);
+    ImGui::ColorEdit3("Color", (float*)&this->color, ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
 }
 
 void light_trait::collect_viewport_shapes(scene_object* ob, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {
