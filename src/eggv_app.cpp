@@ -453,7 +453,7 @@ void eggv_app::update(float t, float dt) {
             vec2 sz = vec2(size());
             vec2 np = ((vec2(xpos, ypos) / sz)*2.f - 1.f) * pi<float>()/2.f;
             trf->rotation = glm::normalize(
-                    glm::angleAxis(np.y, right)*glm::angleAxis(-np.x, vec3(0.f, 1.f, 0.f)));
+                    glm::angleAxis(clamp(np.y, -pi<float>()/3.f, pi<float>()/3.f), right)*glm::angleAxis(-np.x, vec3(0.f, 1.f, 0.f)));
         }
     }
 }

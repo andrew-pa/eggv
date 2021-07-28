@@ -6,6 +6,14 @@
 #include "assimp/postprocess.h"
 #include <assimp/scene.h>
 
+std::shared_ptr<scene_object> convert_scene_node(scene& sc, aiNode* node) {
+    auto obj = std::make_shared<scene_object>(node->mName.C_Str());
+    for (auto i = 0; i < node->mNumChildren; ++i) {
+        obj->children.push_back(convert_scene_node(sc, node->mChildren[i]));
+    }
+    return obj;
+}
+
 int main(int argc, char* argv[]) {
     char *input_path = nullptr, *output_path = nullptr, *scene_path = nullptr;
     bool write_scene = false;
@@ -76,6 +84,11 @@ int main(int argc, char* argv[]) {
     }
 
     if (write_scene) {
+        std::cout << "\tcreating scene file\n";
+        ::scene out_scene({}, (std::shared_ptr<scene_object>)nullptr);
+        out_scene.root = convert_scene_node(out_scene, scene->mRootNode);
+        std::ofstream outs(scene_path);
+        outs << out_scene.serialize();
     }
 
     return 0;

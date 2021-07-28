@@ -126,4 +126,3 @@ struct renderer {
     void render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs);
     ~renderer();
 };
-

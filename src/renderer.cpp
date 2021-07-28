@@ -907,21 +907,3 @@ mesh::mesh(device* dev, size_t vcount, size_t _vsize, size_t icount, std::functi
     dev->graphics_qu.submit({ vk::SubmitInfo{0,nullptr,nullptr,1,&upload_commands} }, nullptr);
     dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
 }
-
-/*mesh::mesh(device* dev, const std::vector<vertex>& vertices, const std::vector<uint16>& indices)
-    : mesh(dev, vertices.size(), indices.size(), [&](void* staging_map) {
-        memcpy(staging_map, vertices.data(), sizeof(vertex)*vertices.size());
-        memcpy((char*)staging_map + sizeof(vertex)*vertices.size(), indices.data(), sizeof(uint16)*indices.size());
-    })
-{
-}*/
-
-#include "geometry_set.h"
-void mesh_trait::build_gui(struct scene_object*, frame_state*) {
-    ImGui::Text("%zu vertices, %zu indices", m->vertex_count, m->index_count);
-    ImGui::Text("Geometry set: %s", this->geo_src->path.c_str());
-    if(ImGui::InputInt("Mesh index", (int*)&this->mesh_index)) {
-        this->mesh_index = this->mesh_index % this->geo_src->num_meshes();
-        m = geo_src->load_mesh(this->mesh_index);
-    }
-}
