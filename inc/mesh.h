@@ -44,6 +44,7 @@ struct mesh_trait : public trait {
     std::shared_ptr<mesh> m;
     std::shared_ptr<class geometry_set> geo_src;
     size_t mesh_index;
+    std::shared_ptr<material> mat;
     mesh_trait(trait_factory* p, mesh_create_info* ci);
     void append_transform(struct scene_object*, mat4& T, frame_state*) override {}
     void build_gui(struct scene_object*, frame_state*) override;

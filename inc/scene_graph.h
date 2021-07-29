@@ -49,6 +49,21 @@ struct scene_object : public std::enable_shared_from_this<scene_object> {
     scene_object(std::optional<std::string> name = {}, uuids::uuid id = uuids::uuid());
 };
 
+struct material {
+    uuids::uuid id;
+    std::string name;
+
+    vec3 base_color;
+
+    material(std::string name, vec3 base_color = vec3(.1f), uuids::uuid id = uuids::uuid());
+
+    material(uuids::uuid id, json data);
+
+    json serialize() const;
+
+    bool build_gui(frame_state*);
+};
+
 class scene {
     void build_scene_graph_tree(std::shared_ptr<scene_object> obj);
     json serialize_graph(std::shared_ptr<scene_object> obj) const;
@@ -58,10 +73,13 @@ public:
     std::shared_ptr<scene_object> selected_object;
     std::shared_ptr<scene_object> active_camera;
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
+    std::vector<std::shared_ptr<material>> materials;
+    std::shared_ptr<material> selected_material;
+    bool materials_changed;
 
-    scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root) : trait_factories(trait_factories), root(root), selected_object(root) {}
+    scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root) : trait_factories(trait_factories), root(root), selected_object(root), selected_material(nullptr), materials_changed(true) {}
 
-    scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, json data);
+    scene(class device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories, json data);
 
     void update(frame_state* fs, class app*);
     void build_gui(frame_state* fs);

@@ -193,6 +193,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
         {"Renderer", true},
         {"Scene", true},
         {"Geometry Sets", true},
+        {"Materials", true},
         {"Selected Object", true},
         {"ImGui Demo", false},
         {"ImGui Metrics", false},
@@ -232,7 +233,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
             if(i >= cargs.size()) throw;
             std::ifstream input(cargs[i++]);
             json data; input >> data;
-            current_scene = std::make_shared<scene>(collect_factories(), data);
+            current_scene = std::make_shared<scene>(dev.get(), collect_factories(), data);
         }
     }
 

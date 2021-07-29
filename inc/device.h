@@ -24,6 +24,7 @@ struct buffer {
 
 	~buffer();
 };
+
 struct image {
 	struct device* dev;
         vk::ImageCreateInfo info;

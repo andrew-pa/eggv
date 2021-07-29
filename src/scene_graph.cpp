@@ -12,6 +12,9 @@ scene_object::scene_object(std::optional<std::string> name, uuids::uuid id) : na
     else this->id = id;
 }
 
+material::material(std::string name, vec3 base_color, uuids::uuid id)
+    : name(name), base_color(base_color), id(id.is_nil() ? uuid_gen() : id) {}
+
 std::shared_ptr<scene_object> deserialize_object_graph(const std::vector<std::shared_ptr<trait_factory>>& trait_factories, json data) {
     auto obj = std::make_shared<scene_object>(data.contains("name") ? std::optional((std::string)data.at("name")) : std::nullopt,
             uuids::uuid::from_string((std::string)data.at("id")).value());
@@ -30,10 +33,17 @@ std::shared_ptr<scene_object> deserialize_object_graph(const std::vector<std::sh
     return obj;
 }
 
-scene::scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, json data) 
-    : trait_factories(trait_factories), selected_object(nullptr), active_camera(nullptr),
-      root(deserialize_object_graph(trait_factories, data))
+scene::scene(device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories, json data) 
+    : trait_factories(trait_factories), selected_object(nullptr), selected_material(nullptr), active_camera(nullptr),
+      root(nullptr), materials_changed(true)
 {
+    for(const auto& p : data["geometries"]) {
+        geometry_sets.push_back(std::make_shared<geometry_set>(dev, p));
+    }
+    for(const auto&[id, m] : data["materials"].items()) {
+        materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));
+    }
+    root = deserialize_object_graph(trait_factories, data["graph"]);
 }
 
 void scene::update(frame_state* fs, app* app) {
@@ -63,6 +73,19 @@ void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {
 }
 
 #include "ImGuiFileDialog.h"
+void InputTextResizable(const char* label, std::string* str) {
+    ImGui::InputText(label, (char*)str->c_str(), str->size()+1, ImGuiInputTextFlags_CallbackResize,
+            (ImGuiInputTextCallback)([](ImGuiInputTextCallbackData* data) {
+                if (data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
+                    std::string* str = (std::string*)data->UserData;
+                    str->resize(data->BufTextLen);
+                    data->Buf = (char*)str->c_str();
+                }
+                    return 0;
+                }
+            ), (void*)str);
+}
+
 void InputTextResizable(const char* label, std::optional<std::string>* str) {
     ImGui::InputText(label, (char*)str->value_or("<unnamed>").c_str(), str->value_or("<unnamed>").size()+1, ImGuiInputTextFlags_CallbackResize,
             (ImGuiInputTextCallback)([](ImGuiInputTextCallbackData* data) {
@@ -170,6 +193,28 @@ void scene::build_gui(frame_state* fs) {
         ImGui::End();
     }
 
+    if(fs->gui_open_windows->at("Materials")) {
+        ImGui::Begin("Materials", &fs->gui_open_windows->at("Materials"));
+        if(ImGui::BeginCombo("##SelMat", selected_material == nullptr ? "<no material selected>" : selected_material->name.c_str())) {
+            for(const auto& m : materials) {
+                if(ImGui::Selectable(m->name.c_str(), m == selected_material))
+                    selected_material = m;
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        if(ImGui::Button("+")) {
+            auto new_mat = std::make_shared<material>("new material");
+            materials.push_back(new_mat);
+            selected_material = new_mat;
+            materials_changed = true;
+        }
+        ImGui::Separator();
+        if(selected_material != nullptr)
+            materials_changed = selected_material->build_gui(fs) || materials_changed;
+        ImGui::End();
+    }
+
     if(ImGuiFileDialog::Instance()->Display("SaveSceneGraphDlg")) {
         if(ImGuiFileDialog::Instance()->IsOk()) {
             std::ofstream output(ImGuiFileDialog::Instance()->GetFilePathName());
@@ -183,7 +228,7 @@ void scene::build_gui(frame_state* fs) {
             std::ifstream input(ImGuiFileDialog::Instance()->GetFilePathName());
             json data;
             input >> data;
-            *this = scene(trait_factories, data);
+            throw "TODO: this needs to probably be more careful about yeeting away in-use resources";
         }
         ImGuiFileDialog::Instance()->Close();
     }
@@ -209,7 +254,19 @@ json scene::serialize_graph(std::shared_ptr<scene_object> obj) const {
 }
 
 json scene::serialize() const {
-    return serialize_graph(root);
+    json geosets = json::array();
+    for(const auto& gs : geometry_sets) {
+        geosets.push_back(gs->path);
+    }
+    json mats = json::object();
+    for(const auto& m : materials) {
+        mats[uuids::to_string(m->id)] = m->serialize();
+    }
+    return {
+        {"geometries", geosets},
+        {"materials", mats},
+        {"graph", serialize_graph(root)}
+    };
 }
 
 json transform_trait::serialize() const {
@@ -293,4 +350,25 @@ void camera_trait::collect_viewport_shapes(scene_object* ob, frame_state*, const
 void camera_trait_factory::deserialize(struct scene_object* obj, json data) {
     auto cfo = create_info(data.at("fov"));
     this->add_to(obj, &cfo);
+}
+
+material::material(uuids::uuid id, json data) : id(id) {
+    name = data["name"];
+    base_color = ::deserialize_v3(data["base"]);
+}
+
+json material::serialize() const {
+    return {
+        {"name", name},
+        {"base", ::serialize(base_color)}
+    };
+}
+
+bool material::build_gui(frame_state*) {
+    InputTextResizable("Name", &this->name);
+
+    bool changed = false;
+    changed = ImGui::ColorEdit3("Base", &this->base_color[0], ImGuiColorEditFlags_Float) || changed;
+
+    return changed;
 }
