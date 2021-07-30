@@ -1,4 +1,5 @@
 #version 450
+#include "lighting.h"
 
 layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput input_position;
 layout(input_attachment_index = 1, set = 0, binding = 1) uniform subpassInput input_normal;
@@ -16,14 +17,17 @@ layout(set = 0, binding = 3) uniform camera {
     mat4 proj;
 } cam;
 
+layout(set = 0, binding = 4) buffer materials {
+    material data[];
+} mats;
+
 void main() {
     vec4 txc_mat = subpassLoad(input_texcoord_mat);
     if(txc_mat.z < 1.f) discard;
-    vec3 L = (cam.view * light.direction).xyz;
 
+    vec3 L = (cam.view * light.direction).xyz;
+    material mat = mats.data[uint(txc_mat.w)];
     vec3 nor = subpassLoad(input_normal).xyz;
 
-    vec3 col = vec3(1.0, 1.0, 0.9);
-    vec3 diffuse = max(0., dot(nor, -L)) * col * light.color.xyz;
-    frag_color = vec4(diffuse,1.0);
+    frag_color = vec4(compute_lighting(nor, L, light.color.rgb, mat),1.0);
 }

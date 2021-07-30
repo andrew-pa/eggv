@@ -76,6 +76,12 @@ struct frame_uniforms {
     mat4 view, proj;
 };
 
+struct gpu_material {
+    vec3 base_color;
+
+    gpu_material(material* mat) : base_color(mat->base_color) {}
+};
+
 struct renderer {
     device* dev; swap_chain* swpc;
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
@@ -90,7 +96,13 @@ struct renderer {
     vk::RenderPassBeginInfo render_pass_begin_info;
     std::vector<std::shared_ptr<render_node>> subpass_order;
     vk::UniqueDescriptorPool desc_pool;
+
+    std::unique_ptr<buffer> frame_uniforms_buf;
     frame_uniforms* mapped_frame_uniforms;
+    
+    std::unique_ptr<buffer> materials_buf;
+    gpu_material* mapped_materials;
+    size_t num_gpu_mats;
 
     framebuffer_ref allocate_framebuffer(const framebuffer_desc&);
     void compile_render_graph();
@@ -111,10 +123,9 @@ struct renderer {
     std::vector<vk::UniqueFramebuffer> framebuffers;
     std::shared_ptr<scene> current_scene;
 
-    std::vector<std::tuple<struct mesh*, mat4>> active_meshes;
+    std::vector<std::tuple<struct mesh_trait*, mat4>> active_meshes;
     std::vector<std::tuple<light_trait*, mat4>> active_lights;
     std::vector<viewport_shape> active_shapes;
-    std::unique_ptr<buffer> frame_uniforms_buf;
     vk::Viewport full_viewport; vk::Rect2D full_scissor;
 
     bool show_shapes;
@@ -123,6 +134,7 @@ struct renderer {
     void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
     void build_gui(frame_state*);
+    void update();
     void render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs);
     ~renderer();
 };

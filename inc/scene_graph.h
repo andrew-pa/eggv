@@ -62,6 +62,8 @@ struct material {
     json serialize() const;
 
     bool build_gui(frame_state*);
+
+    uint32 _render_index;
 };
 
 class scene {

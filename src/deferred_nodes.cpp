@@ -18,7 +18,7 @@ gbuffer_geom_render_node_prototype::gbuffer_geom_render_node_prototype(device* d
 
     vk::PushConstantRange push_consts[] = {
         vk::PushConstantRange { vk::ShaderStageFlagBits::eVertex, 0, sizeof(mat4) },
-        vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4), sizeof(vec4) }
+        vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4), sizeof(uint32) }
     };
 
     pipeline_layout = dev->dev->createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo {
@@ -115,12 +115,13 @@ void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     for(const auto&[mesh, world_transform] : r->active_meshes) {
-        cb.bindVertexBuffers(0, {mesh->vertex_buffer->buf}, {0});
-        cb.bindIndexBuffer(mesh->index_buffer->buf, 0, vk::IndexType::eUint16);
+        auto m = mesh->m;
+        cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
+        cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
         cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
-        cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
-                { vec4(0.6f,0.55f,0.5f,1.f) });
-        cb.drawIndexed(mesh->index_count, 1, 0, 0, 0);
+        cb.pushConstants<uint32>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
+                { mesh->mat ? mesh->mat->_render_index : 0 });
+        cb.drawIndexed(m->index_count, 1, 0, 0, 0);
     }
 }
 
@@ -141,7 +142,8 @@ directional_light_render_node_prototype::directional_light_render_node_prototype
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
+        vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
     });
 
     vk::PushConstantRange push_consts[] = {
@@ -160,7 +162,7 @@ void directional_light_render_node_prototype::collect_descriptor_layouts(render_
         std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) 
 {
     pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eInputAttachment, 3));
-    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1));
+    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 2));
     layouts.push_back(desc_layout.get());
     outputs.push_back(&node->desc_set);
 }
@@ -176,6 +178,8 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
 
     writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)))));
+    if(r->materials_buf) writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eUniformBuffer,
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material)))));
 }
 
 vk::UniquePipeline directional_light_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {
@@ -271,7 +275,8 @@ point_light_render_node_prototype::point_light_render_node_prototype(device* dev
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eVertex)
+        vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eVertex),
+        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
     });
 
     vk::PushConstantRange push_consts[] = {
@@ -293,7 +298,7 @@ void point_light_render_node_prototype::collect_descriptor_layouts(render_node* 
         std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) 
 {
     pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eInputAttachment, 3));
-    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1));
+    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 2));
     layouts.push_back(desc_layout.get());
     outputs.push_back(&node->desc_set);
 }
@@ -309,6 +314,8 @@ void point_light_render_node_prototype::update_descriptor_sets(class renderer* r
 
     writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)))));
+    if(r->materials_buf) writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eUniformBuffer,
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material)))));
 }
 
 vk::UniquePipeline point_light_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {

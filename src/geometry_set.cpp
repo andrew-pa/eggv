@@ -33,7 +33,8 @@ const geom_file::mesh_header& geometry_set::header(size_t index) const {
 }
 
 mesh_trait::mesh_trait(trait_factory* f, mesh_create_info* ci)
-    : trait(f), geo_src(ci==nullptr ? nullptr : ci->geo_src), mesh_index(ci==nullptr?-1:ci->mesh_index), m(nullptr)
+    : trait(f), geo_src(ci==nullptr ? nullptr : ci->geo_src), mesh_index(ci==nullptr?-1:ci->mesh_index),
+        m(nullptr), mat(ci?ci->mat:nullptr)
 {
     m = geo_src->load_mesh(mesh_index);
 }
@@ -59,6 +60,14 @@ void mesh_trait::build_gui(struct scene_object*, frame_state* fs) {
         }
         ImGui::EndCombo();
     }
+    if(ImGui::BeginCombo("Material", mat == nullptr ? "<no material selected>" : mat->name.c_str())) {
+        for(const auto& m : fs->current_scene->materials) {
+            if(ImGui::Selectable(m->name.c_str(), m == mat))
+                mat = m;
+        }
+        ImGui::EndCombo();
+    }
+
     if(reload_mesh) {
         m = geo_src->load_mesh(this->mesh_index);
     }

@@ -10,11 +10,11 @@ layout(location = 2) out vec4 texture_material_buf;
 
 layout(push_constant) uniform push_constants {
     mat4 world;
-    vec4 color;
+    uint material_index;
 } pc;
 
 void main() {
     position_buf = vec4(view_pos, 0.0);
     normal_buf = vec4(view_nor, 0.0);
-    texture_material_buf = vec4(tex_coord, 1.0, 0.0);
+    texture_material_buf = vec4(tex_coord, 1.0, pc.material_index);
 }

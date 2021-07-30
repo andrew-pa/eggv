@@ -142,12 +142,13 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
                 0, { node->desc_set.get() }, {});
         for(const auto&[mesh, world_transform] : r->active_meshes) {
-            cb.bindVertexBuffers(0, {mesh->vertex_buffer->buf}, {0});
-            cb.bindIndexBuffer(mesh->index_buffer->buf, 0, vk::IndexType::eUint16);
+            auto m = mesh->m;
+            cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
+            cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
             cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
             cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
-                    { vec4(0.6f,0.55f,0.5f,1.f) });
-            cb.drawIndexed(mesh->index_count, 1, 0, 0, 0);
+                    { vec4(mesh->mat->base_color, 1.f) });
+            cb.drawIndexed(m->index_count, 1, 0, 0, 0);
         }
     }
 };
@@ -243,7 +244,7 @@ json render_node::serialize() const {
     };
 }
 
-renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_recompile(false), log_compile(false) {}
+renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_recompile(false), log_compile(false), num_gpu_mats(0) {}
 
 void renderer::init(device* _dev) {
     this->dev = _dev;
@@ -427,8 +428,6 @@ void renderer::propagate_blended_framebuffers(std::shared_ptr<render_node> node)
 
 void renderer::compile_render_graph() {
     // free all framebuffers we still have and do other clean up
-    dev->graphics_qu.waitIdle();
-    dev->present_qu.waitIdle();
     for(auto& buf : buffers) {
         std::get<1>(buf.second) = false;
     }
@@ -825,7 +824,7 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
     auto mt = obj->traits.find(TRAIT_ID_MESH);
     if(mt != obj->traits.end()) {
         auto mmt = (mesh_trait*)mt->second.get();
-        active_meshes.push_back({mmt->m.get(), T});
+        active_meshes.push_back({mmt, T});
     }
 
     auto lt = obj->traits.find(TRAIT_ID_LIGHT);
@@ -845,8 +844,45 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
         traverse_scene_graph(c.get(), fs, T);
 }
 
-void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {
+void renderer::update() {
+    if(should_recompile || materials_buf == nullptr || current_scene->materials_changed) {
+        dev->graphics_qu.waitIdle();
+        dev->present_qu.waitIdle();
+    }
+    if(materials_buf == nullptr || current_scene->materials_changed) {
+        if(current_scene->materials.size() != 0) {
+            // recreate material buffer if necessary
+            bool recreating_mat_buf = materials_buf == nullptr || num_gpu_mats != current_scene->materials.size();
+            if(recreating_mat_buf) {
+                num_gpu_mats = current_scene->materials.size();
+                materials_buf = std::make_unique<buffer>(dev, sizeof(gpu_material)*num_gpu_mats,
+                        vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
+                        (void**)&mapped_materials);
+            }
 
+            // copy new materials to mapping
+            for(size_t i = 0; i < current_scene->materials.size(); ++i) {
+                mapped_materials[i] = gpu_material(current_scene->materials[i].get());
+                current_scene->materials[i]->_render_index = i;
+            }
+
+            if(!should_recompile && recreating_mat_buf) {
+                // make sure descriptor sets are up to date
+                std::vector<vk::WriteDescriptorSet> desc_writes;
+                arena<vk::DescriptorBufferInfo> buf_infos;
+                arena<vk::DescriptorImageInfo> img_infos;
+                for(size_t i = 0; i < subpass_order.size(); ++i) {
+                    auto node = subpass_order[i];
+                    node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
+                }
+                dev->dev->updateDescriptorSets(desc_writes, {});
+            }
+        }
+    }
+    if(should_recompile) compile_render_graph();
+}
+
+void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {
     active_meshes.clear();
     active_lights.clear();
     active_shapes.clear();
@@ -868,9 +904,6 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* 
             cb.nextSubpass(subpass_order[i+1]->subpass_commands.has_value() ? vk::SubpassContents::eSecondaryCommandBuffers
                     : vk::SubpassContents::eInline);
         }
-    }
-
-    if(show_shapes && active_shapes.size() > 0) {
     }
 
     cb.endRenderPass();

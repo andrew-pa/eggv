@@ -93,11 +93,14 @@ std::shared_ptr<scene> create_scene(device* dev) {
         auto tfm = transform_trait_factory::create_info(vec3(), quat(1.f, 0.f, 0.f, 0.f), vec3(0.05f));
         s->trait_factories[0]->add_to(geo.get(), &tfm);
     }
+    auto mat = std::make_shared<material>("default material", vec3(0.5f));
+    s->materials.push_back(mat);
     for(size_t i = 0; i < gs->num_meshes(); ++i) {
         auto obj = std::make_shared<scene_object>(gs->mesh_name(i));
         auto tfm = transform_trait_factory::create_info();
         s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto cfo = mesh_create_info(); cfo.geo_src = gs; cfo.mesh_index = i;
+        auto cfo = mesh_create_info();
+        cfo.geo_src = gs; cfo.mesh_index = i;
         s->trait_factories[1]->add_to(obj.get(), &cfo);
         geo->children.push_back(obj);
     }
@@ -165,7 +168,7 @@ std::shared_ptr<scene> create_scene(device* dev) {
         auto obj = std::make_shared<scene_object>("plight");
         auto tfm = transform_trait_factory::create_info(vec3(2.0f,-0.7f,-1.5f),quat(),vec3(1.0f));
         s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto lco = light_trait_factory::create_info(light_type::point, vec3(0.3f, 0.f, 0.f), vec3(.5f,.4f,.0f));
+        auto lco = light_trait_factory::create_info(light_type::point, vec3(0.3f, 0.f, 0.f), vec3(.5f,.4f,.0f)*100.f);
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
@@ -173,10 +176,20 @@ std::shared_ptr<scene> create_scene(device* dev) {
         auto obj = std::make_shared<scene_object>("plight");
         auto tfm = transform_trait_factory::create_info(vec3(-2.0f,-0.7f,-1.5f),quat(),vec3(1.0f));
         s->trait_factories[0]->add_to(obj.get(), &tfm);
-        auto lco = light_trait_factory::create_info(light_type::point, vec3(1.5f, 0.f, 0.f), vec3(.45f,.0f,.35f));
+        auto lco = light_trait_factory::create_info(light_type::point, vec3(1.5f, 0.f, 0.f), vec3(.45f,.0f,.35f)*100.f);
         s->trait_factories[2]->add_to(obj.get(), &lco);
         s->root->children.push_back(obj);
     }
+
+    // for(size_t i = 0; i < 50; ++i) {
+    //     auto obj = std::make_shared<scene_object>("plight");
+    //     auto tfm = transform_trait_factory::create_info(vec3(rand() % 20 - 10,rand() % 20 - 20,rand()%20 - 10),quat(),vec3(1.0f));
+    //     s->trait_factories[0]->add_to(obj.get(), &tfm);
+    //     auto lco = light_trait_factory::create_info(light_type::point, vec3(0.2f, 0.f, 0.f), vec3(4.5f,4.0f,3.5f));
+    //     s->trait_factories[2]->add_to(obj.get(), &lco);
+    //     s->root->children.push_back(obj);
+    //}
+
 
 
     //
@@ -253,6 +266,8 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     dev->graphics_qu.waitIdle();
     ImGui_ImplVulkan_DestroyFontUploadObjects();
     dev->clear_tmps();
+
+    r.update();
 }
 
 void eggv_app::load_plugin(const std::string& path) {
@@ -396,7 +411,7 @@ void eggv_app::build_gui(frame_state* fs) {
 
 #pragma region Render Loop
 void eggv_app::update(float t, float dt) {
-    if(r.should_recompile) r.compile_render_graph();
+    r.update();
     frame_state fs(t, dt, current_scene, &gui_open_windows);
     current_scene->update(&fs, this);
 

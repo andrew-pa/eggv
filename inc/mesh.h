@@ -37,6 +37,7 @@ struct mesh {
 struct mesh_create_info {
     std::shared_ptr<class geometry_set> geo_src;
     size_t mesh_index;
+    std::shared_ptr<material> mat;
 };
 
 const trait_id TRAIT_ID_MESH = 0x00010001;
