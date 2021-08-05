@@ -147,7 +147,7 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
             cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
             cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
             cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
-                    { vec4(mesh->mat->base_color, 1.f) });
+                    { vec4(mesh->mat ? mesh->mat->base_color : vec3(0.5f, 0.f, 0.2f), 1.f) });
             cb.drawIndexed(m->index_count, 1, 0, 0, 0);
         }
     }

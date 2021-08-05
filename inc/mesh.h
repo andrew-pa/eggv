@@ -49,6 +49,7 @@ struct mesh_trait : public trait {
     mesh_trait(trait_factory* p, mesh_create_info* ci);
     void append_transform(struct scene_object*, mat4& T, frame_state*) override {}
     void build_gui(struct scene_object*, frame_state*) override;
+    json serialize() const override;
 };
 
 struct mesh_trait_factory : public trait_factory {

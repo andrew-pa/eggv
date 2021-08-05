@@ -1,5 +1,4 @@
 #include "eggv_app.h"
-            
 #include "glm/gtx/quaternion.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -100,7 +99,9 @@ std::shared_ptr<scene> create_scene(device* dev) {
         auto tfm = transform_trait_factory::create_info();
         s->trait_factories[0]->add_to(obj.get(), &tfm);
         auto cfo = mesh_create_info();
-        cfo.geo_src = gs; cfo.mesh_index = i;
+        cfo.geo_src = gs;
+        cfo.mesh_index = i;
+        cfo.mat = mat;
         s->trait_factories[1]->add_to(obj.get(), &cfo);
         geo->children.push_back(obj);
     }
