@@ -36,11 +36,11 @@ mesh_trait::mesh_trait(trait_factory* f, mesh_create_info* ci)
     : trait(f), geo_src(ci==nullptr ? nullptr : ci->geo_src), mesh_index(ci==nullptr?-1:ci->mesh_index),
         m(nullptr), mat(ci?ci->mat:nullptr)
 {
-    m = geo_src->load_mesh(mesh_index);
+    if(ci != nullptr && ci->geo_src != nullptr) m = geo_src->load_mesh(mesh_index);
 }
 
 void mesh_trait::build_gui(struct scene_object*, frame_state* fs) {
-    ImGui::Text("%zu vertices, %zu indices", m->vertex_count, m->index_count);
+    if(m) ImGui::Text("%zu vertices, %zu indices", m->vertex_count, m->index_count);
     bool reload_mesh = false;
     if (ImGui::BeginCombo("Geometry set", this->geo_src->path.c_str())) {
         for (const auto& gs : fs->current_scene->geometry_sets) {
@@ -71,4 +71,26 @@ void mesh_trait::build_gui(struct scene_object*, frame_state* fs) {
     if(reload_mesh) {
         m = geo_src->load_mesh(this->mesh_index);
     }
+}
+
+json mesh_trait::serialize() const {
+    return json {
+        {"geo_src", geo_src->path},
+        {"ix", mesh_index},
+        {"mat", uuids::to_string(mat->id)}
+    };
+}
+
+void mesh_trait_factory::deserialize(struct scene* scene, scene_object* obj, json data) {
+    mesh_create_info ci;
+    ci.geo_src = *std::find_if(scene->geometry_sets.begin(), scene->geometry_sets.end(),
+        [&](auto gs) { return gs->path == data["geo_src"]; });
+    ci.mesh_index = data["ix"];
+    if (data.contains("mat")) {
+        auto mid = uuids::uuid::from_string(data["mat"].get<std::string>());
+        ci.mat = *std::find_if(scene->materials.begin(), scene->materials.end(),
+            [&](auto m) { return m->id == mid; });
+    }
+    else ci.mat = nullptr;
+    this->add_to(obj, &ci);
 }

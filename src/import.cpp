@@ -7,6 +7,7 @@
 #include <assimp/Importer.hpp>
 #include "assimp/postprocess.h"
 #include <assimp/scene.h>
+#include "assimp/material.h"
 
 static std::mt19937 default_random_gen;
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
@@ -20,7 +21,7 @@ json make_scene_object(std::string name) {
     };
 }
 
-json convert_scene_node(json& sc, aiNode* node, const char* geometry_source_path) {
+json convert_scene_node(json& sc, aiNode* node, const char* geometry_source_path, const aiScene* in_scene, const std::vector<uuids::uuid>& matix_to_id) {
     aiVector3D scaling, position;
     aiQuaternion rotation;
     node->mTransformation.Decompose(scaling, rotation, position);
@@ -31,19 +32,21 @@ json convert_scene_node(json& sc, aiNode* node, const char* geometry_source_path
         {"r", json::array({rotation.x, rotation.y, rotation.z, rotation.w})},
     };
     for (auto i = 0; i < node->mNumChildren; ++i) {
-        obj["c"].push_back(convert_scene_node(sc, node->mChildren[i], geometry_source_path));
+        obj["c"].push_back(convert_scene_node(sc, node->mChildren[i], geometry_source_path, in_scene, matix_to_id));
     }
     if(node->mNumMeshes == 1) {
         obj["t"][std::to_string(TRAIT_ID_MESH)] = json {
             {"geo_src", geometry_source_path},
-            {"ix", node->mMeshes[0]}
+            {"ix", node->mMeshes[0]},
+            {"mat", uuids::to_string(matix_to_id[in_scene->mMeshes[node->mMeshes[0]]->mMaterialIndex])}
         };
     } else {
         for(auto i = 0; i < node->mNumMeshes; ++i) {
             auto mesh_ch = make_scene_object(std::string(node->mName.C_Str()) + "/" + std::to_string(node->mMeshes[i]));
             mesh_ch["t"][std::to_string(TRAIT_ID_MESH)] = json {
                 {"geo_src", geometry_source_path},
-                {"ix", node->mMeshes[i]}
+                {"ix", node->mMeshes[i]},
+                {"mat", uuids::to_string(matix_to_id[in_scene->mMeshes[node->mMeshes[i]]->mMaterialIndex])}
             };
             obj["c"].push_back(mesh_ch);
         }
@@ -123,19 +126,27 @@ int main(int argc, char* argv[]) {
     if (write_scene) {
         std::cout << "\tcreating scene file\n";
         auto out_scene = json {
-            {"materials", json::array()},
+            {"materials", json::object()},
             {"geometries", json::array({ output_path })},
         };
-        out_scene["materials"] = json::array();
+        std::vector<uuids::uuid> material_index_to_id(scene->mNumMaterials, uuids::uuid());
         for(auto i = 0; i < scene->mNumMaterials; ++i) {
             auto mat = scene->mMaterials[i];
             std::cout << "\tprocessing material: " << mat->GetName().C_Str() << "\n";
-            out_scene["materials"].push_back(json {});
+            auto mat_id = uuid_gen();
+            material_index_to_id[i] = mat_id;
+            aiColor3D base_color(0.5, 0.0, 0.5);
+            if (mat->Get(AI_MATKEY_BASE_COLOR, base_color) == aiReturn_FAILURE)
+                mat->Get(AI_MATKEY_COLOR_DIFFUSE, base_color);
+            out_scene["materials"][uuids::to_string(mat_id)] = json{
+                {"name", mat->GetName().C_Str()},
+                {"base", json::array({base_color.r, base_color.g, base_color.b})}
+            };
             aiString tex_path;
             mat->GetTexture(aiTextureType_DIFFUSE, 0, &tex_path);
             std::cout << "\t\tdiffuse texture @ " << tex_path.C_Str() << "\n";
         }
-        out_scene["graph"] = convert_scene_node(out_scene, scene->mRootNode, output_path);
+        out_scene["graph"] = convert_scene_node(out_scene, scene->mRootNode, output_path, scene, material_index_to_id);
         std::ofstream outs(scene_path);
         outs << out_scene;
     }

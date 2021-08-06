@@ -238,14 +238,14 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
         } else if(cargs[i] == "-rg") {
             i++;
             if(i >= cargs.size()) throw;
-            std::ifstream input(cargs[i++]);
+            std::ifstream input(cargs[i]);
             json data; input >> data;
             r.deserialize_render_graph(data);
             r.compile_render_graph();
         } else if(cargs[i] == "-s") {
             i++;
             if(i >= cargs.size()) throw;
-            std::ifstream input(cargs[i++]);
+            std::ifstream input(cargs[i]);
             json data; input >> data;
             current_scene = std::make_shared<scene>(dev.get(), collect_factories(), data);
         }
@@ -437,7 +437,7 @@ void eggv_app::update(float t, float dt) {
         ui_key_cooldown -= dt;
     }
 
-    if(!ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow)) {
+    if(!ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow) && current_scene->active_camera) {
         const float speed = 5.0f;
         auto cam = (camera_trait*)current_scene->active_camera->traits.find(TRAIT_ID_CAMERA)->second.get();
         auto trf = (transform_trait*)current_scene->active_camera->traits.find(TRAIT_ID_TRANSFORM)->second.get();
@@ -470,7 +470,8 @@ void eggv_app::update(float t, float dt) {
             vec2 sz = vec2(size());
             vec2 np = ((vec2(xpos, ypos) / sz)*2.f - 1.f) * pi<float>()/2.f;
             trf->rotation = glm::normalize(
-                    glm::angleAxis(clamp(np.y, -pi<float>()/3.f, pi<float>()/3.f), right)*glm::angleAxis(-np.x, vec3(0.f, 1.f, 0.f)));
+                    glm::angleAxis(clamp(np.y, -pi<float>()/3.f, pi<float>()/3.f), right)
+                    *glm::angleAxis(-np.x, vec3(0.f, 1.f, 0.f)));
         }
     }
 }

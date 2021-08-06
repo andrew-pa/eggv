@@ -824,7 +824,8 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
     auto mt = obj->traits.find(TRAIT_ID_MESH);
     if(mt != obj->traits.end()) {
         auto mmt = (mesh_trait*)mt->second.get();
-        active_meshes.push_back({mmt, T});
+        if (mmt->m != nullptr)
+			active_meshes.push_back({ mmt, T });
     }
 
     auto lt = obj->traits.find(TRAIT_ID_LIGHT);
