@@ -16,10 +16,11 @@ struct trait {
     struct trait_factory* parent;
 
     trait(trait_factory* p) : parent(p) {}
-
-    virtual void update(struct scene_object*, frame_state*) {}
+ 
+    virtual void update(struct scene_object*, frame_state*, const mat4& T) {}
 
     virtual void append_transform(struct scene_object*, mat4& T, frame_state*) {}
+    virtual void postprocess_transform(struct scene_object*, const mat4& T, frame_state*) {}
 
     virtual void build_gui(struct scene_object*, frame_state*) { }
 

@@ -841,6 +841,10 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
         mapped_frame_uniforms->view = inverse(T);
     }
 
+    for (auto& [_, t] : obj->traits) {
+        t->postprocess_transform(obj, T, fs);
+    }
+
     for(auto c : obj->children)
         traverse_scene_graph(c.get(), fs, T);
 }
