@@ -25,11 +25,21 @@ const char* body_type_names[] = {
 	"Static", "Kinematic", "Dynamic"
 };
 
+const char* shape_names[] = {
+	"Triangle",
+	"Sphere",
+	"Capsule",
+	"Box",
+	"Convex Mesh",
+	"Triangle Mesh",
+	"Heightfield"
+};
+
 void rigid_body_trait::build_gui(scene_object*, frame_state*) {
 	int body_type = (int)body->getType();
 	if (ImGui::Combo("Type", &body_type, body_type_names, 3))
 		body->setType((BodyType)body_type);
-
+ 
 	auto mass = body->getMass();
 	if (ImGui::DragFloat("Mass", &mass, 0.01f))
 		body->setMass(mass);
@@ -46,6 +56,79 @@ void rigid_body_trait::build_gui(scene_object*, frame_state*) {
 		body->setAngularVelocity(Vector3());
 	}
 
+	if (ImGui::BeginTable("##RigidBodyColliders", 3, ImGuiTableFlags_Resizable)) {
+		ImGui::TableSetupColumn("Type");
+		ImGui::TableSetupColumn("Params");
+		ImGui::TableSetupColumn("Transform");
+		ImGui::TableHeadersRow();
+		for (uint i = 0; i < body->getNbColliders(); ++i) {
+			auto col = body->getCollider(i);
+			auto shape = col->getCollisionShape();
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("%s", shape_names[(int)shape->getName()]);
+			ImGui::TableNextColumn();
+			switch (shape->getName()) {
+				case CollisionShapeName::BOX: {
+					auto box = dynamic_cast<BoxShape*>(shape);
+					auto ext = box->getHalfExtents();
+					if (ImGui::DragFloat3("Half Extents", &ext.x, 0.01f))
+						box->setHalfExtents(ext);
+				} break;
+				case CollisionShapeName::CAPSULE: {
+					auto cap = dynamic_cast<CapsuleShape*>(shape);
+					auto height = cap->getHeight();
+					if (ImGui::DragFloat("Height", &height, 0.01f))
+						cap->setHeight(height);
+					auto radius = cap->getRadius();
+					if (ImGui::DragFloat("Radius", &radius, 0.01f))
+						cap->setRadius(radius);
+				} break;
+				case CollisionShapeName::SPHERE: {
+					auto s = dynamic_cast<SphereShape*>(shape);
+					auto radius = s->getRadius();
+					if (ImGui::DragFloat("Radius", &radius, 0.01f))
+						s->setRadius(radius);
+				} break;
+			}
+			ImGui::TableNextColumn();
+			auto tf = col->getLocalToBodyTransform();
+			bool tf_changed = false;
+			auto pos = tf.getPosition();
+			if (ImGui::DragFloat3("Position", &pos.x, 0.01f)) {
+				tf.setPosition(pos);
+				tf_changed = true;
+			}
+			auto rot = tf.getOrientation();
+			if (ImGui::DragFloat4("Rotation", &rot.x, 0.01f)) {
+				tf.setOrientation(rot);
+				tf_changed = true;
+			}
+			if (tf_changed)
+				col->setLocalToBodyTransform(tf);
+	
+		}
+		ImGui::EndTable();
+	}
+
+	static CollisionShapeName new_shape_name = CollisionShapeName::BOX;
+	ImGui::Combo("Type", (int*)&new_shape_name, shape_names, 7);
+	ImGui::SameLine();
+	if (ImGui::Button("Add Collider")) {
+		CollisionShape* shape;
+		switch (new_shape_name) {
+		case CollisionShapeName::BOX:
+			shape = ((rigid_body_trait_factory*)this->parent)->phy->createBoxShape(Vector3(.5f, .5f, .5f));
+			break;
+		case CollisionShapeName::CAPSULE:
+			shape = ((rigid_body_trait_factory*)this->parent)->phy->createCapsuleShape(1.f, 1.f);
+			break;
+		case CollisionShapeName::SPHERE:
+			shape = ((rigid_body_trait_factory*)this->parent)->phy->createSphereShape(1.f);
+			break;
+		}
+		body->addCollider(shape, Transform::identity());
+	}
 }
 
 json rigid_body_trait::serialize() const {
