@@ -2,6 +2,11 @@
 #include "imgui.h"
 using namespace reactphysics3d;
 
+rigid_body_trait::~rigid_body_trait() {
+	auto f = (rigid_body_trait_factory*)this->parent;
+	f->world->destroyRigidBody(body);
+}
+
 void rigid_body_trait::append_transform(scene_object*, mat4& T, frame_state*) {
 	// TODO: interpolate between this and the previous frame's transform based on how much time we have left to simulate
 	if (body->getType() != BodyType::STATIC) {
@@ -199,6 +204,27 @@ physics_debug_shape_render_node_prototype::physics_debug_shape_render_node_proto
 	dr.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_AABB, true);
 	dr.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_BROADPHASE_AABB, true);
 	dr.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
+}
+
+void physics_debug_shape_render_node_prototype::build_gui(class renderer*, struct render_node* node) {
+	auto enabled = world->getIsDebugRenderingEnabled();
+	if (ImGui::Checkbox("Enable", &enabled))
+		world->setIsDebugRenderingEnabled(enabled);
+	auto& dr = world->getDebugRenderer();
+	const std::tuple<DebugRenderer::DebugItem, const char*> items[] = {
+		{DebugRenderer::DebugItem::COLLIDER_AABB, "Collider AABBs"},
+		{DebugRenderer::DebugItem::COLLIDER_BROADPHASE_AABB, "Collider Broadphase AABBs"},
+		{DebugRenderer::DebugItem::COLLISION_SHAPE, "Collision Shapes"},
+		{DebugRenderer::DebugItem::CONTACT_NORMAL, "Contact Normals"},
+		{DebugRenderer::DebugItem::CONTACT_POINT, "Contact Points"}
+	};
+	ImGui::BeginGroup();
+	for (int i = 0; i < IM_ARRAYSIZE(items); ++i) {
+		bool enb = dr.getIsDebugItemDisplayed(std::get<0>(items[i]));
+		if (ImGui::Checkbox(std::get<1>(items[i]), &enb))
+			dr.setIsDebugItemDisplayed(std::get<0>(items[i]), enb);
+	}
+	ImGui::EndGroup();
 }
 
 void physics_debug_shape_render_node_prototype::collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes, 

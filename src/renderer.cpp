@@ -34,6 +34,7 @@ inline vk::ImageAspectFlags aspects_for_type(framebuffer_type ty) {
 struct simple_geom_render_node_prototype : public render_node_prototype { 
     simple_geom_render_node_prototype(device* dev) {
         inputs = {
+            framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color, framebuffer_mode::blend_input}
         };
         outputs = {
             framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
