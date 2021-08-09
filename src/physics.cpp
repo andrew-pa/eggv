@@ -78,16 +78,16 @@ void rigid_body_trait::build_gui(scene_object*, frame_state*) {
 				case CollisionShapeName::CAPSULE: {
 					auto cap = dynamic_cast<CapsuleShape*>(shape);
 					auto height = cap->getHeight();
-					if (ImGui::DragFloat("Height", &height, 0.01f))
+					if (ImGui::DragFloat("Height", &height, 0.01f, 0.01f))
 						cap->setHeight(height);
 					auto radius = cap->getRadius();
-					if (ImGui::DragFloat("Radius", &radius, 0.01f))
+					if (ImGui::DragFloat("Radius", &radius, 0.01f, 0.01f))
 						cap->setRadius(radius);
 				} break;
 				case CollisionShapeName::SPHERE: {
 					auto s = dynamic_cast<SphereShape*>(shape);
 					auto radius = s->getRadius();
-					if (ImGui::DragFloat("Radius", &radius, 0.01f))
+					if (ImGui::DragFloat("Radius", &radius, 0.01f, 0.01f))
 						s->setRadius(radius);
 				} break;
 			}
@@ -112,7 +112,7 @@ void rigid_body_trait::build_gui(scene_object*, frame_state*) {
 	}
 
 	static CollisionShapeName new_shape_name = CollisionShapeName::BOX;
-	ImGui::Combo("Type", (int*)&new_shape_name, shape_names, 7);
+	ImGui::Combo("Type ", (int*)&new_shape_name, shape_names, 7);
 	ImGui::SameLine();
 	if (ImGui::Button("Add Collider")) {
 		CollisionShape* shape;
@@ -157,5 +157,173 @@ void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::Ph
 				world->setGravity(grav);
 		}
 		ImGui::End();
+	}
+}
+
+struct physics_debug_shape_render_node_data : render_node_data {
+	vk::UniquePipeline triangle_pipeline;
+	physics_debug_shape_render_node_data(vk::UniquePipeline&& pipe) : triangle_pipeline(std::move(pipe)) {}
+	json serialize() const override { return json{}; }
+};
+
+physics_debug_shape_render_node_prototype::physics_debug_shape_render_node_prototype(device* dev, PhysicsWorld* world)
+	: world(world)
+{
+    inputs = {
+        framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color, framebuffer_mode::blend_input},
+        // framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth}, // how do we indicate we want this bound as the depth buffer??????????
+    };
+    outputs = {
+        framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
+    };
+
+    desc_layout = dev->create_desc_set_layout({
+        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex)
+    });
+
+    vk::PushConstantRange push_consts[] = {
+        vk::PushConstantRange { vk::ShaderStageFlagBits::eVertex, 0, sizeof(mat4) },
+        vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4), sizeof(vec4) }
+    };
+
+    pipeline_layout = dev->dev->createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo {
+        {}, 1, &desc_layout.get(), 2, push_consts
+    });
+
+	geo_buffer = std::make_unique<buffer>(dev, 1024*sizeof(DebugRenderer::DebugLine) + 1024*sizeof(DebugRenderer::DebugTriangle),
+		vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
+		(void**)&geo_bufmap);
+
+	world->setIsDebugRenderingEnabled(true);
+	auto& dr = world->getDebugRenderer();
+	dr.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_AABB, true);
+	dr.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLIDER_BROADPHASE_AABB, true);
+	dr.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
+}
+
+void physics_debug_shape_render_node_prototype::collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
+        std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs)
+{
+    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1));
+    layouts.push_back(desc_layout.get());
+    outputs.push_back(&node->desc_set);
+}
+
+void physics_debug_shape_render_node_prototype::update_descriptor_sets(renderer* r, render_node* node,
+        std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos,
+        arena<vk::DescriptorImageInfo>& img_infos)
+{
+    auto b = buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)));
+    writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, b));
+}
+
+vk::UniquePipeline physics_debug_shape_render_node_prototype::generate_pipeline(renderer* r, render_node* node,
+        vk::RenderPass render_pass, uint32_t subpass)
+{
+    vk::PipelineShaderStageCreateInfo shader_stages[] = {
+        vk::PipelineShaderStageCreateInfo {
+            {}, vk::ShaderStageFlagBits::eVertex,
+            r->dev->load_shader("simple.vert.spv"), "main"
+        },
+        vk::PipelineShaderStageCreateInfo {
+            {}, vk::ShaderStageFlagBits::eFragment,
+            r->dev->load_shader("simple.frag.spv"), "main"
+        }
+    };
+
+    auto vertex_binding = vk::VertexInputBindingDescription { 0, sizeof(Vector3) + sizeof(uint32), vk::VertexInputRate::eVertex };
+    constexpr static vk::VertexInputAttributeDescription ds_vertex_attribute_description[] = {
+        vk::VertexInputAttributeDescription{0, 0, vk::Format::eR32G32B32Sfloat, 0},
+        vk::VertexInputAttributeDescription{1, 0, vk::Format::eR8G8B8A8Uint, sizeof(Vector3)},
+    };
+
+    auto vertex_input_info = vk::PipelineVertexInputStateCreateInfo {
+        {}, 1, &vertex_binding,
+            2, ds_vertex_attribute_description
+    };
+
+    auto input_assembly = vk::PipelineInputAssemblyStateCreateInfo {
+        {}, vk::PrimitiveTopology::eTriangleList
+    };
+
+    auto viewport_state = vk::PipelineViewportStateCreateInfo {
+        {}, 1, &r->full_viewport, 1, &r->full_scissor
+    };
+
+    auto rasterizer_state = vk::PipelineRasterizationStateCreateInfo{
+        {}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone,
+            vk::FrontFace::eCounterClockwise, false, 0.f, 0.f, 0.f, 1.f
+    };
+
+    auto multisample_state = vk::PipelineMultisampleStateCreateInfo{};
+
+    auto depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo{
+        {}, false, true, vk::CompareOp::eLess, false, false
+    };
+
+    vk::PipelineColorBlendAttachmentState color_blend_att[] = {
+        vk::PipelineColorBlendAttachmentState(false,
+                vk::BlendFactor::eOne, vk::BlendFactor::eOne, vk::BlendOp::eAdd,
+                vk::BlendFactor::eOne, vk::BlendFactor::eOne, vk::BlendOp::eAdd,
+                vk::ColorComponentFlagBits::eR|vk::ColorComponentFlagBits::eG
+                    |vk::ColorComponentFlagBits::eB |vk::ColorComponentFlagBits::eA) 
+    };
+    auto color_blending_state = vk::PipelineColorBlendStateCreateInfo {
+        {}, false, vk::LogicOp::eCopy, 1, color_blend_att
+    };
+
+    auto cfo = vk::GraphicsPipelineCreateInfo(
+        {},
+        2, shader_stages,
+        &vertex_input_info,
+        &input_assembly,
+        nullptr,
+        &viewport_state,
+        &rasterizer_state,
+        &multisample_state,
+        &depth_stencil_state,
+        &color_blending_state,
+        nullptr,
+        this->pipeline_layout.get(),
+        render_pass, subpass
+    );
+
+	node->data = std::make_unique<physics_debug_shape_render_node_data>(r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo));
+
+	input_assembly.topology = vk::PrimitiveTopology::eLineList;
+
+    return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
+}
+
+void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb) {
+	auto& dr = world->getDebugRenderer();
+	if (dr.getNbLines() > 0) {
+		memcpy(geo_bufmap, dr.getLinesArray(),
+			sizeof(DebugRenderer::DebugLine) * max(1024, (int)dr.getNbLines()));
+	}
+	if (dr.getNbTriangles() > 0) {
+		memcpy((char*)geo_bufmap + 1024*sizeof(DebugRenderer::DebugLine), dr.getTrianglesArray(),
+			sizeof(DebugRenderer::DebugTriangle) * max(1024, (int)dr.getNbTriangles()));
+	}
+
+	if (dr.getNbLines() > 0) {
+		cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
+		cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
+			0, { node->desc_set.get() }, {});
+		cb.bindVertexBuffers(0, { geo_buffer->buf }, { 0 });
+        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { mat4(1) });
+		cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4), { vec4(1.f, 0.f, 1.f, 1.f) });
+		cb.draw(2 * dr.getNbLines(), 1, 0, 0);
+	}
+
+	if (dr.getNbTriangles() > 0) {
+		auto data = (physics_debug_shape_render_node_data*)(node->data.get());
+		cb.bindPipeline(vk::PipelineBindPoint::eGraphics, data->triangle_pipeline.get());
+		cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
+			0, { node->desc_set.get() }, {});
+		cb.bindVertexBuffers(0, { geo_buffer->buf }, { sizeof(DebugRenderer::DebugLine)*1024 });
+        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { mat4(1) });
+		cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4), { vec4(0.f, 1.f, 1.f, 1.f) });
+		cb.draw(3 * dr.getNbTriangles(), 1, 0, 0);
 	}
 }

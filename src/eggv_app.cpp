@@ -232,6 +232,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
+    r.prototypes.emplace_back(std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world));
 
     for(int i = 1; i < cargs.size(); ++i) {
         if(cargs[i] == "-p") {

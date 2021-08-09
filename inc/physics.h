@@ -1,26 +1,8 @@
 #pragma once
 #include "cmmn.h"
 #include "scene_graph.h"
+#include "renderer.h"
 #include <reactphysics3d/reactphysics3d.h>
-
-/*
-const trait_id TRAIT_ID_PHY_STATIC = 0x000a'0001;
-struct static_body_trait : public trait {
-	reactphysics3d::CollisionBody* body;
-};
-
-struct static_body_trait_factory : public trait_factory {
-	reactphysics3d::PhysicsCommon* phy;
-	reactphysics3d::PhysicsWorld* world;
-
-	trait_id id() const override { return TRAIT_ID_PHY_STATIC; }
-	std::string name() const override { return "Static Physics Body"; }
-    void add_to(struct scene_object* obj, void* create_info) override;
-    void deserialize(struct scene* scene, struct scene_object* obj, json data) override;
-
-	static_body_trait_factory(reactphysics3d::PhysicsCommon* phy, reactphysics3d::PhysicsWorld* wrld);
-};
-*/
 
 const trait_id TRAIT_ID_RIGID_BODY = 0x000a'0001;
 struct rigid_body_trait : public trait {
@@ -52,6 +34,23 @@ struct rigid_body_trait_factory : public trait_factory {
 		: phy(phy), world(wrld) {}
 };
 
+struct physics_debug_shape_render_node_prototype : public render_node_prototype {
+	reactphysics3d::PhysicsWorld* world;
+	std::unique_ptr<buffer> geo_buffer;
+	void* geo_bufmap;
+
+    physics_debug_shape_render_node_prototype(device* dev, reactphysics3d::PhysicsWorld* world);
+
+    void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
+            std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) override;
+    void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
+    vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass);
+    void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) override;
+    virtual void build_gui(class renderer*, struct render_node* node) {}
+
+    virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return nullptr; }
+    const char* name() const override { return "Viewport Shapes"; }
+    size_t id() const override { return 0x0000fffc; }
+};
 
 void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::PhysicsWorld* world);
-
