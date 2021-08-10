@@ -476,13 +476,15 @@ void eggv_app::update(float t, float dt) {
         }
 
         if(cam_mouse_enabled) {
+            static double last_xpos = 0, last_ypos = 0;
             double xpos, ypos;
             glfwGetCursorPos(wnd, &xpos, &ypos);
             vec2 sz = vec2(size());
-            vec2 np = ((vec2(xpos, ypos) / sz)*2.f - 1.f) * pi<float>()/2.f;
-            trf->rotation = glm::normalize(
-                    glm::angleAxis(clamp(np.y, -pi<float>()/3.f, pi<float>()/3.f), right)
-                    *glm::angleAxis(-np.x, vec3(0.f, 1.f, 0.f)));
+            vec2 np = ((vec2(xpos - last_xpos, ypos - last_ypos) / sz)) * pi<float>()/2.f;
+            last_xpos = xpos; last_ypos = ypos;
+            trf->rotation = glm::angleAxis(np.x, vec3(0.f, 1.f, 0.f)) * trf->rotation;
+            trf->rotation = trf->rotation * glm::angleAxis(np.y, vec3(1.f ,0.f, 0.f));
+            trf->rotation = glm::normalize(trf->rotation);
         }
     }
 }
