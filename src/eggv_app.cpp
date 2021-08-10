@@ -200,8 +200,21 @@ std::shared_ptr<scene> create_scene(device* dev) {
 }
 
 #pragma region Initialization
+vec2 get_resolution_from_args(const std::vector<std::string>& cargs) {
+    for(int i = 0; i < cargs.size(); ++i) {
+        if(cargs[i] == "-r") {
+            i++;
+            float w = std::atof(cargs[i++].c_str());
+            float h = std::atof(cargs[i++].c_str());
+            return vec2(w,h);
+        }
+    }
+    return vec2(1920, 1080);
+}
+
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
-    : app("erg", vec2(2880, 1620)), current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
+    : app("erg", get_resolution_from_args(cargs)),
+        current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
         cam_mouse_enabled(false),
       gui_open_windows({
         {"Renderer", true},
