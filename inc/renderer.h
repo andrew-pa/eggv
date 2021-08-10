@@ -103,6 +103,8 @@ struct renderer {
     std::unique_ptr<buffer> materials_buf;
     gpu_material* mapped_materials;
     size_t num_gpu_mats;
+    std::map<std::string, std::shared_ptr<image>> texture_cache;
+    std::shared_ptr<image> load_texture(const std::string&, vk::CommandBuffer uplcb);
 
     framebuffer_ref allocate_framebuffer(const framebuffer_desc&);
     void compile_render_graph();

@@ -171,7 +171,8 @@ buffer::~buffer() {
 image::image(device* dev, vk::ImageCreateFlags flg, vk::ImageType type, vk::Extent3D size,
 	vk::Format fmt, vk::ImageTiling til, vk::ImageUsageFlags use, vk::MemoryPropertyFlags memuse,
 	uint32_t mip_count, uint32_t array_layers,
-	std::optional<vk::UniqueImageView*> iv, vk::ImageViewType iv_type, vk::ImageSubresourceRange iv_sr) :dev(dev) {
+	std::optional<vk::UniqueImageView*> iv, vk::ImageViewType iv_type, vk::ImageSubresourceRange iv_sr) :dev(dev) 
+{
 	VmaAllocationCreateInfo mreq = {};
 	mreq.requiredFlags = (VkMemoryPropertyFlags)memuse;
 	VmaAllocationInfo alli;

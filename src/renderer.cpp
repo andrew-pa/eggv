@@ -845,6 +845,38 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
         traverse_scene_graph(c.get(), fs, T);
 }
 
+#include "stb_image.h"
+std::shared_ptr<image> renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) {
+    auto existing_texture = texture_cache.find(path);
+    if(existing_texture != texture_cache.end())
+        return existing_texture->second;
+    else {
+        int width, height, channels;
+        auto data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+        auto staging_buffer = std::make_unique<buffer>(dev, width * height * channels,
+                vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible);
+        memcpy(staging_buffer->map(), data, width * height * channels);
+        staging_buffer->unmap();
+        vk::Format fmt = vk::Format::eUndefined;
+        switch(channels) {
+            case 1: fmt = vk::Format::eR8Unorm;
+            case 2: fmt = vk::Format::eR8G8Unorm;
+            case 3: fmt = vk::Format::eR8G8B8Unorm;
+            case 4: fmt = vk::Format::eR8G8B8A8Unorm;
+        };
+        std::cout << "image " << path << " -> " << width << "x" << height << "/" << channels << "\n";
+        auto img = std::make_shared<image>(dev, vk::ImageType::e2D, vk::Extent3D(width, height, 1),
+                fmt, vk::ImageTiling::eOptimal,
+                vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+                vk::MemoryPropertyFlagBits::eDeviceLocal);
+        uplcb.copyBufferToImage(staging_buffer->buf, img->img, vk::ImageLayout::eShaderReadOnlyOptimal,
+                { vk::BufferImageCopy{0, 0, 0, vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1}, {0,0,0}, {(uint32_t)width,(uint32_t)height,1}} });
+        dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
+        texture_cache[path] = img;
+        return img;
+    }
+}
+
 void renderer::update() {
     if(should_recompile || materials_buf == nullptr || current_scene->materials_changed) {
         dev->graphics_qu.waitIdle();
@@ -862,10 +894,18 @@ void renderer::update() {
             }
 
             // copy new materials to mapping
+            auto uplcb = dev->alloc_tmp_cmd_buffer();
+            uplcb.begin(vk::CommandBufferBeginInfo { vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
             for(size_t i = 0; i < current_scene->materials.size(); ++i) {
                 mapped_materials[i] = gpu_material(current_scene->materials[i].get());
                 current_scene->materials[i]->_render_index = i;
+                if(current_scene->materials[i]->diffuse_texpath.has_value()) {
+                    current_scene->materials[i]->diffuse_tex
+                        = load_texture(current_scene->materials[i]->diffuse_texpath.value(), uplcb);
+                }
             }
+            uplcb.end();
+            dev->graphics_qu.submit({vk::SubmitInfo(0,nullptr,nullptr,1,&uplcb)}, nullptr);
 
             if(!should_recompile && recreating_mat_buf) {
                 // make sure descriptor sets are up to date

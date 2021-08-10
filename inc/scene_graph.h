@@ -54,8 +54,11 @@ struct material {
     std::string name;
 
     vec3 base_color;
+    std::optional<std::string> diffuse_texpath;
 
-    material(std::string name, vec3 base_color = vec3(.1f), uuids::uuid id = uuids::uuid());
+    material(std::string name, vec3 base_color = vec3(.1f),
+            std::optional<std::string> diffuse_texpath = {},
+            uuids::uuid id = uuids::uuid());
 
     material(uuids::uuid id, json data);
 
@@ -64,6 +67,7 @@ struct material {
     bool build_gui(frame_state*);
 
     uint32 _render_index;
+    std::shared_ptr<struct image> diffuse_tex;
 };
 
 class scene {

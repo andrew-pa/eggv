@@ -138,13 +138,18 @@ int main(int argc, char* argv[]) {
             aiColor3D base_color(0.5, 0.0, 0.5);
             if (mat->Get(AI_MATKEY_BASE_COLOR, base_color) == aiReturn_FAILURE)
                 mat->Get(AI_MATKEY_COLOR_DIFFUSE, base_color);
-            out_scene["materials"][uuids::to_string(mat_id)] = json{
+            auto out_mat = json{
                 {"name", mat->GetName().C_Str()},
-                {"base", json::array({base_color.r, base_color.g, base_color.b})}
+                {"base", json::array({base_color.r, base_color.g, base_color.b})},
+                {"textures", json::object()}
             };
             aiString tex_path;
-            mat->GetTexture(aiTextureType_DIFFUSE, 0, &tex_path);
-            std::cout << "\t\tdiffuse texture @ " << tex_path.C_Str() << "\n";
+            bool has_tex = mat->GetTexture(aiTextureType_DIFFUSE, 0, &tex_path) == aiReturn_SUCCESS;
+            if(has_tex) {
+                std::cout << "\t\tdiffuse texture @ " << tex_path.C_Str() << "\n";
+                out_mat["textures"]["diffuse"] = tex_path.C_Str();
+            }
+            out_scene["materials"][uuids::to_string(mat_id)] = out_mat;
         }
         out_scene["graph"] = convert_scene_node(out_scene, scene->mRootNode, output_path, scene, material_index_to_id);
         std::ofstream outs(scene_path);

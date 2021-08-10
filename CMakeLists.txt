@@ -66,7 +66,7 @@ message("${COMPILED_SHADERS}")
 include_directories(inc/ depd/glm depd/vk_mem_alloc/include/
     depd/imgui/ depd/imgui/backends/ depd/imnodes/
     depd/ImGuiFileDialog/
-    depd/midifile/include/)
+    depd/stb/)
 
 if(WIN32)
     include_directories(depd/dirent/include)
@@ -92,6 +92,9 @@ add_library(imgui ${IMGUI_SRC_FILES})
 target_compile_features(imgui PRIVATE cxx_std_17)
 target_link_libraries(imgui glfw Vulkan::Vulkan)
 
+add_library(stb src/stb_impl.cpp)
+target_compile_features(stb PRIVATE cxx_std_17)
+
 add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/main.cpp src/swap_chain.cpp
     inc/mem_arena.h
@@ -104,7 +107,7 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/eggv_app.h src/eggv_app.cpp
     simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv entire-screen.vert.spv directional-light.frag.spv point-light.vert.spv point-light.frag.spv)
 target_compile_features(eggv PUBLIC cxx_std_17)
-target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid mio::mio)
+target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid mio::mio stb)
 
 add_executable(eggv_import inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/swap_chain.cpp

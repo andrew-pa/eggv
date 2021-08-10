@@ -12,8 +12,9 @@ scene_object::scene_object(std::optional<std::string> name, uuids::uuid id) : na
     else this->id = id;
 }
 
-material::material(std::string name, vec3 base_color, uuids::uuid id)
-    : name(name), base_color(base_color), id(id.is_nil() ? uuid_gen() : id) {}
+material::material(std::string name, vec3 base_color,
+        std::optional<std::string> diffuse_texpath, uuids::uuid id)
+    : name(name), base_color(base_color), diffuse_texpath(diffuse_texpath), id(id.is_nil() ? uuid_gen() : id) {}
 
 std::shared_ptr<scene_object> deserialize_object_graph(scene* s, const std::vector<std::shared_ptr<trait_factory>>& trait_factories, json data) {
     auto obj = std::make_shared<scene_object>(data.contains("name") ? std::optional((std::string)data.at("name")) : std::nullopt,
@@ -355,6 +356,11 @@ void camera_trait_factory::deserialize(struct scene* scene, struct scene_object*
 material::material(uuids::uuid id, json data) : id(id) {
     name = data["name"];
     base_color = ::deserialize_v3(data["base"]);
+    if(data.contains("textures")) {
+        auto& tx = data["textures"];
+        if(tx.contains("diffuse"))
+            diffuse_texpath = tx["diffuse"];
+    }
 }
 
 json material::serialize() const {
