@@ -19,8 +19,7 @@ struct rigid_body_trait : public trait {
 	void postprocess_transform(struct scene_object*, const mat4& T, frame_state*) override;
     void build_gui(struct scene_object*, frame_state*) override;
     json serialize() const override;
-
-	virtual ~rigid_body_trait();
+	void remove_from(struct scene_object*) override;
 };
 
 struct rigid_body_trait_factory : public trait_factory {

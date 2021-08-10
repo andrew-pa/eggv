@@ -2,7 +2,7 @@
 #include "imgui.h"
 using namespace reactphysics3d;
 
-rigid_body_trait::~rigid_body_trait() {
+void rigid_body_trait::remove_from(scene_object*){
 	auto f = (rigid_body_trait_factory*)this->parent;
 	f->world->destroyRigidBody(body);
 }
@@ -69,9 +69,15 @@ void rigid_body_trait::build_gui(scene_object*, frame_state*) {
 		for (uint i = 0; i < body->getNbColliders(); ++i) {
 			auto col = body->getCollider(i);
 			auto shape = col->getCollisionShape();
+			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::Text("%s", shape_names[(int)shape->getName()]);
+			if (ImGui::Button("-")) {
+				ImGui::PopID();
+				body->removeCollider(col);
+				continue;
+			}
 			ImGui::TableNextColumn();
 			switch (shape->getName()) {
 				case CollisionShapeName::BOX: {
@@ -111,7 +117,7 @@ void rigid_body_trait::build_gui(scene_object*, frame_state*) {
 			}
 			if (tf_changed)
 				col->setLocalToBodyTransform(tf);
-	
+			ImGui::PopID();
 		}
 		ImGui::EndTable();
 	}
@@ -284,7 +290,7 @@ vk::UniquePipeline physics_debug_shape_render_node_prototype::generate_pipeline(
     auto multisample_state = vk::PipelineMultisampleStateCreateInfo{};
 
     auto depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo{
-        {}, false, true, vk::CompareOp::eLess, false, false
+        {}, false, false, vk::CompareOp::eLess, false, false
     };
 
     vk::PipelineColorBlendAttachmentState color_blend_att[] = {
@@ -322,6 +328,7 @@ vk::UniquePipeline physics_debug_shape_render_node_prototype::generate_pipeline(
 }
 
 void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb) {
+	if (!world->getIsDebugRenderingEnabled()) return;
 	auto& dr = world->getDebugRenderer();
 	if (dr.getNbLines() > 0) {
 		memcpy(geo_bufmap, dr.getLinesArray(),
