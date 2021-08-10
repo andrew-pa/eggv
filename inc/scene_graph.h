@@ -28,6 +28,9 @@ struct trait {
 
     virtual json serialize() const { return {}; }
 
+    // only called when a trait is removed from an object while running. Only the destructor will be called at exit
+    virtual void remove_from(struct scene_object*) {}
+
     virtual ~trait() {}
 };
 
@@ -86,6 +89,8 @@ public:
 
     void update(frame_state* fs, class app*);
     void build_gui(frame_state* fs);
+
+    std::shared_ptr<scene_object> find_object_by_id(const uuids::uuid& id);
 
     json serialize() const;
 };

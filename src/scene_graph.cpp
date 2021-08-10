@@ -33,17 +33,34 @@ std::shared_ptr<scene_object> deserialize_object_graph(scene* s, const std::vect
     return obj;
 }
 
-scene::scene(device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories, json data) 
+scene::scene(device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories, json data)
     : trait_factories(trait_factories), selected_object(nullptr), selected_material(nullptr), active_camera(nullptr),
-      root(nullptr), materials_changed(true)
+    root(nullptr), materials_changed(true)
 {
-    for(const auto& p : data["geometries"]) {
+    for (const auto& p : data["geometries"]) {
         geometry_sets.push_back(std::make_shared<geometry_set>(dev, p));
     }
-    for(const auto&[id, m] : data["materials"].items()) {
+    for (const auto& [id, m] : data["materials"].items()) {
         materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));
     }
     root = deserialize_object_graph(this, trait_factories, data["graph"]);
+    if (data.contains("active_camera")) {
+        active_camera = find_object_by_id(uuids::uuid::from_string(data["active_camera"].get<std::string>()).value());
+    }
+}
+
+std::shared_ptr<scene_object> _find_obj_by_id(std::shared_ptr<scene_object> ob, const uuids::uuid& id) {
+    if (!ob) return nullptr;
+    if (ob->id == id) return ob;
+    for (const auto& ch : ob->children) {
+        auto f = _find_obj_by_id(ch, id);
+        if (f) return f;
+    }
+    return nullptr;
+}
+
+std::shared_ptr<scene_object> scene::find_object_by_id(const uuids::uuid& id) {
+    return _find_obj_by_id(root, id);
 }
 
 void scene::update(frame_state* fs, app* app) {
@@ -135,8 +152,10 @@ void scene::build_gui(frame_state* fs) {
                     }
                 }
             }
-            if(removed_trait.has_value())
+            if (removed_trait.has_value()) {
+                selected_object->traits[removed_trait.value()]->remove_from(selected_object.get());
                 selected_object->traits.erase(removed_trait.value());
+            }
             if(ImGui::BeginPopupContextWindow()) {
                 if(ImGui::BeginMenu("Add trait")) {
                     for(const auto& tf : this->trait_factories) {
@@ -262,11 +281,16 @@ json scene::serialize() const {
     for(const auto& m : materials) {
         mats[uuids::to_string(m->id)] = m->serialize();
     }
-    return {
+    json sc = {
         {"geometries", geosets},
         {"materials", mats},
         {"graph", serialize_graph(root)}
     };
+
+    if (active_camera)
+        sc["active_camera"] = uuids::to_string(active_camera->id);
+
+    return sc;
 }
 
 json transform_trait::serialize() const {
@@ -336,8 +360,10 @@ json camera_trait::serialize() const {
 
 void camera_trait::build_gui(scene_object* obj, frame_state* fs) {
     ImGui::DragFloat("FOV", &this->fov, 0.1f, pi<float>()/8.f, pi<float>());
-    if(ImGui::Button("Make Active Camera")) {
-        fs->current_scene->active_camera = obj->shared_from_this();
+    if (obj != fs->current_scene->active_camera.get()) {
+        if (ImGui::Button("Make Active Camera")) {
+            fs->current_scene->active_camera = obj->shared_from_this();
+        }
     }
 }
 
