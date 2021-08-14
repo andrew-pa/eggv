@@ -82,6 +82,8 @@ struct gpu_material {
     gpu_material(material* mat) : base_color(mat->base_color) {}
 };
 
+#define MAX_TEXTURES 64
+
 struct renderer {
     device* dev; swap_chain* swpc;
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
@@ -103,8 +105,14 @@ struct renderer {
     std::unique_ptr<buffer> materials_buf;
     gpu_material* mapped_materials;
     size_t num_gpu_mats;
-    std::map<std::string, std::shared_ptr<image>> texture_cache;
-    std::shared_ptr<image> load_texture(const std::string&, vk::CommandBuffer uplcb);
+
+    std::vector<std::tuple<std::string, std::shared_ptr<image>, vk::UniqueImageView>> texture_cache;
+    size_t load_texture(const std::string&, vk::CommandBuffer uplcb);
+    vk::UniqueSampler texture_sampler;
+    vk::UniqueDescriptorSetLayout texture_desc_set_layout;
+    vk::UniqueDescriptorSet texture_desc_set;
+    void update_texture_desc_set(std::vector<vk::WriteDescriptorSet>& writes,
+            arena<vk::DescriptorImageInfo>& img_infos);
 
     framebuffer_ref allocate_framebuffer(const framebuffer_desc&);
     void compile_render_graph();
@@ -136,7 +144,7 @@ struct renderer {
     void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
     void build_gui(frame_state*);
-    void update();
+    void update(frame_state*);
     void render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs);
     ~renderer();
 };

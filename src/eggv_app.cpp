@@ -281,7 +281,8 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     ImGui_ImplVulkan_DestroyFontUploadObjects();
     dev->clear_tmps();
 
-    r.update();
+    //frame_state fs(0.f, 0.f, current_scene, &gui_open_windows);
+    //r.update(&fs);
 }
 
 void eggv_app::load_plugin(const std::string& path) {
@@ -425,9 +426,9 @@ void eggv_app::build_gui(frame_state* fs) {
 
 #pragma region Render Loop
 void eggv_app::update(float t, float dt) {
-    r.update();
     frame_state fs(t, dt, current_scene, &gui_open_windows);
     current_scene->update(&fs, this);
+    r.update(&fs);
 
     if(ui_key_cooldown <= 0.f) {
         if (glfwGetKey(this->wnd, GLFW_KEY_F2) == GLFW_PRESS) {

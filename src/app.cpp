@@ -159,6 +159,7 @@ void app::run(bool pdfps)
 	/*uint fc = 0;
 	float ft = 0.f;*/
 	tm.reset();
+        update(tm.time(), tm.delta_time());
 	while (!glfwWindowShouldClose(wnd))
 	{
 		tm.update();

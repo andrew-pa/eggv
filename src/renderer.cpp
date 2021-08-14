@@ -191,7 +191,7 @@ struct color_preview_render_node_prototype : public render_node_prototype {
         if(node->inputs[0].first == nullptr) return;
         auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->inputs[0].first->outputs[node->inputs[0].second]];
         if(fb_img == nullptr) { ImGui::Text("invalid framebuffer"); return; }
-        ImGui::Image((void*)fb_img->img, ImVec2(256,256));
+        ImGui::Image((void*)fb_img_view.get(), ImVec2(256,256));
     }
 };
 
@@ -263,6 +263,20 @@ void renderer::init(device* _dev) {
     frame_uniforms_buf = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
             vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
             (void**)&mapped_frame_uniforms);
+
+    texture_desc_set_layout = dev->create_desc_set_layout({
+        vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler,
+                MAX_TEXTURES, vk::ShaderStageFlagBits::eAllGraphics)
+    });
+
+    texture_sampler = dev->dev->createSamplerUnique(vk::SamplerCreateInfo {
+        {}, vk::Filter::eLinear, vk::Filter::eLinear,
+        vk::SamplerMipmapMode::eNearest,
+        vk::SamplerAddressMode::eRepeat,
+        vk::SamplerAddressMode::eRepeat,
+        vk::SamplerAddressMode::eRepeat,
+        0.f, true, 16.f
+    });
 }
 
 framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
@@ -436,6 +450,7 @@ void renderer::compile_render_graph() {
         for(auto& ou : n->outputs) ou = 0;
         n->desc_set.release();
     }
+    texture_desc_set.release();
 
     // allocate framebuffers to each node - for now nothing fancy, just give each output its own buffer
     // assign the actual screen backbuffers
@@ -533,6 +548,12 @@ void renderer::compile_render_graph() {
         auto node = subpass_order[i];
         node->prototype->collect_descriptor_layouts(node.get(), pool_sizes, layouts, outputs);
     }
+
+    // texture descriptor set
+    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, MAX_TEXTURES));
+    layouts.push_back(texture_desc_set_layout.get());
+    outputs.push_back(&texture_desc_set);
+
     /* std::cout << "desc_pool = " << desc_pool.get() << "\n"; */
     desc_pool = std::move(dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
         vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
@@ -545,7 +566,6 @@ void renderer::compile_render_graph() {
     for(size_t i = 0; i < sets.size(); ++i) {
         outputs[i]->swap(sets[i]);
     }
-
 
     // create each subpass pipeline and command buffer if possible
     // also gather descriptor writes
@@ -564,6 +584,7 @@ void renderer::compile_render_graph() {
             node->subpass_commands.swap(subpass_commands);
         }
     }
+    this->update_texture_desc_set(desc_writes, img_infos);
     dev->dev->updateDescriptorSets(desc_writes, {});
     should_recompile = false;
 }
@@ -817,7 +838,8 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
 
     if(show_shapes) {
         for(auto&[_, t] : obj->traits) {
-            t->collect_viewport_shapes(obj, fs, T, obj == current_scene->selected_object.get(), this->active_shapes);
+            t->collect_viewport_shapes(obj, fs, T,
+                    obj == current_scene->selected_object.get(), this->active_shapes);
         }
     }
 
@@ -825,7 +847,7 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
     if(mt != obj->traits.end()) {
         auto mmt = (mesh_trait*)mt->second.get();
         if (mmt->m != nullptr)
-			active_meshes.push_back({ mmt, T });
+            active_meshes.push_back({ mmt, T });
     }
 
     auto lt = obj->traits.find(TRAIT_ID_LIGHT);
@@ -846,10 +868,11 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
 }
 
 #include "stb_image.h"
-std::shared_ptr<image> renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) {
-    auto existing_texture = texture_cache.find(path);
+size_t renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) {
+    auto existing_texture = std::find_if(texture_cache.begin(), texture_cache.end(),
+            [&](const auto& p) { return std::get<0>(p) == path; });
     if(existing_texture != texture_cache.end())
-        return existing_texture->second;
+        return std::distance(texture_cache.begin(), existing_texture);
     else {
         int width, height, channels;
         auto data = stbi_load(path.c_str(), &width, &height, &channels, 0);
@@ -865,23 +888,29 @@ std::shared_ptr<image> renderer::load_texture(const std::string& path, vk::Comma
             case 4: fmt = vk::Format::eR8G8B8A8Unorm;
         };
         std::cout << "image " << path << " -> " << width << "x" << height << "/" << channels << "\n";
+        vk::UniqueImageView img_view;
         auto img = std::make_shared<image>(dev, vk::ImageType::e2D, vk::Extent3D(width, height, 1),
                 fmt, vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-                vk::MemoryPropertyFlagBits::eDeviceLocal);
+                vk::MemoryPropertyFlagBits::eDeviceLocal,
+                &img_view, vk::ImageViewType::e2D, vk::ImageSubresourceRange(
+                    vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
+                ));
         uplcb.copyBufferToImage(staging_buffer->buf, img->img, vk::ImageLayout::eShaderReadOnlyOptimal,
                 { vk::BufferImageCopy{0, 0, 0, vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1}, {0,0,0}, {(uint32_t)width,(uint32_t)height,1}} });
         dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
-        texture_cache[path] = img;
-        return img;
+        size_t index = texture_cache.size();
+        texture_cache.push_back({path, img, std::move(img_view)});
+        return index;
     }
 }
 
-void renderer::update() {
+void renderer::update(frame_state* fs) {
     if(should_recompile || materials_buf == nullptr || current_scene->materials_changed) {
         dev->graphics_qu.waitIdle();
         dev->present_qu.waitIdle();
     }
+    
     if(materials_buf == nullptr || current_scene->materials_changed) {
         if(current_scene->materials.size() != 0) {
             // recreate material buffer if necessary
@@ -900,8 +929,8 @@ void renderer::update() {
                 mapped_materials[i] = gpu_material(current_scene->materials[i].get());
                 current_scene->materials[i]->_render_index = i;
                 if(current_scene->materials[i]->diffuse_texpath.has_value()) {
-                    current_scene->materials[i]->diffuse_tex
-                        = load_texture(current_scene->materials[i]->diffuse_texpath.value(), uplcb);
+                    current_scene->materials[i]->_diffuse_tex_index =
+                        load_texture(current_scene->materials[i]->diffuse_texpath.value(), uplcb);
                 }
             }
             uplcb.end();
@@ -916,11 +945,26 @@ void renderer::update() {
                     auto node = subpass_order[i];
                     node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
                 }
+                update_texture_desc_set(desc_writes, img_infos);
                 dev->dev->updateDescriptorSets(desc_writes, {});
             }
         }
     }
     if(should_recompile) compile_render_graph();
+}
+
+void renderer::update_texture_desc_set(std::vector<vk::WriteDescriptorSet>& writes,
+        arena<vk::DescriptorImageInfo>& img_infos)
+{
+    for(size_t i = 0; i < texture_cache.size(); ++i) {
+        auto info = img_infos.alloc(vk::DescriptorImageInfo {
+            texture_sampler.get(), std::get<2>(texture_cache[i]).get(),
+            vk::ImageLayout::eShaderReadOnlyOptimal
+        });
+        writes.push_back(vk::WriteDescriptorSet(texture_desc_set.get(),
+            0, i, 1,
+            vk::DescriptorType::eCombinedImageSampler, info));
+    }
 }
 
 void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {

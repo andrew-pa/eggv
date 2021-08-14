@@ -67,7 +67,7 @@ struct material {
     bool build_gui(frame_state*);
 
     uint32 _render_index;
-    std::shared_ptr<struct image> diffuse_tex;
+    uint32 _diffuse_tex_index;
 };
 
 class scene {
