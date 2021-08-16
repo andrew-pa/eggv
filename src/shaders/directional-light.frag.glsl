@@ -23,11 +23,11 @@ layout(set = 0, binding = 4) buffer materials {
 
 void main() {
     vec4 txc_mat = subpassLoad(input_texcoord_mat);
-    if(txc_mat.z < 1.f) discard;
+    if(txc_mat.w < 1.f) discard;
 
     vec3 L = (cam.view * light.direction).xyz;
-    material mat = mats.data[uint(txc_mat.w)];
+    material mat = mats.data[uint(txc_mat.w) - 1];
     vec3 nor = subpassLoad(input_normal).xyz;
 
-    frag_color = vec4(compute_lighting(nor, L, light.color.rgb, mat),1.0);
+    frag_color = vec4(compute_lighting(nor, L, light.color.rgb, mat, txc_mat.xyz),1.0);
 }

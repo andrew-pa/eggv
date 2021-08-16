@@ -54,11 +54,21 @@
             "inputs": [
                 {
                     "src_idx": 0,
-                    "src_node": 1502567884
+                    "src_node": 7408
                 }
             ],
             "prototype_id": 65535
+        },
+        "7408": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 1502567884
+                }
+            ],
+            "prototype_id": 65532
         }
     },
-    "ui_state": "[editor]\npanning=0,0\n\n[node.1804289383]\norigin=425,66\n\n[node.1714636915]\norigin=366,261\n\n[node.1681692777]\norigin=32,69\n\n[node.1502567884]\norigin=367,465\n"
+    "ui_state": "[editor]\npanning=0,0\n\n[node.1804289383]\norigin=593,45\n\n[node.1714636915]\norigin=366,261\n\n[node.1681692777]\norigin=32,69\n\n[node.1502567884]\norigin=367,465\n\n[node.7408]\norigin=332,29\n"
 }

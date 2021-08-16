@@ -13,8 +13,10 @@ layout(push_constant) uniform push_constants {
     uint material_index;
 } pc;
 
+layout(set = 1, binding = 0) uniform sampler2D tex_diffuse;
+
 void main() {
-    position_buf = vec4(view_pos, 0.0);
-    normal_buf = vec4(view_nor, 0.0);
-    texture_material_buf = vec4(tex_coord, 1.0, pc.material_index);
+    position_buf = vec4(view_pos, tex_coord.x);
+    normal_buf = vec4(view_nor, tex_coord.y);
+    texture_material_buf = vec4(texture(tex_diffuse, tex_coord).xyz, pc.material_index + 1);
 }

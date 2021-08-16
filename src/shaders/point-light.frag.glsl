@@ -25,16 +25,16 @@ layout(set = 0, binding = 4) buffer materials {
 
 void main() {
     vec4 txc_mat = subpassLoad(input_texcoord_mat);
-    if(txc_mat.z < 1.f) discard;
+    if(txc_mat.w < 1.f) discard;
     vec3 pos = subpassLoad(input_position).xyz;
     vec3 nor = subpassLoad(input_normal).xyz;
 
-    material mat = mats.data[uint(txc_mat.w)];
+    material mat = mats.data[uint(txc_mat.w) - 1];
 
     vec3 L = light.view_pos.xyz - pos;
     float d = length(L);
     L /= d;
 
     vec3 Lcol = light.color.xyz * (1.0 / (1.0 + light.param.x * d * d));
-    frag_color = vec4(compute_lighting(nor, -L, Lcol, mat), 1.0);
+    frag_color = vec4(compute_lighting(nor, -L, Lcol, mat, txc_mat.xyz), 1.0);
 }

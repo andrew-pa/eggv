@@ -2,7 +2,7 @@
 #include "renderer.h"
 
 struct gbuffer_geom_render_node_prototype : public render_node_prototype {
-    gbuffer_geom_render_node_prototype(device* dev);
+    gbuffer_geom_render_node_prototype(device* dev, renderer*);
     virtual size_t id() const override { return 0x00010000; }
     virtual const char* name() const override { return "Geometry Buffer"; };
 

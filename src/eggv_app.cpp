@@ -238,7 +238,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     this->init_swapchain_depd();
     this->init_gui();
 
-    r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get()));
+    r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get(), &r));
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
 
@@ -452,7 +452,7 @@ void eggv_app::update(float t, float dt) {
     }
 
     if(!ImGui::IsWindowFocused(ImGuiFocusedFlags_AnyWindow) && current_scene->active_camera) {
-        const float speed = 5.0f;
+        static float speed = 5.0f;
         auto cam = (camera_trait*)current_scene->active_camera->traits.find(TRAIT_ID_CAMERA)->second.get();
         auto trf = (transform_trait*)current_scene->active_camera->traits.find(TRAIT_ID_TRANSFORM)->second.get();
         mat3 rot = glm::toMat3(trf->rotation);
@@ -473,6 +473,11 @@ void eggv_app::update(float t, float dt) {
             trf->translation -= speed*up*dt;
         } else if(glfwGetKey(wnd, GLFW_KEY_E) != GLFW_RELEASE) {
             trf->translation += speed*up*dt;
+        }
+        if(glfwGetKey(wnd, GLFW_KEY_1) != GLFW_RELEASE) {
+            speed += 1.f;
+        } else if(glfwGetKey(wnd, GLFW_KEY_2) != GLFW_RELEASE) {
+            speed -= 1.f;
         }
         if(glfwGetKey(wnd, GLFW_KEY_R) != GLFW_RELEASE) {
             trf->rotation = quat(0.f, 0.f, 0.f, 1.f);

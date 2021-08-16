@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
     std::cout << input_path << " => " << output_path << "\n";
 
     Assimp::Importer imp;
-    imp.ReadFile(input_path, aiProcess_GenBoundingBoxes | aiProcessPreset_TargetRealtime_MaxQuality);
+    imp.ReadFile(input_path, aiProcess_GenBoundingBoxes | aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_FlipUVs);
     std::cout << "\tloaded model\n";
     
     auto scene = imp.GetScene();
@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (write_scene) {
-        std::cout << "\tcreating scene file\n";
+        std::cout << "creating scene file at " << scene_path << "\n";
         auto out_scene = json {
             {"materials", json::object()},
             {"geometries", json::array({ output_path })},

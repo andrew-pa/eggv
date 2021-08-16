@@ -3,7 +3,7 @@
 
 // --- geometery buffer
 
-gbuffer_geom_render_node_prototype::gbuffer_geom_render_node_prototype(device* dev) {
+gbuffer_geom_render_node_prototype::gbuffer_geom_render_node_prototype(device* dev, renderer* r) {
     inputs = {};
     outputs = {
         framebuffer_desc{"position", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
@@ -21,8 +21,13 @@ gbuffer_geom_render_node_prototype::gbuffer_geom_render_node_prototype(device* d
         vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4), sizeof(uint32) }
     };
 
+	vk::DescriptorSetLayout desc_layouts[] = {
+		desc_layout.get(),
+		r->material_desc_set_layout.get()
+	};
+
     pipeline_layout = dev->dev->createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo {
-        {}, 1, &desc_layout.get(), 2, push_consts
+        {}, 2, desc_layouts, 2, push_consts
     });
 }
 
@@ -115,6 +120,8 @@ void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     for(const auto&[mesh, world_transform] : r->active_meshes) {
+        cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
+            1, { mesh->mat->desc_set }, {});
         auto m = mesh->m;
         cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
         cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
