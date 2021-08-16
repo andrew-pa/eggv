@@ -47,16 +47,15 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
         vk::PushConstantRange push_consts[] = {
             vk::PushConstantRange { vk::ShaderStageFlagBits::eVertex, 0, sizeof(mat4) },
             vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4), sizeof(vec3) },
-            vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4)+sizeof(vec3), sizeof(uint32) }
         };
 
         vk::DescriptorSetLayout desc_layouts[] = {
             desc_layout.get(),
-            r->texture_desc_set_layout.get()
+            r->material_desc_set_layout.get()
         };
 
         pipeline_layout = dev->dev->createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo {
-                {}, 2, desc_layouts, 3, push_consts
+                {}, 2, desc_layouts, 2, push_consts
         });
     }
 
@@ -146,16 +145,16 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
     virtual void generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb) override {
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
-                0, { node->desc_set.get(), r->texture_desc_set.get() }, {});
+                0, { node->desc_set.get() }, {});
         for(const auto&[mesh, world_transform] : r->active_meshes) {
+            cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
+                1, { mesh->mat->desc_set }, {});
             auto m = mesh->m;
             cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
             cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
             cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
             cb.pushConstants<vec3>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
                     { vec3(mesh->mat ? mesh->mat->base_color : vec3(0.5f, 0.f, 0.2f)) });
-            cb.pushConstants<uint32>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4)+sizeof(vec3),
-                    { mesh->mat->_diffuse_tex_index });
             cb.drawIndexed(m->index_count, 1, 0, 0, 0);
         }
     }
@@ -256,13 +255,13 @@ renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_rec
 
 void renderer::init(device* _dev) {
     this->dev = _dev;
-        frame_uniforms_buf = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
+    frame_uniforms_buf = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
             vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
             (void**)&mapped_frame_uniforms);
 
-    texture_desc_set_layout = dev->create_desc_set_layout({
+    material_desc_set_layout = dev->create_desc_set_layout({
         vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eCombinedImageSampler,
-                MAX_TEXTURES, vk::ShaderStageFlagBits::eAllGraphics)
+                1, vk::ShaderStageFlagBits::eAllGraphics)
     });
 
     texture_sampler = dev->dev->createSamplerUnique(vk::SamplerCreateInfo {
@@ -273,6 +272,13 @@ void renderer::init(device* _dev) {
         vk::SamplerAddressMode::eRepeat,
         0.f, true, 16.f
     });
+
+    uint32 nil_tex_data = 0xffff'ffff;
+    auto uplcb = dev->alloc_tmp_cmd_buffer();
+    uplcb.begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+    create_texture2d("nil", 1, 1, vk::Format::eR8G8B8A8Unorm, 4, &nil_tex_data, uplcb);
+	uplcb.end();
+	dev->graphics_qu.submit({ vk::SubmitInfo(0,nullptr,nullptr,1,&uplcb) }, nullptr);
 
 	prototypes = {
 		   std::make_shared<output_render_node_prototype>(),
@@ -458,7 +464,6 @@ void renderer::compile_render_graph() {
         for(auto& ou : n->outputs) ou = 0;
         n->desc_set.release();
     }
-    texture_desc_set.release();
 
     // allocate framebuffers to each node - for now nothing fancy, just give each output its own buffer
     // assign the actual screen backbuffers
@@ -557,11 +562,6 @@ void renderer::compile_render_graph() {
         node->prototype->collect_descriptor_layouts(node.get(), pool_sizes, layouts, outputs);
     }
 
-    // texture descriptor set
-    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, MAX_TEXTURES));
-    layouts.push_back(texture_desc_set_layout.get());
-    outputs.push_back(&texture_desc_set);
-
     /* std::cout << "desc_pool = " << desc_pool.get() << "\n"; */
     desc_pool = std::move(dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
         vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
@@ -592,7 +592,6 @@ void renderer::compile_render_graph() {
             node->subpass_commands.swap(subpass_commands);
         }
     }
-    this->update_texture_desc_set(desc_writes, img_infos);
     dev->dev->updateDescriptorSets(desc_writes, {});
     should_recompile = false;
 }
@@ -828,10 +827,31 @@ void renderer::build_gui(frame_state* fs) {
                 }
                 ImGui::EndTable();
             }
-
-            ImGui::EndTabItem();
+			ImGui::EndTabItem();
         }
-
+        
+		if (ImGui::BeginTabItem("Textures")) {
+			if (ImGui::BeginTable("#RenderTextureTable", 3, ImGuiTableFlags_Resizable)) {
+				ImGui::TableSetupColumn("Name");
+                ImGui::TableSetupColumn("Format");
+                ImGui::TableSetupColumn("Size");
+				//ImGui::TableSetupColumn("Preview");
+				ImGui::TableHeadersRow();
+				for (const auto& [name, img, imv] : texture_cache) {
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::Text("%s", name.c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%s", vk::to_string(img->info.format).c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%u x %u", img->info.extent.width, img->info.extent.height);
+					//ImGui::TableNextColumn();
+					//ImGui::Image((ImTextureID)img->img, ImVec2(128, 128));
+				}
+				ImGui::EndTable();
+			}
+			ImGui::EndTabItem();
+		}
 
         ImGui::EndTabBar();
     }
@@ -884,10 +904,6 @@ size_t renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) 
     else {
         int width, height, channels;
         auto data = stbi_load(path.c_str(), &width, &height, &channels, 0);
-        auto staging_buffer = std::make_unique<buffer>(dev, width * height * channels,
-                vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible);
-        memcpy(staging_buffer->map(), data, width * height * channels);
-        staging_buffer->unmap();
         vk::Format fmt = vk::Format::eUndefined;
         switch(channels) {
             case 1: fmt = vk::Format::eR8Unorm; break;
@@ -896,37 +912,50 @@ size_t renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) 
             case 4: fmt = vk::Format::eR8G8B8A8Unorm; break;
         };
         std::cout << "image " << path << " -> " << width << "x" << height << "/" << channels << "\n";
-        vk::UniqueImageView img_view;
-        auto subresource_range = vk::ImageSubresourceRange(
-            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
-        );
-        auto img = std::make_shared<image>(dev, vk::ImageType::e2D, vk::Extent3D(width, height, 1),
-                fmt, vk::ImageTiling::eOptimal,
-                vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-                vk::MemoryPropertyFlagBits::eDeviceLocal,
-                &img_view, vk::ImageViewType::e2D, subresource_range);
-        uplcb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
-            {}, {}, {}, {
-                vk::ImageMemoryBarrier({}, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
-                    vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, 
-                    img->img, subresource_range)
-            }
-        );
-        uplcb.copyBufferToImage(staging_buffer->buf, img->img, vk::ImageLayout::eTransferDstOptimal,
-                { vk::BufferImageCopy{0, 0, 0, vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1}, {0,0,0}, {(uint32_t)width,(uint32_t)height,1}} });
-        uplcb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
-            {}, {}, {}, {
-                vk::ImageMemoryBarrier(vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
-                    vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
-                    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, 
-                    img->img, subresource_range)
-            }
-        );
-        dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
-        size_t index = texture_cache.size();
-        texture_cache.push_back({path, img, std::move(img_view)});
-        return index;
-    }
+        return create_texture2d(path, width, height, fmt, width * height * channels, data, uplcb);
+   }
+}
+
+size_t renderer::create_texture2d(const std::string& name, size_t width, size_t height, vk::Format fmt, size_t data_size, void* data, vk::CommandBuffer uplcb) {
+	auto existing_texture = std::find_if(texture_cache.begin(), texture_cache.end(),
+            [&](const auto& p) { return std::get<0>(p) == name; });
+    if(existing_texture != texture_cache.end())
+        return std::distance(texture_cache.begin(), existing_texture);
+     
+     auto staging_buffer = std::make_unique<buffer>(dev, data_size,
+                vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible);
+        memcpy(staging_buffer->map(), data, data_size);
+        staging_buffer->unmap();
+	vk::UniqueImageView img_view;
+	auto subresource_range = vk::ImageSubresourceRange(
+		vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
+	);
+	auto img = std::make_shared<image>(dev, vk::ImageType::e2D, vk::Extent3D(width, height, 1),
+		fmt, vk::ImageTiling::eOptimal,
+		vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+		vk::MemoryPropertyFlagBits::eDeviceLocal,
+		&img_view, vk::ImageViewType::e2D, subresource_range);
+	uplcb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
+			{}, {}, {}, {
+				vk::ImageMemoryBarrier({}, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
+					vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+					img->img, subresource_range)
+			}
+			);
+	uplcb.copyBufferToImage(staging_buffer->buf, img->img, vk::ImageLayout::eTransferDstOptimal,
+		{ vk::BufferImageCopy{0, 0, 0, vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1}, {0,0,0}, {(uint32_t)width,(uint32_t)height,1}} });
+	uplcb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+			{}, {}, {}, {
+				vk::ImageMemoryBarrier(vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
+					vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
+					VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+					img->img, subresource_range)
+			}
+			);
+	dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
+	size_t index = texture_cache.size();
+	texture_cache.push_back({ name, img, std::move(img_view) });
+	return index;
 }
 
 void renderer::update(frame_state* fs) {
@@ -941,67 +970,72 @@ void renderer::update(frame_state* fs) {
             bool recreating_mat_buf = materials_buf == nullptr || num_gpu_mats != current_scene->materials.size();
             if(recreating_mat_buf) {
                 num_gpu_mats = current_scene->materials.size();
+                // we could probably move the materials ubuffer into the material desc set
+                // and then use desc set offsets instead of push constants
+                // I guess that wouldn't work well for lights
                 materials_buf = std::make_unique<buffer>(dev, sizeof(gpu_material)*num_gpu_mats,
                         vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
                         (void**)&mapped_materials);
+                vk::DescriptorPoolSize pool_sizes[] = {
+                    vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, num_gpu_mats)
+                };
+                material_desc_pool.swap(dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{
+                    {},
+                    (uint32)num_gpu_mats, 1, pool_sizes
+                }));
+                std::vector<vk::DescriptorSetLayout> material_desc_set_layout_per_set(
+                    num_gpu_mats, material_desc_set_layout.get());
+                auto new_sets = dev->dev->allocateDescriptorSets(vk::DescriptorSetAllocateInfo {
+                    material_desc_pool.get(),
+                    (uint32)num_gpu_mats, material_desc_set_layout_per_set.data()
+                });
+                for (size_t i = 0; i < num_gpu_mats; ++i)
+                    current_scene->materials[i]->desc_set = new_sets[i];
             }
 
             // copy new materials to mapping
             auto uplcb = dev->alloc_tmp_cmd_buffer();
+            std::vector<vk::WriteDescriptorSet> desc_writes;
+            arena<vk::DescriptorBufferInfo> buf_infos;
+            arena<vk::DescriptorImageInfo> img_infos;
+			auto default_info = img_infos.alloc(vk::DescriptorImageInfo{
+						texture_sampler.get(), std::get<2>(texture_cache[0]).get(),
+						vk::ImageLayout::eShaderReadOnlyOptimal
+			});
+
             uplcb.begin(vk::CommandBufferBeginInfo { vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
             for(size_t i = 0; i < current_scene->materials.size(); ++i) {
                 mapped_materials[i] = gpu_material(current_scene->materials[i].get());
                 current_scene->materials[i]->_render_index = i;
                 if(current_scene->materials[i]->diffuse_texpath.has_value()) {
-                    current_scene->materials[i]->_diffuse_tex_index =
-                        load_texture(current_scene->materials[i]->diffuse_texpath.value(), uplcb);
+                    auto ix = load_texture(current_scene->materials[i]->diffuse_texpath.value(), uplcb);
+					auto info = img_infos.alloc(vk::DescriptorImageInfo {
+						texture_sampler.get(), std::get<2>(texture_cache[ix]).get(),
+						vk::ImageLayout::eShaderReadOnlyOptimal
+					});
+					desc_writes.push_back(vk::WriteDescriptorSet(current_scene->materials[i]->desc_set,
+						0, 0, 1,
+						vk::DescriptorType::eCombinedImageSampler, info));
+                } else {
+					desc_writes.push_back(vk::WriteDescriptorSet(current_scene->materials[i]->desc_set,
+						0, 0, 1,
+						vk::DescriptorType::eCombinedImageSampler, default_info));
                 }
-            }
-            uplcb.end();
-            dev->graphics_qu.submit({vk::SubmitInfo(0,nullptr,nullptr,1,&uplcb)}, nullptr);
+			}
+			uplcb.end();
+			dev->graphics_qu.submit({ vk::SubmitInfo(0,nullptr,nullptr,1,&uplcb) }, nullptr);
 
             if(!should_recompile && recreating_mat_buf) {
-                // make sure descriptor sets are up to date
-                std::vector<vk::WriteDescriptorSet> desc_writes;
-                arena<vk::DescriptorBufferInfo> buf_infos;
-                arena<vk::DescriptorImageInfo> img_infos;
+                // make sure render node descriptor sets are up to date
                 for(size_t i = 0; i < subpass_order.size(); ++i) {
                     auto node = subpass_order[i];
                     node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
                 }
-                update_texture_desc_set(desc_writes, img_infos);
-                dev->dev->updateDescriptorSets(desc_writes, {});
             }
+            dev->dev->updateDescriptorSets(desc_writes, {});
         }
     }
     if(should_recompile) compile_render_graph();
-}
-
-void renderer::update_texture_desc_set(std::vector<vk::WriteDescriptorSet>& writes,
-        arena<vk::DescriptorImageInfo>& img_infos)
-{
-    for(size_t i = 0; i < texture_cache.size(); ++i) {
-        auto info = img_infos.alloc(vk::DescriptorImageInfo {
-            texture_sampler.get(), std::get<2>(texture_cache[i]).get(),
-            vk::ImageLayout::eShaderReadOnlyOptimal
-        });
-        writes.push_back(vk::WriteDescriptorSet(texture_desc_set.get(),
-            0, i, 1,
-            vk::DescriptorType::eCombinedImageSampler, info));
-    }
-
-    if (texture_cache.size() > 0) {
-        auto default_info = img_infos.alloc(vk::DescriptorImageInfo{
-            texture_sampler.get(), std::get<2>(texture_cache[0]).get(),
-            vk::ImageLayout::eShaderReadOnlyOptimal
-            });
-
-        for (size_t i = texture_cache.size(); i < MAX_TEXTURES; ++i) {
-            writes.push_back(vk::WriteDescriptorSet(texture_desc_set.get(),
-                0, i, 1,
-                vk::DescriptorType::eCombinedImageSampler, default_info));
-        }
-    }
 }
 
 void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {

@@ -67,7 +67,7 @@ struct material {
     bool build_gui(frame_state*);
 
     uint32 _render_index;
-    uint32 _diffuse_tex_index;
+    vk::DescriptorSet desc_set;
 };
 
 class scene {
