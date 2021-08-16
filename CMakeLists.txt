@@ -57,6 +57,7 @@ add_spirv_shader(vertex src/shaders/entire-screen.vert.glsl entire-screen.vert.s
 add_spirv_shader(fragment src/shaders/directional-light.frag.glsl directional-light.frag.spv)
 add_spirv_shader(vertex src/shaders/point-light.vert.glsl point-light.vert.spv)
 add_spirv_shader(fragment src/shaders/point-light.frag.glsl point-light.frag.spv)
+add_spirv_shader(fragment src/shaders/solid-color.frag.glsl solid-color.frag.spv)
 
 message("${COMPILED_SHADERS}")
 

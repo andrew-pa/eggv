@@ -31,6 +31,7 @@ device::device(app* app) {
 	devfeat.samplerAnisotropy = VK_TRUE;
 	devfeat.fillModeNonSolid = VK_TRUE;
 	devfeat.tessellationShader = VK_TRUE;
+	devfeat.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
 	dcfo.pEnabledFeatures = &devfeat;
 	std::vector<const char*> layer_names{
 #ifdef _DEBUG

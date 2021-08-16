@@ -19,7 +19,7 @@ public:
     }
 
     T* alloc(T&& init = T()) {
-        if(next_item > items_per_block) 
+        if(next_item >= items_per_block) 
             new_block();
         return new (&current_block[next_item++]) T(init);
     }

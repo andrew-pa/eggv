@@ -364,10 +364,17 @@ material::material(uuids::uuid id, json data) : id(id) {
 }
 
 json material::serialize() const {
-    return {
+    json mat = {
         {"name", name},
-        {"base", ::serialize(base_color)}
+        {"base", ::serialize(base_color)},
+		{"textures", json::object()}
     };
+
+    if (diffuse_texpath.has_value()) {
+        mat["textures"]["diffuse"] = diffuse_texpath.value();
+    }
+
+    return mat;
 }
 
 bool material::build_gui(frame_state*) {

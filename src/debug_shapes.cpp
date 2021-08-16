@@ -74,7 +74,7 @@ vk::UniquePipeline debug_shape_render_node_prototype::generate_pipeline(renderer
         },
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eFragment,
-            r->dev->load_shader("simple.frag.spv"), "main"
+            r->dev->load_shader("solid-color.frag.spv"), "main"
         }
     };
 

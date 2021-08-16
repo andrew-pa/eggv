@@ -32,7 +32,7 @@ inline vk::ImageAspectFlags aspects_for_type(framebuffer_type ty) {
 }
 
 struct simple_geom_render_node_prototype : public render_node_prototype { 
-    simple_geom_render_node_prototype(device* dev) {
+    simple_geom_render_node_prototype(renderer* r, device* dev) {
         inputs = {
         };
         outputs = {
@@ -46,11 +46,17 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
 
         vk::PushConstantRange push_consts[] = {
             vk::PushConstantRange { vk::ShaderStageFlagBits::eVertex, 0, sizeof(mat4) },
-            vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4), sizeof(vec4) }
+            vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4), sizeof(vec3) },
+            vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, sizeof(mat4)+sizeof(vec3), sizeof(uint32) }
+        };
+
+        vk::DescriptorSetLayout desc_layouts[] = {
+            desc_layout.get(),
+            r->texture_desc_set_layout.get()
         };
 
         pipeline_layout = dev->dev->createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo {
-                {}, 1, &desc_layout.get(), 2, push_consts
+                {}, 2, desc_layouts, 3, push_consts
         });
     }
 
@@ -140,14 +146,16 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
     virtual void generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb) override {
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
-                0, { node->desc_set.get() }, {});
+                0, { node->desc_set.get(), r->texture_desc_set.get() }, {});
         for(const auto&[mesh, world_transform] : r->active_meshes) {
             auto m = mesh->m;
             cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
             cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
             cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
-            cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
-                    { vec4(mesh->mat ? mesh->mat->base_color : vec3(0.5f, 0.f, 0.2f), 1.f) });
+            cb.pushConstants<vec3>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
+                    { vec3(mesh->mat ? mesh->mat->base_color : vec3(0.5f, 0.f, 0.2f)) });
+            cb.pushConstants<uint32>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4)+sizeof(vec3),
+                    { mesh->mat->_diffuse_tex_index });
             cb.drawIndexed(m->index_count, 1, 0, 0, 0);
         }
     }
@@ -248,19 +256,7 @@ renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_rec
 
 void renderer::init(device* _dev) {
     this->dev = _dev;
-    prototypes = {
-        std::make_shared<output_render_node_prototype>(),
-        std::make_shared<simple_geom_render_node_prototype>(dev),
-        std::make_shared<color_preview_render_node_prototype>(),
-        std::make_shared<debug_shape_render_node_prototype>(dev)
-    };
-    screen_output_node = std::make_shared<render_node>(prototypes[0]);
-    render_graph.push_back(screen_output_node);
-    auto test = std::make_shared<render_node>(prototypes[1]);
-    render_graph.push_back(test);
-    screen_output_node->inputs[0] = {test, 0};
-
-    frame_uniforms_buf = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
+        frame_uniforms_buf = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
             vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
             (void**)&mapped_frame_uniforms);
 
@@ -277,6 +273,18 @@ void renderer::init(device* _dev) {
         vk::SamplerAddressMode::eRepeat,
         0.f, true, 16.f
     });
+
+	prototypes = {
+		   std::make_shared<output_render_node_prototype>(),
+		   std::make_shared<simple_geom_render_node_prototype>(this, dev),
+		   std::make_shared<color_preview_render_node_prototype>(),
+		   std::make_shared<debug_shape_render_node_prototype>(dev)
+	};
+	screen_output_node = std::make_shared<render_node>(prototypes[0]);
+	render_graph.push_back(screen_output_node);
+	auto test = std::make_shared<render_node>(prototypes[1]);
+	render_graph.push_back(test);
+	screen_output_node->inputs[0] = { test, 0 };
 }
 
 framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
@@ -882,22 +890,38 @@ size_t renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) 
         staging_buffer->unmap();
         vk::Format fmt = vk::Format::eUndefined;
         switch(channels) {
-            case 1: fmt = vk::Format::eR8Unorm;
-            case 2: fmt = vk::Format::eR8G8Unorm;
-            case 3: fmt = vk::Format::eR8G8B8Unorm;
-            case 4: fmt = vk::Format::eR8G8B8A8Unorm;
+            case 1: fmt = vk::Format::eR8Unorm; break;
+            case 2: fmt = vk::Format::eR8G8Unorm; break;
+            case 3: fmt = vk::Format::eR8G8B8Unorm; break;
+            case 4: fmt = vk::Format::eR8G8B8A8Unorm; break;
         };
         std::cout << "image " << path << " -> " << width << "x" << height << "/" << channels << "\n";
         vk::UniqueImageView img_view;
+        auto subresource_range = vk::ImageSubresourceRange(
+            vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
+        );
         auto img = std::make_shared<image>(dev, vk::ImageType::e2D, vk::Extent3D(width, height, 1),
                 fmt, vk::ImageTiling::eOptimal,
                 vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
                 vk::MemoryPropertyFlagBits::eDeviceLocal,
-                &img_view, vk::ImageViewType::e2D, vk::ImageSubresourceRange(
-                    vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1
-                ));
-        uplcb.copyBufferToImage(staging_buffer->buf, img->img, vk::ImageLayout::eShaderReadOnlyOptimal,
+                &img_view, vk::ImageViewType::e2D, subresource_range);
+        uplcb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
+            {}, {}, {}, {
+                vk::ImageMemoryBarrier({}, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
+                    vk::ImageLayout::eTransferDstOptimal, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, 
+                    img->img, subresource_range)
+            }
+        );
+        uplcb.copyBufferToImage(staging_buffer->buf, img->img, vk::ImageLayout::eTransferDstOptimal,
                 { vk::BufferImageCopy{0, 0, 0, vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1}, {0,0,0}, {(uint32_t)width,(uint32_t)height,1}} });
+        uplcb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+            {}, {}, {}, {
+                vk::ImageMemoryBarrier(vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
+                    vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
+                    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, 
+                    img->img, subresource_range)
+            }
+        );
         dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
         size_t index = texture_cache.size();
         texture_cache.push_back({path, img, std::move(img_view)});
@@ -964,6 +988,19 @@ void renderer::update_texture_desc_set(std::vector<vk::WriteDescriptorSet>& writ
         writes.push_back(vk::WriteDescriptorSet(texture_desc_set.get(),
             0, i, 1,
             vk::DescriptorType::eCombinedImageSampler, info));
+    }
+
+    if (texture_cache.size() > 0) {
+        auto default_info = img_infos.alloc(vk::DescriptorImageInfo{
+            texture_sampler.get(), std::get<2>(texture_cache[0]).get(),
+            vk::ImageLayout::eShaderReadOnlyOptimal
+            });
+
+        for (size_t i = texture_cache.size(); i < MAX_TEXTURES; ++i) {
+            writes.push_back(vk::WriteDescriptorSet(texture_desc_set.get(),
+                0, i, 1,
+                vk::DescriptorType::eCombinedImageSampler, default_info));
+        }
     }
 }
 
