@@ -2,17 +2,29 @@
 #include "imgui.h"
 using namespace reactphysics3d;
 
+// TODO:
+// + offset transform for aliging 3d objects and rigid bodies
+// mass editing
+// proper moment of inertia calculations
+// automatic mesh bbox -> collider
+// mesh colliders
+// ser/deser physics objects
+
 void rigid_body_trait::remove_from(scene_object*){
 	auto f = (rigid_body_trait_factory*)this->parent;
 	f->world->destroyRigidBody(body);
 }
 
-void rigid_body_trait::append_transform(scene_object*, mat4& T, frame_state*) {
+void rigid_body_trait::append_transform(scene_object* obj, mat4& T, frame_state* fs) {
 	// TODO: interpolate between this and the previous frame's transform based on how much time we have left to simulate
 	if (body->getType() != BodyType::STATIC) {
 		mat4 local_t;
 		this->body->getTransform().getOpenGLMatrix(&local_t[0][0]);
 		T = local_t;
+		auto offset_t = obj->traits.find(TRAIT_ID_TRANSFORM);
+		if (offset_t != obj->traits.end()) {
+			offset_t->second->append_transform(obj, T, fs);
+		}
 	}
 }
 
@@ -31,7 +43,7 @@ const char* body_type_names[] = {
 };
 
 const char* shape_names[] = {
-	"Triangle",
+	"Triangle", // apparently internal use only
 	"Sphere",
 	"Capsule",
 	"Box",
@@ -283,7 +295,7 @@ vk::UniquePipeline physics_debug_shape_render_node_prototype::generate_pipeline(
     };
 
     auto rasterizer_state = vk::PipelineRasterizationStateCreateInfo{
-        {}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone,
+        {}, false, false, vk::PolygonMode::eLine, vk::CullModeFlagBits::eNone,
             vk::FrontFace::eCounterClockwise, false, 0.f, 0.f, 0.f, 1.f
     };
 
