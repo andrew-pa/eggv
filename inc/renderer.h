@@ -82,7 +82,8 @@ struct gpu_material {
     gpu_material(material* mat) : base_color(mat->base_color) {}
 };
 
-struct renderer {
+class renderer {
+public:
     device* dev; swap_chain* swpc;
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
     std::vector<std::shared_ptr<render_node>> render_graph;

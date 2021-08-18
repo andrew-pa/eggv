@@ -426,7 +426,7 @@ void eggv_app::build_gui(frame_state* fs) {
 
 #pragma region Render Loop
 void eggv_app::update(float t, float dt) {
-    frame_state fs(t, dt, current_scene, &gui_open_windows);
+    frame_state fs(t, dt, &r, current_scene, &gui_open_windows);
     current_scene->update(&fs, this);
     r.update(&fs);
 
@@ -499,7 +499,7 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
     auto& cb = command_buffers[image_index];
     cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
-    frame_state fs(t, dt, current_scene, &gui_open_windows);
+    frame_state fs(t, dt, &r, current_scene, &gui_open_windows);
     r.render(cb.get(), image_index, &fs);
 
     if(gui_visible) {

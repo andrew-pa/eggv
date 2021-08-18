@@ -3,6 +3,7 @@
 #include <glm/gtx/polar_coordinates.hpp>
 #include "app.h"
 #include "geometry_set.h"
+#include "renderer.h"
 
 static std::mt19937 default_random_gen;
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
@@ -377,11 +378,28 @@ json material::serialize() const {
     return mat;
 }
 
-bool material::build_gui(frame_state*) {
+bool material::build_gui(frame_state* fs) {
     InputTextResizable("Name", &this->name);
 
     bool changed = false;
     changed = ImGui::ColorEdit3("Base", &this->base_color[0], ImGuiColorEditFlags_Float) || changed;
+
+    ImGui::Text("Textures:");
+    if (ImGui::BeginCombo("Diffuse", diffuse_texpath.value_or("<no texture>").c_str())) {
+        if (ImGui::Selectable("<no texture>", !diffuse_texpath.has_value())) {
+            diffuse_texpath = std::nullopt;
+            changed = true;
+        }
+
+        for (const auto&[path, i, iv] : fs->r->texture_cache) {
+            bool selected = diffuse_texpath.has_value() && diffuse_texpath.value() == path;
+            if (ImGui::Selectable(path.c_str(), selected)) {
+                diffuse_texpath = path;
+                changed = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
 
     return changed;
 }
