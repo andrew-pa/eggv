@@ -265,7 +265,7 @@ void renderer::init(device* _dev) {
     });
 
     texture_sampler = dev->dev->createSamplerUnique(vk::SamplerCreateInfo {
-        {}, vk::Filter::eLinear, vk::Filter::eLinear,
+        {}, vk::Filter::eNearest, vk::Filter::eNearest,
         vk::SamplerMipmapMode::eNearest,
         vk::SamplerAddressMode::eRepeat,
         vk::SamplerAddressMode::eRepeat,
@@ -903,7 +903,8 @@ size_t renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) 
         return std::distance(texture_cache.begin(), existing_texture);
     else {
         int width, height, channels;
-        auto data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+        auto data = stbi_load(path.c_str(), &width, &height, &channels, 4);
+        channels = 4;
         vk::Format fmt = vk::Format::eUndefined;
         switch(channels) {
             case 1: fmt = vk::Format::eR8Unorm; break;
@@ -979,10 +980,10 @@ void renderer::update(frame_state* fs) {
                 vk::DescriptorPoolSize pool_sizes[] = {
                     vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, num_gpu_mats)
                 };
-                material_desc_pool.swap(dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{
-                    {},
-                    (uint32)num_gpu_mats, 1, pool_sizes
-                }));
+                auto new_pool = dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo{ {},
+                        (uint32)num_gpu_mats, 1, pool_sizes
+                });
+                material_desc_pool.swap(new_pool);
                 std::vector<vk::DescriptorSetLayout> material_desc_set_layout_per_set(
                     num_gpu_mats, material_desc_set_layout.get());
                 auto new_sets = dev->dev->allocateDescriptorSets(vk::DescriptorSetAllocateInfo {
