@@ -34,9 +34,13 @@ const geom_file::mesh_header& geometry_set::header(size_t index) const {
 
 mesh_trait::mesh_trait(trait_factory* f, mesh_create_info* ci)
     : trait(f), geo_src(ci==nullptr ? nullptr : ci->geo_src), mesh_index(ci==nullptr?-1:ci->mesh_index),
-        m(nullptr), mat(ci?ci->mat:nullptr)
+        m(nullptr), mat(ci?ci->mat:nullptr), bounds()
 {
-    if(ci != nullptr && ci->geo_src != nullptr) m = geo_src->load_mesh(mesh_index);
+    if(ci != nullptr && ci->geo_src != nullptr) {
+        const auto& hdr = geo_src->header(mesh_index);
+        bounds = aabb(hdr.aabb_min, hdr.aabb_max);
+        m = geo_src->load_mesh(mesh_index);
+    }
 }
 
 void mesh_trait::build_gui(struct scene_object*, frame_state* fs) {
@@ -70,6 +74,13 @@ void mesh_trait::build_gui(struct scene_object*, frame_state* fs) {
 
     if(reload_mesh) {
         m = geo_src->load_mesh(this->mesh_index);
+    }
+}
+
+
+void mesh_trait::collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {
+    if(selected) {
+        shapes.push_back(viewport_shape(viewport_shape_type::box, vec3(1.f, 1.f, 0.f), scale(translate(T, bounds.center()), bounds.extents()/2.f)));
     }
 }
 

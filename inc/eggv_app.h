@@ -26,7 +26,7 @@ class eggv_app : public app {
     void init_render_pass();
     void init_gui();
 
-    std::shared_ptr<scene> eggv_app::create_test_scene();
+    std::shared_ptr<scene> create_test_scene();
     std::vector<std::shared_ptr<trait_factory>> collect_factories();
 
     void build_gui();
