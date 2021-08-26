@@ -1,5 +1,6 @@
 #include "physics.h"
 #include "imgui.h"
+#include "reactphysics3d/mathematics/Vector3.h"
 using namespace reactphysics3d;
 
 // TODO:
@@ -8,7 +9,7 @@ using namespace reactphysics3d;
 // + proper moment of inertia calculations
 // + automatic mesh bbox -> collider
 // mesh colliders
-// ser/deser physics objects
+// + ser/deser physics objects
 
 void rigid_body_trait::remove_from(scene_object*){
     auto f = (rigid_body_trait_factory*)this->parent;
@@ -193,18 +194,101 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
     }
 }
 
+json serialize(const Vector3& v) {
+    return {v.x, v.y, v.z};
+}
+
+Vector3 deserialize(const json& v) {
+    return Vector3(v[0], v[1], v[2]);
+}
+
+
 json rigid_body_trait::serialize() const {
-    return json{};
+    json colliders = json::array();
+    for(auto i = 0; i < body->getNbColliders(); ++i) {
+        const auto& col = body->getCollider(i);
+        const auto& tf = col->getLocalToBodyTransform();
+        
+        auto shape = col->getCollisionShape();
+        json shape_params;
+        switch (shape->getName()) {
+            case CollisionShapeName::BOX: {
+                auto box = dynamic_cast<BoxShape*>(shape);
+                shape_params = { {"extent", ::serialize(box->getHalfExtents())} };
+            } break;
+            case CollisionShapeName::CAPSULE: {
+                auto cap = dynamic_cast<CapsuleShape*>(shape);
+                shape_params = { {"height", cap->getHeight()}, {"radius", cap->getRadius()} };
+            } break;
+            case CollisionShapeName::SPHERE: {
+                auto s = dynamic_cast<SphereShape*>(shape);
+                shape_params = { {"radius", s->getRadius()} };
+            } break;
+        }
+
+        colliders.push_back({
+            {"type", shape->getName()},
+            {"position", ::serialize(tf.getPosition())},
+            {"rotation", {tf.getOrientation().x, tf.getOrientation().y, tf.getOrientation().z, tf.getOrientation().w}},
+            {"mass_density", col->getMaterial().getMassDensity()},
+            {"bounciness", col->getMaterial().getBounciness()},
+            {"friction", col->getMaterial().getFrictionCoefficient()},
+            {"rolling_resist", col->getMaterial().getRollingResistance()},
+            {"shape", shape_params}
+        });
+    }
+    return json {
+        {"type", body->getType()},
+        {
+            "initial_transform", {
+                {"position", ::serialize(initial_transform.getPosition())},
+                {"rotation", {initial_transform.getOrientation().x, initial_transform.getOrientation().y, initial_transform.getOrientation().z, initial_transform.getOrientation().w}},
+            }
+        },
+        {"mass", body->getMass()},
+        {"should_grab_initial_transform", should_grab_initial_transform},
+        {"colliders", colliders}
+    };
 }
 
 void rigid_body_trait_factory::add_to(struct scene_object* obj, void* create_info) {
     // this is wrong, we need to sync the scene graph transform and the physics world transform in some way
     obj->traits[id()] = std::make_unique<rigid_body_trait>(this,
-            world->createRigidBody(Transform::identity()));
+            world->createRigidBody(Transform::identity()), Transform::identity());
 }
 
 void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_object* obj, json data) {
-
+    auto body = world->createRigidBody(Transform::identity());
+    body->setType((BodyType)data["type"]);
+    body->setMass(data["mass"]);
+    auto it = data["initial_transform"];
+    auto initial_transform = Transform(::deserialize(it["position"]),
+            Quaternion(it["rotation"][0],it["rotation"][1],it["rotation"][2],it["rotation"][3]));
+    for(const auto& col : data["colliders"]) {
+        const auto name = (CollisionShapeName)col["type"];
+        CollisionShape* shape;
+        switch(name) {
+            case CollisionShapeName::BOX:
+                shape = this->phy->createBoxShape(::deserialize(col["shape"]["extent"]));
+                break;
+            case CollisionShapeName::CAPSULE:
+                shape = this->phy->createCapsuleShape(col["shape"]["radius"], col["shape"]["height"]);
+                break;
+            case CollisionShapeName::SPHERE:
+                shape = this->phy->createSphereShape(col["shape"]["radius"]);
+                break;
+        }
+        auto transform = Transform(::deserialize(col["position"]),
+            Quaternion(col["rotation"][0],col["rotation"][1],col["rotation"][2],col["rotation"][3]));
+        auto c = body->addCollider(shape, transform);
+        auto& mat = c->getMaterial();
+        mat.setMassDensity(col["mass_density"]);
+        mat.setBounciness(col["bounciness"]);
+        mat.setFrictionCoefficient(col["friction"]);
+        mat.setRollingResistance(col["rolling_resist"]);
+    }
+    body->updateMassPropertiesFromColliders();
+    obj->traits[id()] = std::make_unique<rigid_body_trait>(this, body, initial_transform);
 }
 
 void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::PhysicsWorld* world) {
