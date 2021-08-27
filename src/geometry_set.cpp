@@ -80,7 +80,7 @@ void mesh_trait::build_gui(struct scene_object*, frame_state* fs) {
 
 void mesh_trait::collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {
     if(selected) {
-        shapes.push_back(viewport_shape(viewport_shape_type::box, vec3(1.f, 1.f, 0.f), scale(translate(T, bounds.center()), bounds.extents()/2.f)));
+        shapes.push_back(viewport_shape(viewport_shape_type::box, vec3(1.f, 1.f, 0.f), scale(translate(T, bounds.center()), bounds.extents())));
     }
 }
 

@@ -30,7 +30,7 @@ void rigid_body_trait::append_transform(scene_object* obj, mat4& T, frame_state*
 }
 
 void rigid_body_trait::postprocess_transform(scene_object*, const mat4& T, frame_state*) {
-    if (body->getType() == BodyType::STATIC || should_grab_initial_transform) {
+    if (/*body->getType() == BodyType::STATIC ||*/ should_grab_initial_transform) {
         Transform t = Transform::identity();
         t.setFromOpenGL((decimal*)&T[0][0]);
         body->setTransform(t);
@@ -59,9 +59,10 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
         body->setType((BodyType)body_type);
 
     auto mass = body->getMass();
-    if (ImGui::DragFloat("Mass", &mass, 0.01f))
+    if (ImGui::DragFloat("Mass", &mass, 0.01f)) {
         body->setMass(mass);
-    body->updateMassPropertiesFromColliders();
+        body->updateMassPropertiesFromColliders();
+    }
 
     auto pos = initial_transform.getPosition();
     if (ImGui::DragFloat3("Initial Position", &pos.x, 0.01f))
@@ -171,12 +172,12 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
     ImGui::Combo("Type ", (int*)&new_shape_name, shape_names, 7);
     ImGui::SameLine();
     if (ImGui::Button("Add Collider")) {
-        CollisionShape* shape;
+        CollisionShape* shape = nullptr;
         switch (new_shape_name) {
             case CollisionShapeName::BOX: {
                 auto mt = obj->traits.find(TRAIT_ID_MESH);
                 if(mt != obj->traits.end()) {
-                    auto mtt = ((mesh_trait*)mt->second.get())->bounds.extents();
+                    auto mtt = ((mesh_trait*)mt->second.get())->bounds.extents()/2.f + 0.001f;
                     shape = ((rigid_body_trait_factory*)this->parent)->phy->createBoxShape(Vector3(mtt.x, mtt.y, mtt.z));
                 } else {
                     shape = ((rigid_body_trait_factory*)this->parent)->phy->createBoxShape(Vector3(.5f, .5f, .5f));
@@ -246,7 +247,6 @@ json rigid_body_trait::serialize() const {
             }
         },
         {"mass", body->getMass()},
-        {"should_grab_initial_transform", should_grab_initial_transform},
         {"colliders", colliders}
     };
 }
@@ -258,12 +258,12 @@ void rigid_body_trait_factory::add_to(struct scene_object* obj, void* create_inf
 }
 
 void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_object* obj, json data) {
-    auto body = world->createRigidBody(Transform::identity());
-    body->setType((BodyType)data["type"]);
-    body->setMass(data["mass"]);
     auto it = data["initial_transform"];
-    auto initial_transform = Transform(::deserialize(it["position"]),
-            Quaternion(it["rotation"][0],it["rotation"][1],it["rotation"][2],it["rotation"][3]));
+    auto init_rot = Quaternion(it["rotation"][0], it["rotation"][1], it["rotation"][2], it["rotation"][3]);
+    init_rot.normalize();
+    auto initial_transform = Transform(::deserialize(it["position"]), init_rot);
+    auto body = world->createRigidBody(initial_transform);
+    body->setType((BodyType)data["type"]);
     for(const auto& col : data["colliders"]) {
         const auto name = (CollisionShapeName)col["type"];
         CollisionShape* shape;
@@ -287,8 +287,8 @@ void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_obj
         mat.setFrictionCoefficient(col["friction"]);
         mat.setRollingResistance(col["rolling_resist"]);
     }
-    body->updateMassPropertiesFromColliders();
-    obj->traits[id()] = std::make_unique<rigid_body_trait>(this, body, initial_transform);
+    if(body->getType() != BodyType::STATIC) body->updateMassPropertiesFromColliders();
+    obj->traits[id()] = std::make_unique<rigid_body_trait>(this, body, initial_transform, true);
 }
 
 void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::PhysicsWorld* world) {

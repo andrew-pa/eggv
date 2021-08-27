@@ -10,8 +10,8 @@ struct rigid_body_trait : public trait {
 	reactphysics3d::Transform initial_transform;
 	bool should_grab_initial_transform;
 
-	rigid_body_trait(trait_factory* p, reactphysics3d::RigidBody* b, reactphysics3d::Transform initial_transform)
-		: trait(p), body(b), should_grab_initial_transform(true), initial_transform(initial_transform)
+	rigid_body_trait(trait_factory* p, reactphysics3d::RigidBody* b, reactphysics3d::Transform initial_transform, bool grab_tf = true)
+		: trait(p), body(b), should_grab_initial_transform(grab_tf), initial_transform(initial_transform)
 	{
 	}
 
