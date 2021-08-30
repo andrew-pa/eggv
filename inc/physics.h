@@ -20,6 +20,8 @@ struct rigid_body_trait : public trait {
     void build_gui(struct scene_object*, frame_state*) override;
     json serialize() const override;
 	void remove_from(struct scene_object*) override;
+
+	void reset_body();
 };
 
 struct rigid_body_trait_factory : public trait_factory {

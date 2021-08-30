@@ -91,6 +91,8 @@ public:
     void build_gui(frame_state* fs);
 
     std::shared_ptr<scene_object> find_object_by_id(const uuids::uuid& id);
+    
+    void for_each_object(std::function<void(std::shared_ptr<scene_object>)> f);
 
     json serialize() const;
 };

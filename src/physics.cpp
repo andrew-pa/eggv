@@ -39,6 +39,12 @@ void rigid_body_trait::postprocess_transform(scene_object*, const mat4& T, frame
     }
 }
 
+void rigid_body_trait::reset_body() {
+	body->setTransform(initial_transform);
+	body->setLinearVelocity(Vector3());
+	body->setAngularVelocity(Vector3());
+}
+
 const char* body_type_names[] = {
     "Static", "Kinematic", "Dynamic"
 };
@@ -71,9 +77,7 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
     if (ImGui::DragFloat4("Initial Rotation", &rot.x, 0.01f))
         initial_transform.setOrientation(rot);
     if (ImGui::Button("Reset")) {
-        body->setTransform(initial_transform);
-        body->setLinearVelocity(Vector3());
-        body->setAngularVelocity(Vector3());
+        this->reset_body();
     }
 
     if (ImGui::BeginTable("##RigidBodyColliders", 4, ImGuiTableFlags_Resizable)) {
@@ -291,7 +295,7 @@ void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_obj
     obj->traits[id()] = std::make_unique<rigid_body_trait>(this, body, initial_transform, true);
 }
 
-void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::PhysicsWorld* world) {
+void build_physics_world_gui(frame_state* fs, bool* window_open, reactphysics3d::PhysicsWorld* world) {
     if (*window_open) {
         ImGui::Begin("Physics World", window_open);
         bool grav_enb = world->isGravityEnabled();
@@ -301,6 +305,15 @@ void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::Ph
             auto grav = world->getGravity();
             if (ImGui::DragFloat3("Gravity", &grav.x, 0.01f))
                 world->setGravity(grav);
+        }
+        if (ImGui::Button("Reset All")) {
+            fs->current_scene->for_each_object([](std::shared_ptr<scene_object> ob) {
+                auto rbt = ob->traits.find(TRAIT_ID_RIGID_BODY);
+                if (rbt != ob->traits.end()) {
+                    auto rb = (rigid_body_trait*)rbt->second.get();
+                    rb->reset_body();
+                }
+            });
         }
         ImGui::End();
     }

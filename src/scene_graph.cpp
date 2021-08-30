@@ -63,6 +63,17 @@ std::shared_ptr<scene_object> scene::find_object_by_id(const uuids::uuid& id) {
     return _find_obj_by_id(root, id);
 }
 
+void _for_each_object(std::shared_ptr<scene_object> ob, std::function<void(std::shared_ptr<scene_object>)> f) {
+    f(ob);
+    for (const auto& ch : ob->children) {
+        _for_each_object(ch, f);
+    }
+}
+
+void scene::for_each_object(std::function<void(std::shared_ptr<scene_object>)> f) {
+    _for_each_object(root, f);
+}
+
 void scene::update(frame_state* fs, app* app) {
     // TODO: call update on all traits on all objects
 }
