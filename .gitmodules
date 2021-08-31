@@ -36,3 +36,6 @@
 [submodule "depd/stb"]
 	path = depd/stb
 	url = https://github.com/nothings/stb
+[submodule "depd/reactphysics3d"]
+	path = depd/reactphysics3d
+	url = https://github.com/DanielChappuis/reactphysics3d

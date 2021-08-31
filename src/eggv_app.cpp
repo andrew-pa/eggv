@@ -72,18 +72,19 @@ void generate_cube(float width, float height, float depth, std::function<void(ve
 	index(20); index(22); index(23);
 }
 
-std::vector<std::shared_ptr<trait_factory>> collect_factories() {
+std::vector<std::shared_ptr<trait_factory>> eggv_app::collect_factories() {
     return std::vector<std::shared_ptr<trait_factory>>{
         std::make_shared<transform_trait_factory>(),
             std::make_shared<mesh_trait_factory>(),
             std::make_shared<light_trait_factory>(),
-            std::make_shared<camera_trait_factory>()
+            std::make_shared<camera_trait_factory>(),
+            std::make_shared<rigid_body_trait_factory>(&phys_cmmn, phys_world)
     };
 }
 
-std::shared_ptr<scene> create_scene(device* dev) {
+std::shared_ptr<scene> eggv_app::create_test_scene() {
     auto s = std::make_shared<scene>(collect_factories(), std::make_shared<scene_object>("Root"));
-    auto gs = std::make_shared<geometry_set>(dev, "sponza.geo");
+    auto gs = std::make_shared<geometry_set>(dev.get(), "sponza.geo");
     s->geometry_sets.push_back(gs);
     //
     // /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
@@ -215,15 +216,16 @@ vec2 get_resolution_from_args(const std::vector<std::string>& cargs) {
 eggv_app::eggv_app(const std::vector<std::string>& cargs)
     : app("erg", get_resolution_from_args(cargs)),
         current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
-        cam_mouse_enabled(false),
+        cam_mouse_enabled(false), phys_cmmn(), physics_sim_time(0),
       gui_open_windows({
-        {"Renderer", true},
+        {"Renderer", false},
         {"Scene", true},
-        {"Geometry Sets", true},
-        {"Materials", true},
+        {"Geometry Sets", false},
+        {"Materials", false},
         {"Selected Object", true},
         {"ImGui Demo", false},
         {"ImGui Metrics", false},
+	    {"Physics World", true}
       })
 {
     r.init(dev.get());
@@ -238,10 +240,11 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
     this->init_swapchain_depd();
     this->init_gui();
 
+    phys_world = phys_cmmn.createPhysicsWorld();
     r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get(), &r));
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
-
+    r.prototypes.emplace_back(std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world));
 
     for(int i = 1; i < cargs.size(); ++i) {
         if(cargs[i] == "-p") {
@@ -264,7 +267,7 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
         }
     }
 
-    if(current_scene == nullptr) current_scene = create_scene(dev.get());
+    if(current_scene == nullptr) current_scene = this->create_test_scene();
     r.current_scene = current_scene;
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
@@ -421,6 +424,7 @@ void eggv_app::build_gui(frame_state* fs) {
     if(fs->gui_open_windows->at("ImGui Metrics")) ImGui::ShowMetricsWindow(&fs->gui_open_windows->at("ImGui Metrics"));
     r.build_gui(fs);
     current_scene->build_gui(fs);
+    build_physics_world_gui(fs, &fs->gui_open_windows->at("Physics World"), phys_world);
 }
 #pragma endregion
 
@@ -429,6 +433,12 @@ void eggv_app::update(float t, float dt) {
     frame_state fs(t, dt, current_scene, &gui_open_windows);
     current_scene->update(&fs, this);
     r.update(&fs);
+
+    physics_sim_time += dt;
+    while (physics_sim_time > physics_fixed_time_step) {
+        phys_world->update(physics_fixed_time_step);
+        physics_sim_time -= physics_fixed_time_step;
+    }
 
     if(ui_key_cooldown <= 0.f) {
         if (glfwGetKey(this->wnd, GLFW_KEY_F2) == GLFW_PRESS) {
@@ -484,13 +494,15 @@ void eggv_app::update(float t, float dt) {
         }
 
         if(cam_mouse_enabled) {
+            static double last_xpos = 0, last_ypos = 0;
             double xpos, ypos;
             glfwGetCursorPos(wnd, &xpos, &ypos);
             vec2 sz = vec2(size());
-            vec2 np = ((vec2(xpos, ypos) / sz)*2.f - 1.f) * pi<float>()/2.f;
-            trf->rotation = glm::normalize(
-                    glm::angleAxis(clamp(np.y, -pi<float>()/3.f, pi<float>()/3.f), right)
-                    *glm::angleAxis(-np.x, vec3(0.f, 1.f, 0.f)));
+            vec2 np = ((vec2(xpos - last_xpos, ypos - last_ypos) / sz)) * pi<float>()/2.f;
+            last_xpos = xpos; last_ypos = ypos;
+            trf->rotation = glm::angleAxis(np.x, vec3(0.f, 1.f, 0.f)) * trf->rotation;
+            trf->rotation = trf->rotation * glm::angleAxis(np.y, vec3(1.f ,0.f, 0.f));
+            trf->rotation = glm::normalize(trf->rotation);
         }
     }
 }

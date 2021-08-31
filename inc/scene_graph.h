@@ -16,16 +16,20 @@ struct trait {
     struct trait_factory* parent;
 
     trait(trait_factory* p) : parent(p) {}
-
-    virtual void update(struct scene_object*, frame_state*) {}
+ 
+    virtual void update(struct scene_object*, frame_state*, const mat4& T) {}
 
     virtual void append_transform(struct scene_object*, mat4& T, frame_state*) {}
+    virtual void postprocess_transform(struct scene_object*, const mat4& T, frame_state*) {}
 
     virtual void build_gui(struct scene_object*, frame_state*) { }
 
     virtual void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {}
 
     virtual json serialize() const { return {}; }
+
+    // only called when a trait is removed from an object while running. Only the destructor will be called at exit
+    virtual void remove_from(struct scene_object*) {}
 
     virtual ~trait() {}
 };
@@ -89,6 +93,10 @@ public:
 
     void update(frame_state* fs, class app*);
     void build_gui(frame_state* fs);
+
+    std::shared_ptr<scene_object> find_object_by_id(const uuids::uuid& id);
+    
+    void for_each_object(std::function<void(std::shared_ptr<scene_object>)> f);
 
     json serialize() const;
 };

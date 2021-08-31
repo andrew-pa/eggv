@@ -35,6 +35,8 @@ add_subdirectory(depd/assimp)
 
 add_subdirectory(depd/mio)
 
+add_subdirectory(depd/reactphysics3d)
+
 #############################
 ###    compile shaders    ###
 
@@ -106,11 +108,13 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/geometry_set.h src/geometry_set.cpp
     inc/scene_graph.h src/scene_graph.cpp
     inc/eggv_app.h src/eggv_app.cpp
+    inc/physics.h src/physics.cpp
     simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv
     entire-screen.vert.spv directional-light.frag.spv point-light.vert.spv
     point-light.frag.spv solid-color.frag.spv)
+target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json
+    stduuid mio::mio stb ReactPhysics3D::reactphysics3d)
 target_compile_features(eggv PUBLIC cxx_std_17)
-target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid mio::mio stb)
 
 add_executable(eggv_import inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/swap_chain.cpp

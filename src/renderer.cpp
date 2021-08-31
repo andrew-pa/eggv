@@ -34,6 +34,7 @@ inline vk::ImageAspectFlags aspects_for_type(framebuffer_type ty) {
 struct simple_geom_render_node_prototype : public render_node_prototype { 
     simple_geom_render_node_prototype(renderer* r, device* dev) {
         inputs = {
+            framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color, framebuffer_mode::blend_input}
         };
         outputs = {
             framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
@@ -889,6 +890,10 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
         mapped_frame_uniforms->proj = glm::perspective(cam->fov,
                 (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f);
         mapped_frame_uniforms->view = inverse(T);
+    }
+
+    for (auto& [_, t] : obj->traits) {
+        t->postprocess_transform(obj, T, fs);
     }
 
     for(auto c : obj->children)
