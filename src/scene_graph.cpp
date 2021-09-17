@@ -7,7 +7,7 @@
 static std::mt19937 default_random_gen;
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
 
-scene_object::scene_object(std::optional<std::string> name, uuids::uuid id) : name(name), traits{}, children{} {
+scene_object::scene_object(std::optional<std::string> name, uuids::uuid id) : name(name), should_delete(false), traits{}, children{} {
     if(id.is_nil()) this->id = uuid_gen();
     else this->id = id;
 }
@@ -75,11 +75,27 @@ void scene::for_each_object(std::function<void(std::shared_ptr<scene_object>)> f
     _for_each_object(root, f);
 }
 
+void _cleanup_objects(std::shared_ptr<scene_object> ob) {
+    for (auto i = ob->children.begin(); i != ob->children.end(); ++i) {
+        if((*i)->should_delete) {
+            auto x = i;
+            bool was_first = i == ob->children.begin();
+            if(!was_first) i--;
+            ob->children.erase(x);
+            if (was_first) i = ob->children.begin();
+        } else {
+            _cleanup_objects(*i);
+        }
+    }
+}
+
 void scene::update(frame_state* fs, app* app) {
     // TODO: call update on all traits on all objects
+    _cleanup_objects(root);
 }
 
 void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {
+    ImGui::PushID(obj.get());
     auto node_open = ImGui::TreeNodeEx(uuids::to_string(obj->id).c_str(),
         ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick
         | (selected_object == obj ? ImGuiTreeNodeFlags_Selected : 0)
@@ -91,6 +107,9 @@ void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {
             auto ch = std::make_shared<scene_object>();
             obj->children.push_back(ch);
         }
+        if (ImGui::MenuItem("Delete")) {
+            obj->should_delete = true;
+        }
         ImGui::EndPopup();
     }
     if (node_open) {
@@ -99,6 +118,7 @@ void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {
         }
         ImGui::TreePop();
     }
+    ImGui::PopID();
 }
 
 #include "ImGuiFileDialog.h"
@@ -270,7 +290,7 @@ json scene::serialize_graph(std::shared_ptr<scene_object> obj) const {
     auto id_str = uuids::to_string(obj->id);
     json children_json = json::array();
     for(const auto& c : obj->children) {
-        children_json.push_back(this->serialize_graph(c));
+        if(!c->should_delete) children_json.push_back(this->serialize_graph(c));
     }
     json obj_json = {
         {"id", id_str},

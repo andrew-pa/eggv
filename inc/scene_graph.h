@@ -49,6 +49,7 @@ struct scene_object : public std::enable_shared_from_this<scene_object> {
     std::optional<std::string> name;
     std::map<trait_id, std::unique_ptr<trait>> traits;
     std::vector<std::shared_ptr<scene_object>> children;
+    bool should_delete;
 
     scene_object(std::optional<std::string> name = {}, uuids::uuid id = uuids::uuid());
 };

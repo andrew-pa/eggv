@@ -536,6 +536,8 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
 #pragma endregion
 
 eggv_app::~eggv_app() {
+    current_scene.reset();
+    r.current_scene.reset();
         for(const auto&[_, hndl] : plugins) {
             /* auto unload = (void(*)(void))dlsym(hndl, "eggv_plugin_unload"); */
             /* unload(); */
