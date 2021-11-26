@@ -6,12 +6,13 @@ struct buffer {
 	struct device* dev;
 	VkBuffer buf;
 	VmaAllocation alloc;
-	buffer() : buf(VK_NULL_HANDLE), dev(nullptr) {}
+	uint64 id;
+	buffer() : buf(VK_NULL_HANDLE), dev(nullptr), id(0) {}
 	buffer(device* dev, vk::DeviceSize size, vk::BufferUsageFlags bufuse, vk::MemoryPropertyFlags memuse,
 		void** persistant_map = nullptr);
 
-	buffer(const buffer&& buf) : dev(std::move(buf.dev)), buf(std::move(buf.buf)), alloc(std::move(buf.alloc)) { }
-	buffer& operator=(const buffer&& b);
+	/*buffer(const buffer&& buf) : dev(std::move(buf.dev)), buf(std::move(buf.buf)), alloc(std::move(buf.alloc)) { }
+	buffer& operator=(const buffer&& b);*/
 	buffer(const buffer& buf) = delete;
 	buffer& operator=(const buffer&) = delete;
 

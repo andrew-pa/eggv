@@ -196,8 +196,8 @@ struct color_preview_render_node_prototype : public render_node_prototype {
     }
 
     void build_gui(renderer* r, render_node* node) override {
-        if(node->inputs[0].first == nullptr) return;
-        auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->inputs[0].first->outputs[node->inputs[0].second]];
+        if(node->input_node(0) == nullptr) return;
+        auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->input_node(0)->outputs[node->inputs[0].second]];
         if(fb_img == nullptr) { ImGui::Text("invalid framebuffer"); return; }
         ImGui::Image((void*)fb_img_view.get(), ImVec2(256,256));
     }
@@ -205,7 +205,7 @@ struct color_preview_render_node_prototype : public render_node_prototype {
 
 render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
     : prototype(prototype),
-        inputs(prototype->inputs.size(), {nullptr,0}),
+		inputs(prototype->inputs.size(), { {},0 }),
         outputs(prototype->outputs.size(), 0),
         data(nullptr),
         id(rand()),
@@ -227,7 +227,7 @@ render_node::render_node(renderer* r, size_t id, json data)
                 + std::to_string(prototype_id));
     }
     outputs = std::vector<framebuffer_ref>(prototype->outputs.size(), 0);
-    inputs  = std::vector<std::pair<std::shared_ptr<render_node>, size_t>>(prototype->inputs.size(), {nullptr,0});
+    inputs = std::vector<std::pair<std::optional<std::weak_ptr<render_node>>, size_t>>(prototype->inputs.size(), { {},0 });
     this->data = std::move(prototype->deserialize_node_data(data.at("data")));
 }
 
@@ -235,11 +235,11 @@ json render_node::serialize() const {
     std::cout << "a\n";
     std::vector<json> ser_inputs;
     for(const auto& [inp_node, inp_ix] : this->inputs) {
-        if(inp_node == nullptr) {
+        if(!inp_node.has_value()) {
             ser_inputs.push_back(nullptr);
         } else {
             ser_inputs.push_back(json{
-                    {"src_node", inp_node->id},
+                    {"src_node", inp_node->lock()->id},
                     {"src_idx", inp_ix}
                     });
         }
@@ -342,8 +342,8 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     if(log_compile) std::cout << "generate_subpasses for " << node->inputs.size() << " children of " << node->id << ":" << node->prototype->name() << "\n";
     node->visited = true;
     for(const auto& [input_node, input_index] : node->inputs) {
-        if(input_node == nullptr) continue;
-        generate_subpasses(input_node, subpasses, dependencies, attachement_refs, reference_pool);
+        if(!input_node.has_value()) continue;
+        generate_subpasses(input_node->lock(), subpasses, dependencies, attachement_refs, reference_pool);
     }
     if(log_compile) std::cout << "generate_subpasses for " << node->id << ":" << node->prototype->name() << "\n";
 
@@ -362,7 +362,8 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
         // skip blend fbs since they only need output attachment
         if(node->prototype->inputs[i].mode == framebuffer_mode::blend_input) continue;
         const auto& [input_node, input_index] = node->inputs[i];
-        framebuffer_ref fb = input_node->outputs[input_index];
+        if (!input_node.has_value()) continue;
+        framebuffer_ref fb = input_node->lock()->outputs[input_index];
         *(input_atch_next++) = (vk::AttachmentReference {
             attachement_refs.at(fb),
             vk::ImageLayout::eShaderReadOnlyOptimal
@@ -415,8 +416,10 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     // emit dependencies
     // see: https://developer.samsung.com/galaxy-gamedev/resources/articles/renderpasses.html
     // assuming that we are always consuming inputs in fragment shaders
-    for(const auto& [input_node, input_index] : node->inputs) {
-        if(input_node == nullptr || input_node == screen_output_node) continue;
+    for(const auto& [_input_node, input_index] : node->inputs) {
+        if(!_input_node.has_value()) continue;
+        auto input_node = _input_node->lock();
+        if (input_node == screen_output_node) continue;
         const auto& fb_desc = input_node->prototype->outputs[input_index];
         if(fb_desc.type == framebuffer_type::color && fb_desc.mode != framebuffer_mode::blend_input) {
             dependencies.push_back(vk::SubpassDependency {
@@ -442,11 +445,11 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
 
 void renderer::propagate_blended_framebuffers(std::shared_ptr<render_node> node) {
     for(size_t i = 0; i < node->inputs.size(); ++i) {
-        if(node->inputs[i].first != nullptr && node->inputs[i].first != screen_output_node) {
-            this->propagate_blended_framebuffers(node->inputs[i].first);
+        if(node->input_node(i) != nullptr && node->input_node(i) != screen_output_node) {
+            this->propagate_blended_framebuffers(node->input_node(i));
         }
         if(node->prototype->inputs[i].mode == framebuffer_mode::blend_input) {
-            if(node->inputs[i].first != nullptr) {
+            if(node->input_node(i) != nullptr) {
                 node->outputs[i] = node->input_framebuffer(i).value();
             } else {
                 node->outputs[i] = this->allocate_framebuffer(node->prototype->outputs[i]);
@@ -469,7 +472,7 @@ void renderer::compile_render_graph() {
     // allocate framebuffers to each node - for now nothing fancy, just give each output its own buffer
     // assign the actual screen backbuffers
     auto&[color_src_node, color_src_ix] = screen_output_node->inputs[0];
-    if(color_src_node != nullptr) color_src_node->outputs[color_src_ix] = 1;
+    if(color_src_node.has_value()) color_src_node->lock()->outputs[color_src_ix] = 1;
     screen_output_node->outputs[0] = 1;
     prototypes[0]->inputs[0].format = swpc->format;
     for(auto& node : render_graph) {
@@ -728,9 +731,9 @@ void renderer::build_gui(frame_state* fs) {
                 const auto& [node, input_ix, is_output] = scnd;
                 if (is_output) continue;
                 auto out_attrib_id = std::find_if(gui_node_attribs.begin(), gui_node_attribs.end(), [&](const auto& p) {
-                        return std::get<2>(p.second) && std::get<0>(p.second) == node->inputs[input_ix].first
-                        && std::get<1>(p.second) == node->inputs[input_ix].second;
-                        });
+					return std::get<2>(p.second) && std::get<0>(p.second) == node->input_node(input_ix)
+					    && std::get<1>(p.second) == node->inputs[input_ix].second;
+                });
                 if (out_attrib_id == gui_node_attribs.end()) continue;
                 ImNodes::Link(gui_links.size(), attrib_id, out_attrib_id->first);
                 gui_links.push_back({ attrib_id, out_attrib_id->first });
@@ -790,7 +793,7 @@ void renderer::build_gui(frame_state* fs) {
                 auto&[start_attrib, end_attrib] = gui_links[link_id];
                 auto&[input_node, input_ix, is_input] = gui_node_attribs[start_attrib];
                 auto&[output_node, output_ix, is_output] = gui_node_attribs[end_attrib];
-                input_node->inputs[input_ix] = {nullptr,0};
+                input_node->inputs[input_ix] = { {},0 };
                 output_node->outputs[output_ix] = 0;
             }
 
@@ -805,6 +808,7 @@ void renderer::build_gui(frame_state* fs) {
         if(ImGui::BeginTabItem("Statistics")) {
             ImGui::Text("%zu active meshes, %zu active lights, %zu active shapes, %zu running subpasses",
                     active_meshes.size(), active_lights.size(), active_shapes.size(), subpass_order.size());
+            ImGui::Text("%zu temp command buffers, %zu temp upload buffers", dev->tmp_cmd_buffers.size(), dev->tmp_upload_buffers.size());
 
             ImGui::Separator();
             ImGui::Text("Framebuffers:");
@@ -1072,9 +1076,12 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* 
 }
 
 renderer::~renderer() {
+    subpass_order.clear();
     for(auto& n : render_graph) {
         n->desc_set.release();
+        n.reset();
     }
+    screen_output_node.reset();
 }
 
 mesh::mesh(device* dev, size_t vcount, size_t _vsize, size_t icount, std::function<void(void*)> write_buffer)

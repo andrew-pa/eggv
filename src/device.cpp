@@ -127,6 +127,8 @@ device::queue_families::queue_families(vk::PhysicalDevice pd, app* app) {
 	}
 }
 
+static uint64 counter = 1;
+
 buffer::buffer(device* dev, vk::DeviceSize size, vk::BufferUsageFlags bufuse,
 	vk::MemoryPropertyFlags memuse, void** persistent_map) : dev(dev)
 {
@@ -140,6 +142,10 @@ buffer::buffer(device* dev, vk::DeviceSize size, vk::BufferUsageFlags bufuse,
 		&mreq, &buf, &alloc, &alli);
 	if (persistent_map != nullptr) *persistent_map = alli.pMappedData;
 	assert(res == VK_SUCCESS);
+	id = counter++;
+#ifdef BUFFER_ALLOC_RELEASE_DEBUG
+	std::cout << "buffer #" << id << "!" << size << "\n";
+#endif
 }
 
 void* buffer::map() {
@@ -152,7 +158,8 @@ void* buffer::map() {
 void buffer::unmap() {
 	vmaUnmapMemory(dev->allocator, alloc);
 }
-buffer& buffer::operator=(const buffer&& b) {
+
+/*buffer& buffer::operator=(const buffer&& b) {
 	if (buf != VK_NULL_HANDLE) {
 		vmaDestroyBuffer(dev->allocator, buf, alloc);
 	}
@@ -160,12 +167,15 @@ buffer& buffer::operator=(const buffer&& b) {
 	buf = b.buf;
 	alloc = b.alloc;
 	return *this;
-}
+}*/
 
 
 buffer::~buffer() {
 	if (buf == VK_NULL_HANDLE) return;
 	vmaDestroyBuffer(dev->allocator, buf, alloc);
+#ifdef BUFFER_ALLOC_RELEASE_DEBUG
+	std::cout << "~buffer #" << this->id << "\n";
+#endif
 	buf = VK_NULL_HANDLE;
 }
 

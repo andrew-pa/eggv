@@ -181,7 +181,7 @@ void app::run(bool pdfps)
 		/* fc++; */
 		/* ft += tm.delta_time(); */
                 dev->present_qu.waitIdle();
-                /* dev->clear_tmps(); */
+				dev->clear_tmps();
 	}
         dev->graphics_qu.waitIdle();
         dev->present_qu.waitIdle();

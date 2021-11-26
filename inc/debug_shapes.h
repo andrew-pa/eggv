@@ -18,4 +18,8 @@ struct debug_shape_render_node_prototype : public render_node_prototype {
     virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return nullptr; }
     const char* name() const override { return "Viewport Shapes"; }
     size_t id() const override { return 0x0000fffc; }
+
+    ~debug_shape_render_node_prototype() {
+//        std::cout << "goodbye debug shapes\n";
+    }
 };

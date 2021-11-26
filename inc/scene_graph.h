@@ -100,6 +100,10 @@ public:
     void for_each_object(std::function<void(std::shared_ptr<scene_object>)> f);
 
     json serialize() const;
+
+    ~scene() {
+//        std::cout << "goodbye scene\n";
+    }
 };
 
 #include <glm/gtc/quaternion.hpp>

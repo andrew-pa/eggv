@@ -57,19 +57,28 @@ struct render_node {
 
     size_t id;
     std::shared_ptr<render_node_prototype> prototype;
-    std::vector<std::pair<std::shared_ptr<render_node>, size_t>> inputs;
+    std::vector<std::pair<std::optional<std::weak_ptr<render_node>>, size_t>> inputs;
     std::vector<framebuffer_ref> outputs;
     std::unique_ptr<render_node_data> data;
 
     render_node(std::shared_ptr<render_node_prototype> prototype);
     render_node(renderer*, size_t id, json data);
 
+    inline std::shared_ptr<render_node> input_node(size_t i) const {
+        if (!inputs[i].first.has_value()) return nullptr;
+        return inputs[i].first->lock();
+    }
     inline std::optional<framebuffer_ref> input_framebuffer(size_t i) const {
-        if(inputs[i].first == nullptr) return {};
-        return inputs[i].first->outputs[inputs[i].second];
+        auto inp = input_node(i);
+        if(inp == nullptr) return {};
+        return inp->outputs[inputs[i].second];
     }
 
     json serialize() const;
+
+    virtual ~render_node() {
+//        std::cout << "goodbye rendernode\n";
+    }
 };
 
 struct frame_uniforms {
