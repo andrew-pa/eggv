@@ -1,13 +1,19 @@
 
 #define EGGV_IMPORT
-#include "cmmn.h"
-#include "mesh.h"
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <glm/glm.hpp>
 #include "nlohmann/json.hpp"
 #include "uuid.h"
+#include "ndcommon.h"
 #include <assimp/Importer.hpp>
 #include "assimp/postprocess.h"
 #include <assimp/scene.h>
 #include "assimp/material.h"
+#include "QuickHull.hpp"
+
+using namespace nlohmann;
 
 static std::mt19937 default_random_gen;
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
@@ -57,6 +63,7 @@ json convert_scene_node(json& sc, aiNode* node, const char* geometry_source_path
 int main(int argc, char* argv[]) {
     char *input_path = nullptr, *output_path = nullptr, *scene_path = nullptr;
     bool write_scene = false;
+    bool gen_hulls = false;
 
     for(int i = 0; i < argc; ++i) {
         if(strcmp(argv[i], "-i") == 0) {
@@ -65,10 +72,19 @@ int main(int argc, char* argv[]) {
         else if(strcmp(argv[i], "-o") == 0) {
             output_path = argv[++i];
         }
+        else if (strcmp(argv[i], "--gen-hull") == 0) {
+            gen_hulls = true;
+        }
         else if (strcmp(argv[i], "-scene") == 0) {
             write_scene = true;
             scene_path = argv[++i];
         }
+    }
+
+    if (input_path == nullptr || output_path == nullptr) {
+        std::cout << "usage: eggv_import [options] -i [input scene path] -o [output mesh data path] (-scene [output scene json path])\n";
+        std::cout << "\t--gen-hull:\tcompute convex hull of each mesh\n";
+        return 1;
     }
 
     std::cout << input_path << " => " << output_path << "\n";
@@ -76,6 +92,8 @@ int main(int argc, char* argv[]) {
     Assimp::Importer imp;
     imp.ReadFile(input_path, aiProcess_GenBoundingBoxes | aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_FlipUVs);
     std::cout << "\tloaded model\n";
+
+	quickhull::QuickHull<float> hullgen;
     
     auto scene = imp.GetScene();
     std::ofstream output(output_path, std::ios::binary);
@@ -89,14 +107,14 @@ int main(int argc, char* argv[]) {
         auto vert_fptr = output.tellp();
         auto has_tex_coords = mesh->HasTextureCoords(0);
         for (size_t i = 0; i < mesh->mNumVertices; ++i) {
-            vertex v(
+            geom_file::vertex v(
                 vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z),
                 vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z),
                 has_tex_coords ?
                     vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y)
 					: vec2(0.f)
             );
-            output.write((char*)&v, sizeof(vertex));
+            output.write((char*)&v, sizeof(geom_file::vertex));
         }
         auto idx_fptr = output.tellp();
         auto num_idx = 0;
@@ -107,12 +125,24 @@ int main(int argc, char* argv[]) {
                 num_idx++;
             }
         }
+        auto hull_fptr = 0;
+        if (gen_hulls) {
+            hull_fptr = output.tellp();
+            auto hull = hullgen.getConvexHull((float*)mesh->mVertices, mesh->mNumVertices, false, 0.01f);
+            auto indices = hull.getIndexBuffer();
+            uint16_t size = indices.size();
+			output.write((char*)&size, sizeof(uint16_t));
+            for (size_t i = 0; i < indices.size(); ++i) {
+                output.write((char*)(indices.data() + i), sizeof(uint16_t));
+            }
+        }
         auto resume_fptr = output.tellp();
         output.seekp(sizeof(int32) + mesh_ix*sizeof(geom_file::mesh_header), std::ios::beg);
         auto header = geom_file::mesh_header(
             vert_fptr,
             idx_fptr,
             name_fptr,
+            hull_fptr,
             mesh->mNumVertices,
             num_idx, mesh->mName.length+1, 
             mesh->mMaterialIndex,

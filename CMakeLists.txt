@@ -16,15 +16,6 @@ find_package(Vulkan REQUIRED)
 
 message("${Vulkan_LIBRARY}")
 
-# # set(USE_BINARIES OFF)
-# set(USE_TESTS OFF)
-# include_directories(depd/alembic/lib/)
-# if(LINUX)
-#     message("L")
-#     include_directories(/usr/local/include/Imath)
-# endif()
-# add_subdirectory(depd/alembic)
-
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 add_subdirectory(depd/json)
 
@@ -75,12 +66,6 @@ if(WIN32)
     include_directories(depd/dirent/include)
 endif()
 
-# ### midifile
-# add_library(midifile depd/midifile/src/Binasc.cpp depd/midifile/src/MidiEvent.cpp
-#     depd/midifile/src/MidiEventList.cpp depd/midifile/src/MidiFile.cpp
-#     depd/midifile/src/MidiMessage.cpp)
-# target_compile_features(midifile PRIVATE cxx_std_17)
-
 ### ImGui
 set(IMGUI_SRC_FILES depd/imgui/imconfig.h depd/imgui/imgui.h depd/imgui/imgui.cpp depd/imgui/imgui_demo.cpp
     depd/imgui/imgui_draw.cpp depd/imgui/imgui_widgets.cpp depd/imgui/imstb_rectpack.h
@@ -100,7 +85,7 @@ target_compile_features(stb PRIVATE cxx_std_17)
 
 add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/main.cpp src/swap_chain.cpp
-    inc/mem_arena.h
+    inc/mem_arena.h inc/ndcommon.h
     inc/renderer.h src/renderer.cpp inc/mesh.h
     inc/deferred_nodes.h src/deferred_nodes.cpp
     inc/debug_shapes.h src/debug_shapes.cpp
@@ -116,18 +101,10 @@ target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_jso
     stduuid mio::mio stb ReactPhysics3D::reactphysics3d)
 target_compile_features(eggv PUBLIC cxx_std_17)
 
-add_executable(eggv_import inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
-    src/app.cpp src/device.cpp src/swap_chain.cpp
-    inc/mem_arena.h
-    inc/renderer.h src/renderer.cpp inc/mesh.h
-    inc/deferred_nodes.h src/deferred_nodes.cpp
-    inc/debug_shapes.h src/debug_shapes.cpp
-    inc/mesh_gen.h inc/par_shapes.h src/mesh_gen.cpp
-    inc/geometry_set.h src/geometry_set.cpp
-    inc/scene_graph.h src/scene_graph.cpp
-    src/import.cpp)
+include_directories(depd/quickhull)
+add_executable(eggv_import inc/ndcommon.h src/import.cpp depd/quickhull/QuickHull.cpp)
 target_compile_features(eggv_import PUBLIC cxx_std_17)
-target_link_libraries(eggv_import glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json stduuid assimp mio::mio)
+target_link_libraries(eggv_import nlohmann_json::nlohmann_json stduuid assimp)
 
 
 

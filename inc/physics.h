@@ -4,7 +4,6 @@
 #include "renderer.h"
 #include <reactphysics3d/reactphysics3d.h>
 
-const trait_id TRAIT_ID_RIGID_BODY = 0x000a'0001;
 struct rigid_body_trait : public trait {
 	reactphysics3d::RigidBody* body;
 	reactphysics3d::Transform initial_transform;

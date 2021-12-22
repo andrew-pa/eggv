@@ -2,8 +2,6 @@
 #include "cmmn.h"
 #include "uuid.h"
 
-typedef uint32_t trait_id;
-
 struct frame_state {
     float t, dt;
     std::shared_ptr<class scene> current_scene;
@@ -108,7 +106,6 @@ public:
 
 #include <glm/gtc/quaternion.hpp>
 
-const trait_id TRAIT_ID_TRANSFORM = 0x00000001;
 struct transform_trait : public trait {
     vec3 translation, scale;
     quat rotation;
@@ -141,7 +138,6 @@ enum class light_type {
     directional, point
 };
 
-const trait_id TRAIT_ID_LIGHT = 0x0000'0010;
 struct light_trait : public trait {
     light_type type;
     vec3 param;
@@ -171,7 +167,6 @@ struct light_trait_factory : public trait_factory {
     }
 };
 
-const trait_id TRAIT_ID_CAMERA = 0x0000'0011;
 struct camera_trait : public trait {
     float fov;
 

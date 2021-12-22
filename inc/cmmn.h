@@ -33,6 +33,8 @@ using namespace glm;
 #include "nlohmann/json.hpp"
 using json = nlohmann::json;
 
+#include "ndcommon.h"
+
 #undef min
 #undef max
 
