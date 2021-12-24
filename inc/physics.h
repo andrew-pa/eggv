@@ -32,6 +32,9 @@ struct rigid_body_trait_factory : public trait_factory {
     void add_to(struct scene_object* obj, void* create_info) override;
     void deserialize(struct scene* scene, struct scene_object* obj, json data) override;
 
+	bool dependencies_loaded(struct scene_object* obj, const json& unloaded_trait) override;
+ 
+
 	rigid_body_trait_factory(reactphysics3d::PhysicsCommon* phy, reactphysics3d::PhysicsWorld* wrld)
 		: phy(phy), world(wrld) {}
 };

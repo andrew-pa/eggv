@@ -39,6 +39,10 @@ struct trait_factory {
     virtual void add_to(struct scene_object* obj, void* create_info) = 0;
     virtual void deserialize(struct scene* scene, struct scene_object* obj, json data) = 0;
 
+    virtual bool dependencies_loaded(struct scene_object* obj, const json& unloaded_trait) {
+        return true;
+    }
+
     virtual ~trait_factory() {}
 };
 

@@ -20,6 +20,13 @@ std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
     }
 }
 
+std::optional<std::pair<uint16_t, uint16_t*>> geometry_set::load_convex_hull(size_t index) {
+	const auto& h = this->header(index);
+    if (h.hull_ptr == 0) return {};
+    uint16_t* d = (uint16_t*)(data.data() + h.hull_ptr);
+    return {{ *d, d + 1 }};
+}
+
 int32 geometry_set::num_meshes() const {
 	return *(int32*)data.data();
 }
@@ -34,12 +41,28 @@ const geom_file::mesh_header& geometry_set::header(size_t index) const {
 
 mesh_trait::mesh_trait(trait_factory* f, mesh_create_info* ci)
     : trait(f), geo_src(ci==nullptr ? nullptr : ci->geo_src), mesh_index(ci==nullptr?-1:ci->mesh_index),
-        m(nullptr), mat(ci?ci->mat:nullptr), bounds()
+    m(nullptr), mat(ci ? ci->mat : nullptr), bounds(),
+    convex_hull(std::nullopt)
 {
     if(ci != nullptr && ci->geo_src != nullptr) {
         const auto& hdr = geo_src->header(mesh_index);
         bounds = aabb(hdr.aabb_min, hdr.aabb_max);
         m = geo_src->load_mesh(mesh_index);
+        auto chv = ci->geo_src->load_convex_hull(ci->mesh_index);
+        if (chv.has_value()) {
+            auto ch = chv.value();
+            auto polyfaces = new reactphysics3d::PolygonVertexArray::PolygonFace[ch.first/3];
+            for (size_t i = 0, j = 0; i < ch.first; i += 3, j++) {
+                polyfaces[j].nbVertices = 3;
+                polyfaces[j].indexBase = i;
+            }
+            convex_hull = reactphysics3d::PolygonVertexArray(
+                hdr.num_vertices, geo_src->file_data() + hdr.vertex_ptr, sizeof(vertex),
+                ch.second, 2, ch.first/3,
+                polyfaces,
+                reactphysics3d::PolygonVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+                reactphysics3d::PolygonVertexArray::IndexDataType::INDEX_SHORT_TYPE);
+        }
     }
 }
 

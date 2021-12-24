@@ -19,13 +19,24 @@ material::material(std::string name, vec3 base_color,
 std::shared_ptr<scene_object> deserialize_object_graph(scene* s, const std::vector<std::shared_ptr<trait_factory>>& trait_factories, json data) {
     auto obj = std::make_shared<scene_object>(data.contains("name") ? std::optional((std::string)data.at("name")) : std::nullopt,
             uuids::uuid::from_string((std::string)data.at("id")).value());
+    std::deque<std::pair<json, trait_factory*>> ls;
     for(const auto& t : data.at("t").items()) {
         auto t_id = std::atoi(t.key().c_str());
         auto tf = find_if(trait_factories.begin(), trait_factories.end(), [t_id](auto tf) { return tf->id() == t_id; });
         if(tf != trait_factories.end()) {
-            (*tf)->deserialize(s, obj.get(), t.value());
+            ls.emplace_back(t.value(), tf->get());
         } else {
             throw t_id;
+        }
+    }
+    while (!ls.empty()) {
+        auto ttf = ls.front();
+        ls.pop_front();
+        if (ttf.second->dependencies_loaded(obj.get(), ttf.first)) {
+            ttf.second->deserialize(s, obj.get(), ttf.first);
+        }
+        else {
+            ls.emplace_back(ttf);
         }
     }
     for(const auto& c : data.at("c")) {

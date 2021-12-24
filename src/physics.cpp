@@ -193,6 +193,15 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
             case CollisionShapeName::SPHERE:
                 shape = ((rigid_body_trait_factory*)this->parent)->phy->createSphereShape(1.f);
                 break;
+            case CollisionShapeName::CONVEX_MESH: {
+                auto phy = ((rigid_body_trait_factory*)this->parent)->phy;
+                auto msh = (mesh_trait*)obj->traits[TRAIT_ID_MESH].get();
+                shape = phy->createConvexMeshShape(
+                    phy->createPolyhedronMesh(&*msh->convex_hull));
+            }
+                break;
+            default:
+                throw;
         }
         body->addCollider(shape, Transform::identity());
         body->updateMassPropertiesFromColliders();
@@ -261,6 +270,15 @@ void rigid_body_trait_factory::add_to(struct scene_object* obj, void* create_inf
             world->createRigidBody(Transform::identity()), Transform::identity());
 }
 
+bool rigid_body_trait_factory::dependencies_loaded(scene_object* obj, const json& unloaded_trait) {
+    if (std::any_of(unloaded_trait["colliders"].begin(), unloaded_trait["colliders"].end(),
+        [](const json& t) { return t["type"] == CollisionShapeName::CONVEX_MESH; }))
+    {
+        return obj->traits[TRAIT_ID_MESH] != nullptr;
+    }
+    return true;
+}
+
 void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_object* obj, json data) {
     auto it = data["initial_transform"];
     auto init_rot = Quaternion(it["rotation"][0], it["rotation"][1], it["rotation"][2], it["rotation"][3]);
@@ -280,6 +298,11 @@ void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_obj
                 break;
             case CollisionShapeName::SPHERE:
                 shape = this->phy->createSphereShape(col["shape"]["radius"]);
+                break;
+            case CollisionShapeName::CONVEX_MESH:
+                auto msh = (mesh_trait*)obj->traits[TRAIT_ID_MESH].get();
+                shape = this->phy->createConvexMeshShape(
+                    this->phy->createPolyhedronMesh(&*msh->convex_hull));
                 break;
         }
         auto transform = Transform(::deserialize(col["position"]),

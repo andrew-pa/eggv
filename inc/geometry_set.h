@@ -11,8 +11,10 @@ public:
     std::string path;
     geometry_set(device* dev, const std::string& path);
     std::shared_ptr<mesh> load_mesh(size_t index);
+    std::optional<std::pair<uint16_t, uint16_t*>> load_convex_hull(size_t index);
     int32 num_meshes() const;
     const char* mesh_name(size_t index) const;
     const geom_file::mesh_header& header(size_t index) const;
+    const char* file_data() { return data.data(); }
 };
 
