@@ -42,7 +42,6 @@ struct mesh_trait : public trait {
     size_t mesh_index;
     std::shared_ptr<material> mat;
     aabb bounds;
-    std::optional<reactphysics3d::PolygonVertexArray> convex_hull;
     mesh_trait(trait_factory* p, mesh_create_info* ci);
     void append_transform(struct scene_object*, mat4& T, frame_state*) override {}
     void build_gui(struct scene_object*, frame_state*) override;

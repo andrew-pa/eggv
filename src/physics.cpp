@@ -1,5 +1,6 @@
 #include "physics.h"
 #include "imgui.h"
+#include "geometry_set.h"
 #include "reactphysics3d/mathematics/Vector3.h"
 using namespace reactphysics3d;
 
@@ -196,8 +197,11 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
             case CollisionShapeName::CONVEX_MESH: {
                 auto phy = ((rigid_body_trait_factory*)this->parent)->phy;
                 auto msh = (mesh_trait*)obj->traits[TRAIT_ID_MESH].get();
-                shape = phy->createConvexMeshShape(
-                    phy->createPolyhedronMesh(&*msh->convex_hull));
+                auto pva = msh->geo_src->load_convex_hull(msh->mesh_index);
+                if (pva.has_value()) {
+                    shape = phy->createConvexMeshShape(
+                        phy->createPolyhedronMesh(pva.value()));
+                }
             }
                 break;
             default:
@@ -301,8 +305,11 @@ void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_obj
                 break;
             case CollisionShapeName::CONVEX_MESH:
                 auto msh = (mesh_trait*)obj->traits[TRAIT_ID_MESH].get();
-                shape = this->phy->createConvexMeshShape(
-                    this->phy->createPolyhedronMesh(&*msh->convex_hull));
+                auto pva = msh->geo_src->load_convex_hull(msh->mesh_index);
+                if (pva.has_value()) {
+                    shape = this->phy->createConvexMeshShape(
+                        this->phy->createPolyhedronMesh(pva.value()));
+                }
                 break;
         }
         auto transform = Transform(::deserialize(col["position"]),
@@ -342,6 +349,9 @@ void build_physics_world_gui(frame_state* fs, bool* window_open, reactphysics3d:
     }
 }
 
+const size_t NUM_DEBUG_LINES = 2048;
+const size_t NUM_DEBUG_TRIS = 512;
+
 struct physics_debug_shape_render_node_data : render_node_data {
     vk::UniquePipeline triangle_pipeline;
     physics_debug_shape_render_node_data(vk::UniquePipeline&& pipe) : triangle_pipeline(std::move(pipe)) {}
@@ -372,7 +382,7 @@ physics_debug_shape_render_node_prototype::physics_debug_shape_render_node_proto
             {}, 1, &desc_layout.get(), 2, push_consts
             });
 
-    geo_buffer = std::make_unique<buffer>(dev, 1024*sizeof(DebugRenderer::DebugLine) + 1024*sizeof(DebugRenderer::DebugTriangle),
+    geo_buffer = std::make_unique<buffer>(dev, NUM_DEBUG_LINES*sizeof(DebugRenderer::DebugLine) + NUM_DEBUG_TRIS*sizeof(DebugRenderer::DebugTriangle),
             vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
             (void**)&geo_bufmap);
 
@@ -503,11 +513,11 @@ void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(r
     auto& dr = world->getDebugRenderer();
     if (dr.getNbLines() > 0) {
         memcpy(geo_bufmap, dr.getLinesArray(),
-                sizeof(DebugRenderer::DebugLine) * max(1024, (int)dr.getNbLines()));
+                sizeof(DebugRenderer::DebugLine) * max(NUM_DEBUG_LINES, (size_t)dr.getNbLines()));
     }
     if (dr.getNbTriangles() > 0) {
         memcpy((char*)geo_bufmap + 1024*sizeof(DebugRenderer::DebugLine), dr.getTrianglesArray(),
-                sizeof(DebugRenderer::DebugTriangle) * max(1024, (int)dr.getNbTriangles()));
+                sizeof(DebugRenderer::DebugTriangle) * max(NUM_DEBUG_TRIS, (size_t)dr.getNbTriangles()));
     }
 
     if (dr.getNbLines() > 0) {

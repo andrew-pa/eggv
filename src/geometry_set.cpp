@@ -1,6 +1,6 @@
 #include "geometry_set.h"
 #include "imgui.h"
- 
+
 geometry_set::geometry_set(device* dev, const std::string& path) : dev(dev), data(path), path(path) {
 }
 
@@ -20,11 +20,30 @@ std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
     }
 }
 
-std::optional<std::pair<uint16_t, uint16_t*>> geometry_set::load_convex_hull(size_t index) {
+std::optional<reactphysics3d::PolygonVertexArray*> geometry_set::load_convex_hull(size_t index) {
+    auto cv = this->convex_hull_cashe.find(index);
+    if (cv != this->convex_hull_cashe.end()) {
+        return &cv->second.pva;
+    }
 	const auto& h = this->header(index);
     if (h.hull_ptr == 0) return {};
     uint16_t* d = (uint16_t*)(data.data() + h.hull_ptr);
-    return {{ *d, d + 1 }};
+    uint16_t num_hull_indices = *d;
+    d++;
+    this->convex_hull_cashe[index] = physics_pva();
+	this->convex_hull_cashe[index].faces = std::vector<reactphysics3d::PolygonVertexArray::PolygonFace>(
+        num_hull_indices / 3, reactphysics3d::PolygonVertexArray::PolygonFace());
+	for (size_t i = 0, j = 0; i < num_hull_indices; i += 3, j++) {
+		this->convex_hull_cashe[index].faces[j].nbVertices = 3;
+		this->convex_hull_cashe[index].faces[j].indexBase = i;
+	}
+	this->convex_hull_cashe[index].pva = reactphysics3d::PolygonVertexArray(
+		h.num_vertices, data.data() + h.vertex_ptr, sizeof(vertex),
+		d, 2, num_hull_indices / 3,
+		this->convex_hull_cashe[index].faces.data(),
+		reactphysics3d::PolygonVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+		reactphysics3d::PolygonVertexArray::IndexDataType::INDEX_SHORT_TYPE);
+    return &this->convex_hull_cashe[index].pva;
 }
 
 int32 geometry_set::num_meshes() const {
@@ -41,28 +60,12 @@ const geom_file::mesh_header& geometry_set::header(size_t index) const {
 
 mesh_trait::mesh_trait(trait_factory* f, mesh_create_info* ci)
     : trait(f), geo_src(ci==nullptr ? nullptr : ci->geo_src), mesh_index(ci==nullptr?-1:ci->mesh_index),
-    m(nullptr), mat(ci ? ci->mat : nullptr), bounds(),
-    convex_hull(std::nullopt)
+    m(nullptr), mat(ci ? ci->mat : nullptr), bounds()
 {
     if(ci != nullptr && ci->geo_src != nullptr) {
         const auto& hdr = geo_src->header(mesh_index);
         bounds = aabb(hdr.aabb_min, hdr.aabb_max);
         m = geo_src->load_mesh(mesh_index);
-        auto chv = ci->geo_src->load_convex_hull(ci->mesh_index);
-        if (chv.has_value()) {
-            auto ch = chv.value();
-            auto polyfaces = new reactphysics3d::PolygonVertexArray::PolygonFace[ch.first/3];
-            for (size_t i = 0, j = 0; i < ch.first; i += 3, j++) {
-                polyfaces[j].nbVertices = 3;
-                polyfaces[j].indexBase = i;
-            }
-            convex_hull = reactphysics3d::PolygonVertexArray(
-                hdr.num_vertices, geo_src->file_data() + hdr.vertex_ptr, sizeof(vertex),
-                ch.second, 2, ch.first/3,
-                polyfaces,
-                reactphysics3d::PolygonVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
-                reactphysics3d::PolygonVertexArray::IndexDataType::INDEX_SHORT_TYPE);
-        }
     }
 }
 

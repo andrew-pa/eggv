@@ -3,15 +3,32 @@
 #include "mesh.h"
 #include <mio/shared_mmap.hpp>
 
+struct physics_pva {
+    reactphysics3d::PolygonVertexArray pva;
+    std::vector<reactphysics3d::PolygonVertexArray::PolygonFace> faces;
+
+    physics_pva()
+        : pva(0, nullptr, 0, nullptr, 0, 0, nullptr,
+            reactphysics3d::PolygonVertexArray::VertexDataType::VERTEX_FLOAT_TYPE, 
+            reactphysics3d::PolygonVertexArray::IndexDataType::INDEX_SHORT_TYPE), faces()
+    {}
+
+    physics_pva(reactphysics3d::PolygonVertexArray pva, 
+            std::vector<reactphysics3d::PolygonVertexArray::PolygonFace> faces)
+        : pva(pva), faces(faces)
+    { }
+};
+ 
 class geometry_set {
     std::map<size_t, std::shared_ptr<mesh>> mesh_cashe;
+    std::map<size_t, physics_pva> convex_hull_cashe;
     mio::shared_mmap_source data;
 public:
     device* dev;
     std::string path;
     geometry_set(device* dev, const std::string& path);
     std::shared_ptr<mesh> load_mesh(size_t index);
-    std::optional<std::pair<uint16_t, uint16_t*>> load_convex_hull(size_t index);
+    std::optional<reactphysics3d::PolygonVertexArray*> load_convex_hull(size_t index);
     int32 num_meshes() const;
     const char* mesh_name(size_t index) const;
     const geom_file::mesh_header& header(size_t index) const;
