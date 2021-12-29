@@ -92,7 +92,8 @@ public:
 
     scene(std::vector<std::shared_ptr<trait_factory>> trait_factories, std::shared_ptr<scene_object> root) : trait_factories(trait_factories), root(root), selected_object(root), selected_material(nullptr), materials_changed(true) {}
 
-    scene(class device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories, json data);
+    scene(class device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories,
+        std::filesystem::path path, json data);
 
     void update(frame_state* fs, class app*);
     void build_gui(frame_state* fs);

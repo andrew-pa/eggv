@@ -80,7 +80,7 @@ struct device {
 	VmaAllocator allocator;
 	vk::UniqueDevice dev;
 	vk::PhysicalDevice  pdevice;
-        std::map<std::string, vk::UniqueShaderModule> shader_module_cashe;
+        std::map<std::string, vk::UniqueShaderModule> shader_module_cache;
         std::vector<vk::UniqueCommandBuffer> tmp_cmd_buffers;
         std::vector<std::unique_ptr<buffer>> tmp_upload_buffers;
 

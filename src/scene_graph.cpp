@@ -45,12 +45,17 @@ std::shared_ptr<scene_object> deserialize_object_graph(scene* s, const std::vect
     return obj;
 }
 
-scene::scene(device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories, json data)
+#include <filesystem>
+
+scene::scene(device* dev, std::vector<std::shared_ptr<trait_factory>> trait_factories,
+    std::filesystem::path path, json data)
     : trait_factories(trait_factories), selected_object(nullptr), selected_material(nullptr), active_camera(nullptr),
     root(nullptr), materials_changed(true)
 {
     for (const auto& p : data["geometries"]) {
-        geometry_sets.push_back(std::make_shared<geometry_set>(dev, p));
+        auto pp = std::filesystem::path(p.get<std::string>());
+        auto gp = path.parent_path() / pp;
+        geometry_sets.push_back(std::make_shared<geometry_set>(dev, p, gp));
     }
     for (const auto& [id, m] : data["materials"].items()) {
         materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));

@@ -75,8 +75,10 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
     if (ImGui::DragFloat3("Initial Position", &pos.x, 0.01f))
         initial_transform.setPosition(pos);
     auto rot = initial_transform.getOrientation();
-    if (ImGui::DragFloat4("Initial Rotation", &rot.x, 0.01f))
+    if (ImGui::DragFloat4("Initial Rotation", &rot.x, 0.01f)) {
+        rot.normalize();
         initial_transform.setOrientation(rot);
+    }
     if (ImGui::Button("Reset")) {
         this->reset_body();
     }
@@ -125,6 +127,18 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
                     if (ImGui::DragFloat("Radius", &radius, 0.01f, 0.01f))
                     s->setRadius(radius);
                 } break;
+				case CollisionShapeName::CONVEX_MESH: {
+					auto s = dynamic_cast<ConvexMeshShape*>(shape);
+					auto scale = s->getScale();
+					if (ImGui::DragFloat3("Scale", &scale.x, 0.01f))
+						s->setScale(scale);
+				} break;
+                case CollisionShapeName::TRIANGLE_MESH: {
+                    auto s = dynamic_cast<ConcaveMeshShape*>(shape);
+                    auto scale = s->getScale();
+                    if (ImGui::DragFloat3("Scale", &scale.x, 0.01f))
+                        s->setScale(scale);
+                } break;
             }
 
             ImGui::TableNextColumn();
@@ -137,6 +151,7 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
             }
             auto rot = tf.getOrientation();
             if (ImGui::DragFloat4("Rotation", &rot.x, 0.01f)) {
+                rot.normalize();
                 tf.setOrientation(rot);
                 tf_changed = true;
             }
@@ -202,6 +217,13 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
                     shape = phy->createConvexMeshShape(
                         phy->createPolyhedronMesh(pva.value()));
                 }
+            }
+                break;
+            case CollisionShapeName::TRIANGLE_MESH: {
+                auto phy = ((rigid_body_trait_factory*)this->parent)->phy;
+                auto msh = (mesh_trait*)obj->traits[TRAIT_ID_MESH].get();
+                auto tm = msh->geo_src->load_physics_mesh(phy, msh->mesh_index);
+				shape = phy->createConcaveMeshShape(tm);
             }
                 break;
             default:
@@ -276,7 +298,10 @@ void rigid_body_trait_factory::add_to(struct scene_object* obj, void* create_inf
 
 bool rigid_body_trait_factory::dependencies_loaded(scene_object* obj, const json& unloaded_trait) {
     if (std::any_of(unloaded_trait["colliders"].begin(), unloaded_trait["colliders"].end(),
-        [](const json& t) { return t["type"] == CollisionShapeName::CONVEX_MESH; }))
+        [](const json& t) {
+            return t["type"] == CollisionShapeName::CONVEX_MESH
+                || t["type"] == CollisionShapeName::TRIANGLE_MESH;
+        }))
     {
         return obj->traits[TRAIT_ID_MESH] != nullptr;
     }
@@ -303,14 +328,22 @@ void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_obj
             case CollisionShapeName::SPHERE:
                 shape = this->phy->createSphereShape(col["shape"]["radius"]);
                 break;
-            case CollisionShapeName::CONVEX_MESH:
+            case CollisionShapeName::CONVEX_MESH: {
                 auto msh = (mesh_trait*)obj->traits[TRAIT_ID_MESH].get();
                 auto pva = msh->geo_src->load_convex_hull(msh->mesh_index);
                 if (pva.has_value()) {
                     shape = this->phy->createConvexMeshShape(
                         this->phy->createPolyhedronMesh(pva.value()));
                 }
+            }
                 break;
+			case CollisionShapeName::TRIANGLE_MESH: {
+                auto msh = (mesh_trait*)obj->traits[TRAIT_ID_MESH].get();
+                auto tm = msh->geo_src->load_physics_mesh(phy, msh->mesh_index);
+				shape = phy->createConcaveMeshShape(tm);
+            }
+                break;
+
         }
         auto transform = Transform(::deserialize(col["position"]),
             Quaternion(col["rotation"][0],col["rotation"][1],col["rotation"][2],col["rotation"][3]));

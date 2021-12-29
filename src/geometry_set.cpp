@@ -1,12 +1,13 @@
 #include "geometry_set.h"
 #include "imgui.h"
 
-geometry_set::geometry_set(device* dev, const std::string& path) : dev(dev), data(path), path(path) {
+geometry_set::geometry_set(device* dev, const std::string& path, std::filesystem::path data_path) 
+    : dev(dev), data(data_path.string()), path(path) {
 }
 
 std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
-    auto cv = this->mesh_cashe.find(index);
-    if (cv != this->mesh_cashe.end()) {
+    auto cv = this->mesh_cache.find(index);
+    if (cv != this->mesh_cache.end()) {
         return cv->second;
     } else {
         const auto& h = this->header(index);
@@ -15,14 +16,14 @@ std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
             memcpy((char*)stg_buf + sizeof(vertex)*h.num_vertices, data.data() + h.index_ptr,
                 sizeof(uint16)*h.num_indices);
         });
-        this->mesh_cashe[index] = msh;
+        this->mesh_cache[index] = msh;
         return msh;
     }
 }
 
 std::optional<reactphysics3d::PolygonVertexArray*> geometry_set::load_convex_hull(size_t index) {
-    auto cv = this->convex_hull_cashe.find(index);
-    if (cv != this->convex_hull_cashe.end()) {
+    auto cv = this->convex_hull_cache.find(index);
+    if (cv != this->convex_hull_cache.end()) {
         return &cv->second.pva;
     }
 	const auto& h = this->header(index);
@@ -30,20 +31,41 @@ std::optional<reactphysics3d::PolygonVertexArray*> geometry_set::load_convex_hul
     uint16_t* d = (uint16_t*)(data.data() + h.hull_ptr);
     uint16_t num_hull_indices = *d;
     d++;
-    this->convex_hull_cashe[index] = physics_pva();
-	this->convex_hull_cashe[index].faces = std::vector<reactphysics3d::PolygonVertexArray::PolygonFace>(
+    this->convex_hull_cache[index] = physics_pva();
+	this->convex_hull_cache[index].faces = std::vector<reactphysics3d::PolygonVertexArray::PolygonFace>(
         num_hull_indices / 3, reactphysics3d::PolygonVertexArray::PolygonFace());
 	for (size_t i = 0, j = 0; i < num_hull_indices; i += 3, j++) {
-		this->convex_hull_cashe[index].faces[j].nbVertices = 3;
-		this->convex_hull_cashe[index].faces[j].indexBase = i;
+		this->convex_hull_cache[index].faces[j].nbVertices = 3;
+		this->convex_hull_cache[index].faces[j].indexBase = i;
 	}
-	this->convex_hull_cashe[index].pva = reactphysics3d::PolygonVertexArray(
+	this->convex_hull_cache[index].pva = reactphysics3d::PolygonVertexArray(
 		h.num_vertices, data.data() + h.vertex_ptr, sizeof(vertex),
 		d, 2, num_hull_indices / 3,
-		this->convex_hull_cashe[index].faces.data(),
+		this->convex_hull_cache[index].faces.data(),
 		reactphysics3d::PolygonVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
 		reactphysics3d::PolygonVertexArray::IndexDataType::INDEX_SHORT_TYPE);
-    return &this->convex_hull_cashe[index].pva;
+    return &this->convex_hull_cache[index].pva;
+}
+
+#include "reactphysics3d/engine/PhysicsCommon.h"
+#include "reactphysics3d/collision/TriangleVertexArray.h"
+
+reactphysics3d::TriangleMesh* geometry_set::load_physics_mesh(reactphysics3d::PhysicsCommon* phy, size_t index) {
+    auto cm = this->phys_mesh_cache.find(index);
+    if (cm != this->phys_mesh_cache.end())
+        return cm->second.first;
+    const auto& h = this->header(index);
+    auto tva = std::make_unique<reactphysics3d::TriangleVertexArray>(
+        h.num_vertices, data.data() + h.vertex_ptr,                            sizeof(vertex) + offsetof(vertex, position),
+                        data.data() + h.vertex_ptr + offsetof(vertex, normal), sizeof(vertex),
+        h.num_indices/3,  data.data() + h.index_ptr,  3*sizeof(uint16), 
+        reactphysics3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+        reactphysics3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE,
+        reactphysics3d::TriangleVertexArray::IndexDataType ::INDEX_SHORT_TYPE);
+    auto msh = phy->createTriangleMesh();
+    msh->addSubpart(tva.get());
+    this->phys_mesh_cache[index] = { msh, std::move(tva) };
+    return msh;
 }
 
 int32 geometry_set::num_meshes() const {

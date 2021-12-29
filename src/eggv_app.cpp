@@ -10,6 +10,7 @@
 #include "mesh_gen.h"
 #include "deferred_nodes.h"
 #include "geometry_set.h"
+#include <filesystem>
 
 void generate_cube(float width, float height, float depth, std::function<void(vec3, vec3, vec3, vec2)> vertex, std::function<void(size_t)> index) {
 	float w2 = 0.5f * width;
@@ -84,7 +85,7 @@ std::vector<std::shared_ptr<trait_factory>> eggv_app::collect_factories() {
 
 std::shared_ptr<scene> eggv_app::create_test_scene() {
     auto s = std::make_shared<scene>(collect_factories(), std::make_shared<scene_object>("Root"));
-    auto gs = std::make_shared<geometry_set>(dev.get(), "sponza.geo");
+    auto gs = std::make_shared<geometry_set>(dev.get(), "sponza.geo", "sponza.geo");
     s->geometry_sets.push_back(gs);
     //
     // /*auto test_mesh = std::make_shared<mesh>(mesh_gen::generate_plane(dev, 32, 32));
@@ -263,7 +264,8 @@ eggv_app::eggv_app(const std::vector<std::string>& cargs)
             if(i >= cargs.size()) throw;
             std::ifstream input(cargs[i]);
             json data; input >> data;
-            current_scene = std::make_shared<scene>(dev.get(), collect_factories(), data);
+            current_scene = std::make_shared<scene>(dev.get(),
+                collect_factories(), std::filesystem::path(cargs[i]), data);
         }
     }
 

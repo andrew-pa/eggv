@@ -27,6 +27,7 @@ using namespace glm;
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <filesystem>
 
 #include <vulkan/vulkan.hpp>
 

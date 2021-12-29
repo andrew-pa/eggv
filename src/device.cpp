@@ -84,8 +84,8 @@ vk::UniqueDescriptorSetLayout device::create_desc_set_layout(std::vector<vk::Des
 }
 
 vk::ShaderModule device::load_shader(const std::string& path) {
-	auto f = shader_module_cashe.find(path);
-	if (f != shader_module_cashe.end()) return f->second.get();
+	auto f = shader_module_cache.find(path);
+	if (f != shader_module_cache.end()) return f->second.get();
 	else {
 		std::ifstream file(path, std::ios::ate | std::ios::binary);
 		if (!file) throw path;
@@ -97,8 +97,8 @@ vk::ShaderModule device::load_shader(const std::string& path) {
 		vk::ShaderModuleCreateInfo cfo;
 		cfo.codeSize = buffer.size();
 		cfo.pCode = (uint32_t*)buffer.data();
-		shader_module_cashe[path] = this->dev->createShaderModuleUnique(cfo);
-		return shader_module_cashe[path].get();
+		shader_module_cache[path] = this->dev->createShaderModuleUnique(cfo);
+		return shader_module_cache[path].get();
 	}
 }
 
@@ -106,7 +106,7 @@ vk::ShaderModule device::load_shader(const std::string& path) {
 device::~device() {
         graphics_qu.waitIdle();
         present_qu.waitIdle();
-	for (auto& s : shader_module_cashe)
+	for (auto& s : shader_module_cache)
 		s.second.reset();
 	vmaDestroyAllocator(allocator);
 	cmdpool.reset();
