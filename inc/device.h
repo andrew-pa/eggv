@@ -3,7 +3,7 @@
 #include "vk_mem_alloc.h"
 
 struct buffer {
-	struct device* dev;
+	class device* dev;
 	VkBuffer buf;
 	VmaAllocation alloc;
 	uint64 id;
@@ -27,8 +27,8 @@ struct buffer {
 };
 
 struct image {
-	struct device* dev;
-        vk::ImageCreateInfo info;
+	class device* dev;
+	vk::ImageCreateInfo info;
 	VkImage img;
 	VmaAllocation alloc;
 	image(device* dev, vk::ImageCreateFlags createflags,
@@ -46,11 +46,12 @@ struct image {
 
 
 	// Automatically generate mipmaps using the GPU
-	void generate_mipmaps(size_t w, size_t h, vk::CommandBuffer cb, uint32_t layer_count = 1,
+	void generate_mipmaps(uint32_t w, uint32_t h, vk::CommandBuffer cb,
+ uint32_t layer_count = 1,
 		vk::ImageLayout final_layout = vk::ImageLayout::eShaderReadOnlyOptimal);
 
-	static inline size_t calculate_mipmap_count(size_t w, size_t h) {
-		return floor(log2(glm::min((float)w, (float)h)));
+	static inline uint32_t calculate_mipmap_count(size_t w, size_t h) {
+		return (uint32_t)floor(log2(glm::min((float)w, (float)h)));
 	}
 
 	operator vk::Image() {
@@ -62,7 +63,8 @@ struct image {
 
 class app;
 
-struct device {
+class device {
+public:
 	struct queue_families {
 		int graphics = -1;
 		int present = -1;
@@ -87,7 +89,7 @@ struct device {
 	device(app* app);
 
 	vk::CommandBuffer alloc_tmp_cmd_buffer(vk::CommandBufferLevel lvl = vk::CommandBufferLevel::ePrimary);
-	std::vector<vk::UniqueCommandBuffer> alloc_cmd_buffers(size_t num = 1, vk::CommandBufferLevel lvl = vk::CommandBufferLevel::ePrimary);
+	std::vector<vk::UniqueCommandBuffer> alloc_cmd_buffers(uint32_t num, vk::CommandBufferLevel lvl = vk::CommandBufferLevel::ePrimary);
 
 	vk::UniqueDescriptorSetLayout create_desc_set_layout(std::vector<vk::DescriptorSetLayoutBinding> bindings);
 

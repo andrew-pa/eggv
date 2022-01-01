@@ -281,8 +281,8 @@ inline json serialize(vec4 v) {
 
 inline json serialize(mat4 v) {
 	auto r = json::array();
-	for (int i = 0; i < 4; ++i)
-		for (int j = 0; j < 4; ++i)
+	for (auto i = 0; i < 4; ++i)
+		for (auto j = 0; j < 4; ++i)
 			r[i * 4 + j] = v[i][j];
 	return r;
 }

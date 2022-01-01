@@ -24,7 +24,7 @@ device::device(app* app) {
 			(uint32_t)qf, 1, &fp
 			});
 	}
-	dcfo.queueCreateInfoCount = qu_cfo.size();
+	dcfo.queueCreateInfoCount = (uint32_t)qu_cfo.size();
 	dcfo.pQueueCreateInfos = qu_cfo.data();
 
 	vk::PhysicalDeviceFeatures devfeat;
@@ -38,12 +38,12 @@ device::device(app* app) {
 			"VK_LAYER_LUNARG_standard_validation",
 #endif
 	};
-	dcfo.enabledLayerCount = layer_names.size();
+	dcfo.enabledLayerCount = (uint32_t)layer_names.size();
 	dcfo.ppEnabledLayerNames = layer_names.data();
 	std::vector<const char*> ext = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
-	dcfo.enabledExtensionCount = ext.size();
+	dcfo.enabledExtensionCount = (uint32_t)ext.size();
 	dcfo.ppEnabledExtensionNames = ext.data();
 	dev = pdevice.createDeviceUnique(dcfo);
 
@@ -59,7 +59,7 @@ device::device(app* app) {
 	vmaCreateAllocator(&cfo, &allocator);
 }
 
-std::vector<vk::UniqueCommandBuffer> device::alloc_cmd_buffers(size_t num, vk::CommandBufferLevel lvl) {
+std::vector<vk::UniqueCommandBuffer> device::alloc_cmd_buffers(uint32_t num = 1, vk::CommandBufferLevel lvl) {
 	vk::CommandBufferAllocateInfo afo;
 	afo.level = lvl;
 	afo.commandPool = cmdpool.get();
@@ -200,7 +200,7 @@ image::image(device* dev, vk::ImageCreateFlags flg, vk::ImageType type, vk::Exte
 			vk::ComponentMapping(), iv_sr));
 	}
 }
-void image::generate_mipmaps(size_t w, size_t h, vk::CommandBuffer cb, uint32_t layer_count, vk::ImageLayout final_layout) {
+void image::generate_mipmaps(uint32_t w, uint32_t h, vk::CommandBuffer cb, uint32_t layer_count, vk::ImageLayout final_layout) {
 	auto subresrange = vk::ImageSubresourceRange{ vk::ImageAspectFlagBits::eColor, 0,1,0,layer_count };
 	// transition the biggest mipmap (the loaded src image) so that it can be copied from
 	cb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), {}, {}, {
@@ -208,11 +208,11 @@ void image::generate_mipmaps(size_t w, size_t h, vk::CommandBuffer cb, uint32_t 
 		VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, vk::Image(img), subresrange}
 		});
 
-	const size_t count = calculate_mipmap_count(w, h);
+	const uint32_t count = calculate_mipmap_count(w, h);
 
 	// transition all the other mip levels to write mode so we can blit to them
 	subresrange.baseMipLevel = 1;
-	subresrange.levelCount = count - 1;
+	subresrange.levelCount = (uint32_t)(count - 1);
 	cb.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), {}, {}, {
 		vk::ImageMemoryBarrier{vk::AccessFlags(), vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
 		VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, vk::Image(img), subresrange}
@@ -222,14 +222,14 @@ void image::generate_mipmaps(size_t w, size_t h, vk::CommandBuffer cb, uint32_t 
 	vk::ImageBlit region;
 	region.dstSubresource.aspectMask = region.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
 	region.dstSubresource.layerCount = region.srcSubresource.layerCount = layer_count;
-	for (size_t i = 1; i < count; ++i) {
+	for (uint32_t i = 1; i < count; ++i) {
 		region.srcSubresource.mipLevel = i - 1;
 		region.dstSubresource.mipLevel = i;
-		region.srcOffsets[1].x = glm::max(w >> (i - 1), (size_t)1);
-		region.srcOffsets[1].y = glm::max(h >> (i - 1), (size_t)1);
+		region.srcOffsets[1].x = glm::max(w >> (i - 1), (uint32_t)1);
+		region.srcOffsets[1].y = glm::max(h >> (i - 1), (uint32_t)1);
 		region.srcOffsets[1].z = 1;
-		region.dstOffsets[1].x = glm::max(w >> i, (size_t)1);
-		region.dstOffsets[1].y = glm::max(h >> i, (size_t)1);
+		region.dstOffsets[1].x = glm::max(w >> i, (uint32_t)1);
+		region.dstOffsets[1].y = glm::max(h >> i, (uint32_t)1);
 		region.dstOffsets[1].z = 1;
 
 		// copy the last mip level to the next mip level while filtering

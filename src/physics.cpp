@@ -308,7 +308,7 @@ bool rigid_body_trait_factory::dependencies_loaded(scene_object* obj, const json
     return true;
 }
 
-void rigid_body_trait_factory::deserialize(struct scene* scene, struct scene_object* obj, json data) {
+void rigid_body_trait_factory::deserialize(class scene* scene, struct scene_object* obj, json data) {
     auto it = data["initial_transform"];
     auto init_rot = Quaternion(it["rotation"][0], it["rotation"][1], it["rotation"][2], it["rotation"][3]);
     init_rot.normalize();

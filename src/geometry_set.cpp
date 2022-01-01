@@ -140,7 +140,7 @@ json mesh_trait::serialize() const {
     };
 }
 
-void mesh_trait_factory::deserialize(struct scene* scene, scene_object* obj, json data) {
+void mesh_trait_factory::deserialize(class scene* scene, scene_object* obj, json data) {
     mesh_create_info ci;
     ci.geo_src = *std::find_if(scene->geometry_sets.begin(), scene->geometry_sets.end(),
         [&](auto gs) { return gs->path == data["geo_src"]; });

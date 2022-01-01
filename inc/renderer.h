@@ -91,7 +91,8 @@ struct gpu_material {
     gpu_material(material* mat) : base_color(mat->base_color) {}
 };
 
-struct renderer {
+class renderer {
+public:
     device* dev; swap_chain* swpc;
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
     std::vector<std::shared_ptr<render_node>> render_graph;
@@ -111,10 +112,10 @@ struct renderer {
     
     std::unique_ptr<buffer> materials_buf;
     gpu_material* mapped_materials;
-    size_t num_gpu_mats;
+    uint32_t num_gpu_mats;
 
     std::vector<std::tuple<std::string, std::shared_ptr<image>, vk::UniqueImageView>> texture_cache;
-    size_t create_texture2d(const std::string& name, size_t width, size_t height, vk::Format fmt, size_t data_size, void* data, vk::CommandBuffer uplcb);
+    size_t create_texture2d(const std::string& name, uint32_t width, uint32_t height, vk::Format fmt, size_t data_size, void* data, vk::CommandBuffer uplcb);
     size_t load_texture(const std::string&, vk::CommandBuffer uplcb);
     vk::UniqueSampler texture_sampler;
     vk::UniqueDescriptorPool material_desc_pool;

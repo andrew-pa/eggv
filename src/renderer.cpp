@@ -501,7 +501,7 @@ void renderer::compile_render_graph() {
     for(const auto& fb : buffers) {
         /* std::cout << "fb " << fb.first << "\n"; */
         if(!std::get<1>(fb.second)) continue;
-        attachement_refs[fb.first] = attachments.size();
+        attachement_refs[fb.first] = (uint32_t)attachments.size();
         attachments.push_back(vk::AttachmentDescription { vk::AttachmentDescriptionFlags(),
                 std::get<0>(fb.second)->info.format,
                 vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
@@ -584,7 +584,7 @@ void renderer::compile_render_graph() {
     std::vector<vk::WriteDescriptorSet> desc_writes;
     arena<vk::DescriptorBufferInfo> buf_infos;
     arena<vk::DescriptorImageInfo> img_infos;
-    for(size_t i = 0; i < subpass_order.size(); ++i) {
+    for(uint32_t i = 0; i < subpass_order.size(); ++i) {
         auto node = subpass_order[i];
         node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
         node->pipeline =
@@ -603,7 +603,7 @@ void renderer::compile_render_graph() {
 void renderer::create_swapchain_dependencies(swap_chain* sc) {
     /* std::cout << "renderer::create_swapchain_dependencies\n"; */
     swpc = sc;
-    full_viewport = vk::Viewport(0, 0, swpc->extent.width, swpc->extent.height, 0.f, 1.f);
+    full_viewport = vk::Viewport(0, 0, (float)swpc->extent.width, (float)swpc->extent.height, 0.f, 1.f);
     full_scissor = vk::Rect2D({}, swpc->extent);
     buffers.clear();
     this->compile_render_graph();
@@ -691,7 +691,7 @@ void renderer::build_gui(frame_state* fs) {
 
             for (const auto& node : render_graph) {
                 auto i = node->id;
-                ImNodes::BeginNode(i);
+                ImNodes::BeginNode((int)i);
                 ImNodes::BeginNodeTitleBar();
                 ImGui::Text("%s", node->prototype->name());
                 ImGui::SameLine();
@@ -735,7 +735,7 @@ void renderer::build_gui(frame_state* fs) {
 					    && std::get<1>(p.second) == node->inputs[input_ix].second;
                 });
                 if (out_attrib_id == gui_node_attribs.end()) continue;
-                ImNodes::Link(gui_links.size(), attrib_id, out_attrib_id->first);
+                ImNodes::Link((int)gui_links.size(), attrib_id, out_attrib_id->first);
                 gui_links.push_back({ attrib_id, out_attrib_id->first });
             }
 
@@ -926,7 +926,7 @@ size_t renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) 
    }
 }
 
-size_t renderer::create_texture2d(const std::string& name, size_t width, size_t height, vk::Format fmt, size_t data_size, void* data, vk::CommandBuffer uplcb) {
+size_t renderer::create_texture2d(const std::string& name, uint32_t width, uint32_t height, vk::Format fmt, size_t data_size, void* data, vk::CommandBuffer uplcb) {
 	auto existing_texture = std::find_if(texture_cache.begin(), texture_cache.end(),
             [&](const auto& p) { return std::get<0>(p) == name; });
     if(existing_texture != texture_cache.end())
@@ -979,7 +979,7 @@ void renderer::update(frame_state* fs) {
             // recreate material buffer if necessary
             bool recreating_mat_buf = materials_buf == nullptr || num_gpu_mats != current_scene->materials.size();
             if(recreating_mat_buf) {
-                num_gpu_mats = current_scene->materials.size();
+                num_gpu_mats = (uint32_t)current_scene->materials.size();
                 // we could probably move the materials ubuffer into the material desc set
                 // and then use desc set offsets instead of push constants
                 // I guess that wouldn't work well for lights
@@ -1014,7 +1014,7 @@ void renderer::update(frame_state* fs) {
 			});
 
             uplcb.begin(vk::CommandBufferBeginInfo { vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-            for(size_t i = 0; i < current_scene->materials.size(); ++i) {
+            for(uint32_t i = 0; i < current_scene->materials.size(); ++i) {
                 mapped_materials[i] = gpu_material(current_scene->materials[i].get());
                 current_scene->materials[i]->_render_index = i;
                 if(current_scene->materials[i]->diffuse_texpath.has_value()) {
@@ -1084,7 +1084,7 @@ renderer::~renderer() {
     screen_output_node.reset();
 }
 
-mesh::mesh(device* dev, size_t vcount, size_t _vsize, size_t icount, std::function<void(void*)> write_buffer)
+mesh::mesh(device* dev, uint32_t vcount, size_t _vsize, uint32_t icount, std::function<void(void*)> write_buffer)
     : vertex_count(vcount), index_count(icount)
 {
     auto vsize = _vsize*vcount,

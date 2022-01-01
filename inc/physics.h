@@ -30,7 +30,7 @@ struct rigid_body_trait_factory : public trait_factory {
 	trait_id id() const override { return TRAIT_ID_RIGID_BODY; }
 	std::string name() const override { return "Rigid Body"; }
     void add_to(struct scene_object* obj, void* create_info) override;
-    void deserialize(struct scene* scene, struct scene_object* obj, json data) override;
+    void deserialize(class scene* scene, struct scene_object* obj, json data) override;
 
 	bool dependencies_loaded(struct scene_object* obj, const json& unloaded_trait) override;
  

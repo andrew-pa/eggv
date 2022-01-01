@@ -1,6 +1,9 @@
 #pragma once
 #include "renderer.h"
 
+struct mesh;
+class device;
+
 namespace mesh_gen {
 
     mesh generate_sphere(device* dev, int slices, int stacks);

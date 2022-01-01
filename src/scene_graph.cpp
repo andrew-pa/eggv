@@ -360,7 +360,7 @@ void transform_trait::build_gui(struct scene_object*, frame_state*) {
     ImGui::DragFloat3("Scale", (float*)&this->scale, 0.05f, 0.f, FLT_MAX);
 }
 
-void transform_trait_factory::deserialize(struct scene* scene, struct scene_object* obj, json data) {
+void transform_trait_factory::deserialize(class scene* scene, struct scene_object* obj, json data) {
     auto r = data.at("r");
     auto cfo = create_info(::deserialize_v3(data.at("t")),
             quat(r[3], r[0], r[1], r[2]),
@@ -393,7 +393,7 @@ void light_trait::collect_viewport_shapes(scene_object* ob, frame_state*, const 
     }
 }
 
-void light_trait_factory::deserialize(struct scene* scene, struct scene_object* obj, json data) {
+void light_trait_factory::deserialize(class scene* scene, struct scene_object* obj, json data) {
     auto cfo = create_info((light_type)data.at("t"), 
             ::deserialize_v3(data.at("p")),
             ::deserialize_v3(data.at("c")));
@@ -421,7 +421,7 @@ void camera_trait::collect_viewport_shapes(scene_object* ob, frame_state*, const
     shapes.push_back(viewport_shape(viewport_shape_type::axis, vec3(1.f), scale(T, vec3(0.4f, 0.4f, 1.0f))));
 }
 
-void camera_trait_factory::deserialize(struct scene* scene, struct scene_object* obj, json data) {
+void camera_trait_factory::deserialize(class scene* scene, struct scene_object* obj, json data) {
     auto cfo = create_info(data.at("fov"));
     this->add_to(obj, &cfo);
 }

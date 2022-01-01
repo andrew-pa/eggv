@@ -37,7 +37,7 @@ struct trait_factory {
     virtual std::string name() const = 0;
 
     virtual void add_to(struct scene_object* obj, void* create_info) = 0;
-    virtual void deserialize(struct scene* scene, struct scene_object* obj, json data) = 0;
+    virtual void deserialize(class scene* scene, struct scene_object* obj, json data) = 0;
 
     virtual bool dependencies_loaded(struct scene_object* obj, const json& unloaded_trait) {
         return true;
@@ -131,7 +131,7 @@ struct transform_trait_factory : public trait_factory {
 
     trait_id id() const override { return TRAIT_ID_TRANSFORM; }
     std::string name() const override { return "Transform"; }
-    void deserialize(struct scene*, struct scene_object* obj, json data) override;
+    void deserialize(class scene*, struct scene_object* obj, json data) override;
     void add_to(scene_object* obj, void* ci) override {
         auto c = ((create_info*)ci);
         obj->traits[id()] = std::make_unique<transform_trait>(this,
@@ -164,7 +164,7 @@ struct light_trait_factory : public trait_factory {
 
     trait_id id() const override { return TRAIT_ID_LIGHT; }
     std::string name() const override { return "Light"; }
-    void deserialize(struct scene*, struct scene_object* obj, json data) override;
+    void deserialize(class scene*, struct scene_object* obj, json data) override;
     void add_to(scene_object* obj, void* ci) override {
         auto c = ((create_info*)ci);
         obj->traits[id()] = std::make_unique<light_trait>(this,
@@ -190,7 +190,7 @@ struct camera_trait_factory : public trait_factory {
 
     trait_id id() const override { return TRAIT_ID_CAMERA; }
     std::string name() const override { return "Camera"; }
-    void deserialize(struct scene*, struct scene_object* obj, json data) override;
+    void deserialize(class scene*, struct scene_object* obj, json data) override;
 
     void add_to(scene_object* obj, void* ci) override {
         auto c = ((create_info*)ci);
