@@ -2,6 +2,7 @@
 #include "cmmn.h"
 #include "mesh.h"
 #include <mio/shared_mmap.hpp>
+#include "reactphysics3d/engine/PhysicsCommon.h"
 #include "reactphysics3d/collision/TriangleMesh.h"
 #include "reactphysics3d/collision/TriangleVertexArray.h"
 

@@ -163,8 +163,7 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
             auto mat_changed = false;
             auto bouncy = mat.getBounciness(),
                  mass_density = mat.getMassDensity(),
-                 friction_coeff = mat.getFrictionCoefficient(),
-                 rolling_resist = mat.getRollingResistance();
+                 friction_coeff = mat.getFrictionCoefficient();
             if (ImGui::DragFloat("Mass Density", &mass_density, 0.01f, 0.f)) {
                 mat.setMassDensity(mass_density);
                 mat_changed = true;
@@ -175,10 +174,6 @@ void rigid_body_trait::build_gui(scene_object* obj, frame_state*) {
             }
             if (ImGui::DragFloat("Friction", &friction_coeff, 0.01f, 0.f, 1.f)) {
                 mat.setFrictionCoefficient(friction_coeff);
-                mat_changed = true;
-            }
-            if (ImGui::DragFloat("Rolling Resistance", &rolling_resist, 0.01f, 0.f, 1.f)) {
-                mat.setRollingResistance(rolling_resist);
                 mat_changed = true;
             }
             if(mat_changed)
@@ -273,7 +268,6 @@ json rigid_body_trait::serialize() const {
             {"mass_density", col->getMaterial().getMassDensity()},
             {"bounciness", col->getMaterial().getBounciness()},
             {"friction", col->getMaterial().getFrictionCoefficient()},
-            {"rolling_resist", col->getMaterial().getRollingResistance()},
             {"shape", shape_params}
         });
     }
@@ -352,7 +346,6 @@ void rigid_body_trait_factory::deserialize(class scene* scene, struct scene_obje
         mat.setMassDensity(col["mass_density"]);
         mat.setBounciness(col["bounciness"]);
         mat.setFrictionCoefficient(col["friction"]);
-        mat.setRollingResistance(col["rolling_resist"]);
     }
     if(body->getType() != BodyType::STATIC) body->updateMassPropertiesFromColliders();
     obj->traits[id()] = std::make_unique<rigid_body_trait>(this, body, initial_transform, true);

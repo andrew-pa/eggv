@@ -47,7 +47,6 @@ std::optional<reactphysics3d::PolygonVertexArray*> geometry_set::load_convex_hul
     return &this->convex_hull_cache[index].pva;
 }
 
-#include "reactphysics3d/engine/PhysicsCommon.h"
 #include "reactphysics3d/collision/TriangleVertexArray.h"
 
 reactphysics3d::TriangleMesh* geometry_set::load_physics_mesh(reactphysics3d::PhysicsCommon* phy, size_t index) {
