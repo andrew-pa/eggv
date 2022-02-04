@@ -35,3 +35,7 @@ const trait_id TRAIT_ID_LIGHT = 0x0000'0010;
 const trait_id TRAIT_ID_CAMERA = 0x0000'0011;
 const trait_id TRAIT_ID_MESH = 0x0001'0001;
 const trait_id TRAIT_ID_RIGID_BODY = 0x000a'0001;
+
+enum class light_type {
+    directional, point
+};

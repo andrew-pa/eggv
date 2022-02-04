@@ -159,6 +159,7 @@ int main(int argc, char* argv[]) {
             {"materials", json::object()},
             {"geometries", json::array({ output_path })},
         };
+
         std::vector<uuids::uuid> material_index_to_id(scene->mNumMaterials, uuids::uuid());
         for(auto i = 0; i < scene->mNumMaterials; ++i) {
             auto mat = scene->mMaterials[i];
@@ -181,7 +182,46 @@ int main(int argc, char* argv[]) {
             }
             out_scene["materials"][uuids::to_string(mat_id)] = out_mat;
         }
+
         out_scene["graph"] = convert_scene_node(out_scene, scene->mRootNode, output_path, scene, material_index_to_id);
+
+        if(scene->HasLights()) {
+            for(auto i = 0; i < scene->mNumLights; ++i) {
+                auto* light = scene->mLights[i];
+                if(light->mType == aiLightSource_DIRECTIONAL || light->mType == aiLightSource_POINT) {
+                    std::cout << "\tprocessing light: " << light->mName.C_Str() << "\n";
+                    auto light_objp = std::find_if(
+                            std::begin(out_scene["graph"]["c"]), std::end(out_scene["graph"]["c"]),
+                            [&](const auto& obj) {
+                                return obj["name"] == light->mName.C_Str();
+                            }
+                        );
+                    if(light_objp == std::end(out_scene["graph"]["c"])) {
+                        std::cout << "\t\tscene graph missing corresponding node\n";
+                        continue;
+                    }
+                    auto& light_obj = *light_objp;
+                    if(light->mType == aiLightSource_DIRECTIONAL) {
+                        light_obj["t"][std::to_string(TRAIT_ID_LIGHT)] = json {
+                            {"t", light_type::directional},
+                            {"p", json::array({light->mDirection.x, light->mDirection.y, light->mDirection.z})},
+                            {"c", json::array({light->mColorDiffuse.r, light->mColorDiffuse.g, light->mColorDiffuse.b})}
+                        };
+                    } else if(light->mType == aiLightSource_POINT) {
+                        std::cout << "\t\t" << light->mAttenuationConstant << ", " << light->mAttenuationLinear <<
+                            ", " << light->mAttenuationQuadratic << " " << light->mSize.x << "@" << light->mSize.y << "\n";
+                        light_obj["t"][std::to_string(TRAIT_ID_LIGHT)] = json {
+                            {"t", light_type::point},
+                            {"p", json::array({light->mAttenuationQuadratic*1e5,0,0})},
+                            {"c", json::array({light->mColorDiffuse.r, light->mColorDiffuse.g, light->mColorDiffuse.b})}
+                        };
+                        light_obj["t"][std::to_string(TRAIT_ID_TRANSFORM)]["s"] =
+                            json::array({1,1,1});
+                    }
+                }
+            }
+        }
+
         std::ofstream outs(scene_path);
         outs << out_scene;
     }

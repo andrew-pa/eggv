@@ -139,10 +139,6 @@ struct transform_trait_factory : public trait_factory {
     }
 };
 
-enum class light_type {
-    directional, point
-};
-
 struct light_trait : public trait {
     light_type type;
     vec3 param;

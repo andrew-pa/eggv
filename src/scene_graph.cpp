@@ -382,7 +382,7 @@ void light_trait::build_gui(scene_object* obj, frame_state*) {
         ImGui::DragFloat3("Direction", (float*)&this->param, 0.01f);
         this->param = normalize(this->param);
     } else if(type == light_type::point) {
-        ImGui::DragFloat("Falloff", &this->param.x, 0.0001f, 0.001f, 1000.f);
+        ImGui::DragFloat("Falloff", &this->param.x, 0.000f, 0.001f, 1000.f, "%.6f");
     }
     ImGui::ColorEdit3("Color", (float*)&this->color, ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
 }
