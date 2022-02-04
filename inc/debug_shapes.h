@@ -4,6 +4,12 @@
 
 
 struct debug_shape_render_node_prototype : public render_node_prototype {
+    struct node_data : public render_node_data {
+        float global_scale;
+        node_data(float s = 1.f) : global_scale(s) {}
+        json serialize() const override;
+    };
+
     mesh frame_axis_mesh;
 
     debug_shape_render_node_prototype(device* dev);
@@ -13,9 +19,9 @@ struct debug_shape_render_node_prototype : public render_node_prototype {
     void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
     vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass);
     void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) override;
-    virtual void build_gui(class renderer*, struct render_node* node) {}
+    void build_gui(class renderer*, struct render_node* node) override;
 
-    virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return nullptr; }
+    std::unique_ptr<render_node_data> deserialize_node_data(json data) override;
     const char* name() const override { return "Viewport Shapes"; }
     size_t id() const override { return 0x0000fffc; }
 

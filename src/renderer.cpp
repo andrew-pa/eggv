@@ -212,7 +212,7 @@ struct color_preview_render_node_prototype : public render_node_prototype {
         if(data->fb != node->input_framebuffer(0)) {
             auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->input_framebuffer(0).value()];
             if(!fb_img_view) return;
-            data->imtex = ImGui_ImplVulkan_AddTexture((VkSampler)0, fb_img_view.get(), (VkImageLayout)vk::ImageLayout::eGeneral);
+            data->imtex = ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb_img_view.get(), (VkImageLayout)vk::ImageLayout::eGeneral);
             data->fb = node->input_framebuffer(0).value();
         }
         if(data->imtex == nullptr) { ImGui::Text("invalid framebuffer"); return; }
@@ -270,7 +270,7 @@ json render_node::serialize() const {
     };
 }
 
-renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), should_recompile(false), log_compile(false), num_gpu_mats(0) {}
+renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), num_gpu_mats(0), should_recompile(false), log_compile(false), show_shapes(true) {}
 
 void renderer::init(device* _dev) {
     this->dev = _dev;

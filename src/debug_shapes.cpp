@@ -1,4 +1,5 @@
 #include "debug_shapes.h"
+#include "imgui.h"
 
 std::vector<vec3> generate_box_frame_and_axis_vertices() {
   return {
@@ -138,13 +139,15 @@ vk::UniquePipeline debug_shape_render_node_prototype::generate_pipeline(renderer
 }
 
 void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb) {
+    vec3 global_scale = vec3(node->data == nullptr ? 1.f :
+        ((node_data*)node->data.get())->global_scale);
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     cb.bindVertexBuffers(0, {frame_axis_mesh.vertex_buffer->buf}, {0});
     cb.bindIndexBuffer(frame_axis_mesh.index_buffer->buf, 0, vk::IndexType::eUint16);
     for(const auto& shape: r->active_shapes) {
-        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { shape.T });
+        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { scale(shape.T, global_scale) });
         cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4), {shape.color});
         if(shape.type == viewport_shape_type::box) {
             cb.drawIndexed(24, 1, 0, 0, 0);
@@ -152,4 +155,24 @@ void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer*
             cb.drawIndexed(6, 1, 24, 8, 0);
         }
     }
+}
+
+void debug_shape_render_node_prototype::build_gui(class renderer* r, struct render_node* node) {
+    if(node->data == nullptr) {
+        node->data = std::make_unique<node_data>();
+    }
+    float* global_scale = &((node_data*)node->data.get())->global_scale;
+    ImGui::SetNextItemWidth(100.f);
+    ImGui::DragFloat("Scale", global_scale, 0.01f, 0.f, 1000.f, "%.1f");
+}
+
+std::unique_ptr<render_node_data> debug_shape_render_node_prototype::deserialize_node_data(json data) {
+    if(data == nullptr) return nullptr;
+    return std::make_unique<node_data>(data["scale"]);
+}
+
+json debug_shape_render_node_prototype::node_data::serialize() const {
+    return json{
+        {"scale", this->global_scale}
+    };
 }
