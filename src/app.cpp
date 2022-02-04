@@ -154,19 +154,15 @@ app::app(const std::string& title, vec2 winsize)
 
 void app::run(bool pdfps)
 {
-	/* const float target_delta_time = 1.f / 120.f; */
-
-	/*uint fc = 0;
-	float ft = 0.f;*/
 	tm.reset();
-        update(tm.time(), tm.delta_time());
-	while (!glfwWindowShouldClose(wnd))
+    update(tm.time(), tm.delta_time());
+	while (glfwWindowShouldClose(wnd) == GLFW_FALSE)
 	{
 		tm.update();
 
 		auto image_index = swapchain->aquire_next();
-		if (!image_index.ok() && image_index.err() == vk::Result::eErrorOutOfDateKHR
-			|| image_index.err() == vk::Result::eSuboptimalKHR) {
+		if (!image_index.ok() && (image_index.err() == vk::Result::eErrorOutOfDateKHR
+			|| image_index.err() == vk::Result::eSuboptimalKHR)) {
 			resize();
 		}
 		auto cb = render(tm.time(), tm.delta_time(), image_index.unwrap());
@@ -178,9 +174,7 @@ void app::run(bool pdfps)
 		post_submit(image_index);
 		glfwPollEvents();
 		update(tm.time(), tm.delta_time());
-		/* fc++; */
-		/* ft += tm.delta_time(); */
-                dev->present_qu.waitIdle();
+        dev->present_qu.waitIdle();
 				dev->clear_tmps();
 	}
         dev->graphics_qu.waitIdle();

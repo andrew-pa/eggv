@@ -47,6 +47,8 @@ device::device(app* app) {
 	dcfo.ppEnabledExtensionNames = ext.data();
 	dev = pdevice.createDeviceUnique(dcfo);
 
+    std::cout << "Vulkan build header version: " << VK_HEADER_VERSION << "\n";
+
 	graphics_qu = dev->getQueue(qu_fam.graphics, 0);
 	present_qu = dev->getQueue(qu_fam.present, 0);
 

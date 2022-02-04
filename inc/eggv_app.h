@@ -6,14 +6,19 @@
 
 const float physics_fixed_time_step = 1.f / 60.f;
 
+struct eggv_cmdline_args {
+    std::optional<std::filesystem::path> render_graph_path;
+    std::optional<std::filesystem::path> scene_path;
+    vec2 resolution;
+    eggv_cmdline_args(int argc, const char* argv[]);
+};
+
 class eggv_app : public app {
     vk::UniqueDescriptorPool desc_pool;
     vk::UniqueRenderPass gui_render_pass;
 
     std::vector<vk::UniqueCommandBuffer> command_buffers;
     std::vector<vk::UniqueFramebuffer> framebuffers;
-
-    std::vector<std::tuple<std::string, void*>> plugins;
 
     std::shared_ptr<scene> current_scene;
     renderer r;
@@ -22,7 +27,6 @@ class eggv_app : public app {
     std::map<std::string, bool> gui_open_windows;
 
     void init_swapchain_depd();
-
     void init_render_pass();
     void init_gui();
 
@@ -37,14 +41,11 @@ class eggv_app : public app {
     float ui_key_cooldown;
     float physics_sim_time;
 public:
-    eggv_app(const std::vector<std::string>& cargs);
-
-    void load_plugin(const std::string& path);
+    eggv_app(const eggv_cmdline_args& args);
 
     void resize() override;
     void build_gui(frame_state* fs);
     void update(float t, float dt) override;
     vk::CommandBuffer render(float t, float dt, uint32_t image_index) override;
-    void post_submit(uint32_t) override {}
-    ~eggv_app();
+    ~eggv_app() override;
 };
