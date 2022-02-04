@@ -66,11 +66,11 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     r.init(dev.get());
 
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
-        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1) // for ImGUI
+        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 256) // for ImGUI
     };
 
     desc_pool = dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
-        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1000, (uint32_t)pool_sizes.size(), pool_sizes.data()
+        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1024, (uint32_t)pool_sizes.size(), pool_sizes.data()
     });
 
     this->init_swapchain_depd();

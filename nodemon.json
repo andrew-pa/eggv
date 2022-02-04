@@ -1,6 +1,6 @@
 {
     "ext": "h,cpp,glsl",
-    "ignore": "build/",
+    "ignore": ".build/",
     "verbose": true,
-    "exec": "cd build && ninja -j32"
+    "exec": "ninja -j32 -C .build"
 }

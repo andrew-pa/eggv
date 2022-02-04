@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "imgui.h"
+#include "imgui_impl_vulkan.h"
 #include "imnodes.h"
 #include <iomanip>
 #include "debug_shapes.h"
@@ -181,6 +182,13 @@ struct output_render_node_prototype : public render_node_prototype {
 
 
 struct color_preview_render_node_prototype : public render_node_prototype { 
+    struct node_data : public render_node_data {
+        ImTextureID imtex;
+        framebuffer_ref fb;
+        node_data() : imtex(nullptr), fb(-1) {}
+        json serialize() const override  { return json{}; }
+    };
+
     color_preview_render_node_prototype() {
         inputs = {
             framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
@@ -197,9 +205,19 @@ struct color_preview_render_node_prototype : public render_node_prototype {
 
     void build_gui(renderer* r, render_node* node) override {
         if(node->input_node(0) == nullptr) return;
-        auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->input_node(0)->outputs[node->inputs[0].second]];
-        if(fb_img == nullptr) { ImGui::Text("invalid framebuffer"); return; }
-        ImGui::Image((void*)fb_img_view.get(), ImVec2(256,256));
+        if(node->data == nullptr) {
+            node->data = std::make_unique<node_data>();
+        }
+        auto* data = (node_data*)node->data.get();
+        if(data->fb != node->input_framebuffer(0)) {
+            auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->input_framebuffer(0).value()];
+            if(!fb_img_view) return;
+            data->imtex = ImGui_ImplVulkan_AddTexture((VkSampler)0, fb_img_view.get(), (VkImageLayout)vk::ImageLayout::eGeneral);
+            data->fb = node->input_framebuffer(0).value();
+        }
+        if(data->imtex == nullptr) { ImGui::Text("invalid framebuffer"); return; }
+        ImGui::Image(data->imtex, ImVec2(r->full_viewport.width * 0.1,r->full_viewport.height * 0.1),
+                ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(0.7f,0.7f,0.7f,1));
     }
 };
 
