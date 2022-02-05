@@ -903,13 +903,13 @@ void renderer::build_gui(frame_state* fs) {
         }
         
 		if (ImGui::BeginTabItem("Textures")) {
-			if (ImGui::BeginTable("#RenderTextureTable", 3, ImGuiTableFlags_Resizable)) {
+			if (ImGui::BeginTable("#RenderTextureTable", 4, ImGuiTableFlags_Resizable)) {
 				ImGui::TableSetupColumn("Name");
                 ImGui::TableSetupColumn("Format");
                 ImGui::TableSetupColumn("Size");
-				//ImGui::TableSetupColumn("Preview");
+				ImGui::TableSetupColumn("Preview");
 				ImGui::TableHeadersRow();
-				for (const auto& [name, img, imv] : texture_cache) {
+				for (auto& [name, img, imv, imtex] : texture_cache) {
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					ImGui::Text("%s", name.c_str());
@@ -917,8 +917,13 @@ void renderer::build_gui(frame_state* fs) {
                     ImGui::Text("%s", vk::to_string(img->info.format).c_str());
                     ImGui::TableNextColumn();
                     ImGui::Text("%u x %u", img->info.extent.width, img->info.extent.height);
-					//ImGui::TableNextColumn();
-					//ImGui::Image((ImTextureID)img->img, ImVec2(128, 128));
+					ImGui::TableNextColumn();
+                    if(imtex == 0) {
+                        imtex = (uint64_t)ImGui_ImplVulkan_AddTexture((VkSampler)texture_sampler.get(),
+                                    imv.get(),
+                                    (VkImageLayout)vk::ImageLayout::eShaderReadOnlyOptimal);
+                    }
+					ImGui::Image((ImTextureID)imtex, ImVec2(128, 128));
 				}
 				ImGui::EndTable();
 			}
@@ -1031,7 +1036,7 @@ size_t renderer::create_texture2d(const std::string& name, uint32_t width, uint3
 			);
 	dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
 	size_t index = texture_cache.size();
-	texture_cache.push_back({ name, img, std::move(img_view) });
+	texture_cache.push_back({ name, img, std::move(img_view), 0 });
 	return index;
 }
 

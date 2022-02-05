@@ -117,7 +117,7 @@ public:
     gpu_material* mapped_materials;
     uint32_t num_gpu_mats;
 
-    std::vector<std::tuple<std::string, std::shared_ptr<image>, vk::UniqueImageView>> texture_cache;
+    std::vector<std::tuple<std::string, std::shared_ptr<image>, vk::UniqueImageView, uint64_t>> texture_cache;
     size_t create_texture2d(const std::string& name, uint32_t width, uint32_t height, vk::Format fmt, size_t data_size, void* data, vk::CommandBuffer uplcb);
     size_t load_texture(const std::string&, vk::CommandBuffer uplcb);
     vk::UniqueSampler texture_sampler;
