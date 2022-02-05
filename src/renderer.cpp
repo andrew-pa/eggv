@@ -346,7 +346,7 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
     }
     auto isrg = vk::ImageSubresourceRange { aspects_for_type(desc.type), 0, 1, 0, desc.count };
     auto newfb = std::make_unique<image>(this->dev,
-            vk::ImageCreateFlagBits::e2DArrayCompatible,
+            vk::ImageCreateFlags(),
             vk::ImageType::e2D,
             vk::Extent3D { swpc->extent.width, swpc->extent.height, 1 },
             format,
@@ -402,7 +402,11 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     vk::AttachmentReference *input_atch_start = nullptr, *color_atch_start = nullptr,
         *depth_atch_start = nullptr;
 
-    input_atch_start = reference_pool.alloc_array(node->inputs.size());
+    uint32_t num_inputs = 0;
+    for(size_t i = 0; i < node->inputs.size(); ++i) {
+        num_inputs += node->prototype->inputs[i].count;
+    }
+    input_atch_start = reference_pool.alloc_array(num_inputs);
     auto input_atch_next = input_atch_start;
     uint32_t num_input_atch = 0;
     for(size_t i = 0; i < node->inputs.size(); ++i) {
@@ -411,27 +415,31 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
         const auto& [input_node, input_index] = node->inputs[i];
         if (!input_node.has_value()) continue;
         framebuffer_ref fb = input_node->lock()->outputs[input_index];
-        *(input_atch_next++) = (vk::AttachmentReference {
-            attachement_refs.at(fb),
-            vk::ImageLayout::eShaderReadOnlyOptimal
-        });
-        num_input_atch++;
+        for(uint32_t ai = 0; ai < node->prototype->inputs[i].count; ++ai) {
+            *(input_atch_next++) = (vk::AttachmentReference {
+                    attachement_refs.at(fb) + ai,
+                    vk::ImageLayout::eShaderReadOnlyOptimal
+            });
+            num_input_atch++;
+        }
     }
 
     uint32_t num_color_out = 0;
     for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
         if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
-            num_color_out++;
+            num_color_out += node->prototype->outputs[i].count;
         }
     }
     color_atch_start = reference_pool.alloc_array(num_color_out);
     auto color_atch_next = color_atch_start;
     for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
         if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
-            *(color_atch_next++) = (vk::AttachmentReference {
-                    attachement_refs.at(node->outputs[i]),
-                    vk::ImageLayout::eColorAttachmentOptimal
-            });
+            for(uint32_t ai = 0; ai < node->prototype->outputs[i].count; ++ai) {
+                *(color_atch_next++) = (vk::AttachmentReference {
+                        attachement_refs.at(node->outputs[i]) + ai,
+                        vk::ImageLayout::eColorAttachmentOptimal
+                });
+            }
         }
     }
 
@@ -549,19 +557,22 @@ void renderer::compile_render_graph() {
         /* std::cout << "fb " << fb.first << "\n"; */
         if(!std::get<1>(fb.second)) continue;
         attachement_refs[fb.first] = (uint32_t)attachments.size();
-        attachments.push_back(vk::AttachmentDescription { vk::AttachmentDescriptionFlags(),
-                std::get<0>(fb.second)->info.format,
-                vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
-                vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-                vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral });
-        switch(std::get<3>(fb.second)) {
-            case framebuffer_type::color:
-                clear_values.push_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.f, 0.f, 0.f}));
-                break;
-            case framebuffer_type::depth:
-            case framebuffer_type::depth_stencil:
-                clear_values.push_back(vk::ClearDepthStencilValue(1.f, 0));
-                break;
+        size_t num_layers = std::get<2>(fb.second).size() == 1 ? 1 : std::get<2>(fb.second).size()-1;
+        for(size_t i = 0; i < num_layers; ++i) {
+            attachments.emplace_back(vk::AttachmentDescriptionFlags(),
+                    std::get<0>(fb.second)->info.format,
+                    vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
+                    vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
+                    vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral);
+            switch(std::get<3>(fb.second)) {
+                case framebuffer_type::color:
+                    clear_values.emplace_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.f, 0.f, 0.f}));
+                    break;
+                case framebuffer_type::depth:
+                case framebuffer_type::depth_stencil:
+                    clear_values.emplace_back(vk::ClearDepthStencilValue(1.f, 0));
+                    break;
+            }
         }
     }
 
@@ -600,10 +611,13 @@ void renderer::compile_render_graph() {
     framebuffers  = swpc->create_framebuffers(render_pass.get(), [&](size_t index, std::vector<vk::ImageView>& att) {
             for(const auto& fb : buffers) {
                 if(!std::get<1>(fb.second)) continue;
-                for(const auto& iv : std::get<2>(fb.second)) {
-                    att.push_back(iv.get());
+                if(std::get<2>(fb.second).size() > 1) {
+                    for(size_t i = 1; i < std::get<2>(fb.second).size(); ++i) {
+                        att.push_back(std::get<2>(fb.second)[i].get());
+                    }
+                } else {
+                    att.push_back(std::get<2>(fb.second)[0].get());
                 }
-                // att.push_back(std::get<2>(fb.second).get());
             }
     });
 
@@ -755,7 +769,7 @@ void renderer::build_gui(frame_state* fs) {
                 for (int input_ix = 0; input_ix < node->prototype->inputs.size(); ++input_ix) {
                     auto id = next_attrib_id++;
                     gui_node_attribs[id] = {node, input_ix, false};
-                    ImNodes::BeginInputAttribute(id, ImNodesPinShape_Circle);
+                    ImNodes::BeginInputAttribute(id, node->prototype->inputs[input_ix].count > 1 ? ImNodesPinShape_Quad : ImNodesPinShape_Circle);
                     ImGui::Text("%s", node->prototype->inputs[input_ix].name.c_str());
                     ImNodes::EndInputAttribute();
                 }
@@ -763,7 +777,7 @@ void renderer::build_gui(frame_state* fs) {
                 for (int output_ix = 0; output_ix < node->prototype->outputs.size(); ++output_ix) {
                     auto id = next_attrib_id++;
                     gui_node_attribs[id] = {node, output_ix, true};
-                    ImNodes::BeginOutputAttribute(id, ImNodesPinShape_Circle);
+                    ImNodes::BeginOutputAttribute(id ,node->prototype->outputs[output_ix].count > 1 ? ImNodesPinShape_Quad : ImNodesPinShape_Circle);
                     ImGui::Text("%s [%lu]", node->prototype->outputs[output_ix].name.c_str(), node->outputs[output_ix]);
                     ImNodes::EndOutputAttribute();
                 }
@@ -862,11 +876,12 @@ void renderer::build_gui(frame_state* fs) {
 
             ImGui::Separator();
             ImGui::Text("Framebuffers:");
-            if(ImGui::BeginTable("##RenderFramebufferTable", 4)) {
+            if(ImGui::BeginTable("##RenderFramebufferTable", 5)) {
                 ImGui::TableSetupColumn("ID");
                 ImGui::TableSetupColumn("In use?");
                 ImGui::TableSetupColumn("Format");
                 ImGui::TableSetupColumn("Size");
+                ImGui::TableSetupColumn("Count");
                 ImGui::TableHeadersRow();
                 for(const auto& [id, _fb] : buffers) {
                     const auto&[img, allocated, imv, type] = _fb;
@@ -879,6 +894,8 @@ void renderer::build_gui(frame_state* fs) {
                     ImGui::Text("%s", vk::to_string(img->info.format).c_str());
                     ImGui::TableNextColumn();
                     ImGui::Text("%u x %u", img->info.extent.width, img->info.extent.height);
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%lu", imv.size() > 1 ? imv.size()-1 : 1);
                 }
                 ImGui::EndTable();
             }

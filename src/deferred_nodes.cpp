@@ -6,9 +6,7 @@
 gbuffer_geom_render_node_prototype::gbuffer_geom_render_node_prototype(device* dev, renderer* r) {
     inputs = {};
     outputs = {
-        framebuffer_desc{"position", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
-        framebuffer_desc{"normal", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
-        framebuffer_desc{"texture_material", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
+        framebuffer_desc{"geometery", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output, 3},
         framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::output}
     };
 
@@ -137,9 +135,7 @@ void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer
 directional_light_render_node_prototype::directional_light_render_node_prototype(device* dev) {
     inputs = {
         framebuffer_desc{"input_color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::blend_input},
-        framebuffer_desc{"position", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
-        framebuffer_desc{"normal", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
-        framebuffer_desc{"texture_material", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
+        framebuffer_desc{"geometery", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::shader_input, 3},
     };
     outputs = {
         framebuffer_desc{"color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
@@ -179,7 +175,7 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
     for(int i = 0; i < 3; ++i) {
         writes.emplace_back(node->desc_set.get(), i, 0, 1, vk::DescriptorType::eInputAttachment,
                     img_infos.alloc(vk::DescriptorImageInfo(nullptr,
-                            std::get<2>(r->buffers[node->input_framebuffer(i + 1).value()])[0].get(),
+                            std::get<2>(r->buffers[node->input_framebuffer(1).value()])[1+i].get(),
                             vk::ImageLayout::eShaderReadOnlyOptimal)));
     }
 
@@ -319,10 +315,10 @@ void point_light_render_node_prototype::update_descriptor_sets(class renderer* r
                             vk::ImageLayout::eShaderReadOnlyOptimal)));
     }
 
-    writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)))));
-    if(r->materials_buf) writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eUniformBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material)))));
+    writes.emplace_back(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
+    if(r->materials_buf) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eUniformBuffer,
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
 }
 
 vk::UniquePipeline point_light_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {
