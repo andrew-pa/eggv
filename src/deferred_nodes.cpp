@@ -266,9 +266,7 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(ren
 point_light_render_node_prototype::point_light_render_node_prototype(device* dev) {
     inputs = {
         framebuffer_desc{"input_color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::blend_input},
-        framebuffer_desc{"position", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
-        framebuffer_desc{"normal", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
-        framebuffer_desc{"texture_material", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color},
+        framebuffer_desc{"geometry", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::shader_input, 3},
     };
     outputs = {
         framebuffer_desc{"color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
@@ -311,7 +309,7 @@ void point_light_render_node_prototype::update_descriptor_sets(class renderer* r
     for(int i = 0; i < 3; ++i) {
         writes.emplace_back(node->desc_set.get(), i, 0, 1, vk::DescriptorType::eInputAttachment,
                     img_infos.alloc(vk::DescriptorImageInfo(nullptr,
-                            std::get<2>(r->buffers[node->input_framebuffer(i + 1).value()])[0].get(),
+                            std::get<2>(r->buffers[node->input_framebuffer(1).value()])[i+1].get(),
                             vk::ImageLayout::eShaderReadOnlyOptimal)));
     }
 
