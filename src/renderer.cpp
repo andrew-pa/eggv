@@ -183,9 +183,9 @@ struct output_render_node_prototype : public render_node_prototype {
 
 struct color_preview_render_node_prototype : public render_node_prototype { 
     struct node_data : public render_node_data {
-        ImTextureID imtex;
+        std::vector<ImTextureID> imtex;
         framebuffer_ref fb;
-        node_data() : imtex(nullptr), fb(-1) {}
+        node_data() : fb(-1) {}
         json serialize() const override  { return json{}; }
     };
 
@@ -210,14 +210,22 @@ struct color_preview_render_node_prototype : public render_node_prototype {
         }
         auto* data = (node_data*)node->data.get();
         if(data->fb != node->input_framebuffer(0)) {
-            auto& [fb_img, fb_alloc, fb_img_view, fb_type] = r->buffers[node->input_framebuffer(0).value()];
-            if(!fb_img_view) return;
-            data->imtex = ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb_img_view.get(), (VkImageLayout)vk::ImageLayout::eGeneral);
+            auto& [fb_img, fb_alloc, fb_img_views, fb_type] = r->buffers[node->input_framebuffer(0).value()];
+            data->imtex.clear();
+            if(fb_img_views.size() > 1) {
+                for(size_t i = 1; i < fb_img_views.size(); ++i) {
+                    data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb_img_views[i].get(), (VkImageLayout)vk::ImageLayout::eGeneral));
+                }
+            } else if(fb_img_views.size() == 1) {
+                data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb_img_views[0].get(), (VkImageLayout)vk::ImageLayout::eGeneral));
+            }
             data->fb = node->input_framebuffer(0).value();
         }
-        if(data->imtex == nullptr) { ImGui::Text("invalid framebuffer"); return; }
-        ImGui::Image(data->imtex, ImVec2(r->full_viewport.width * 0.1,r->full_viewport.height * 0.1),
-                ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(0.7f,0.7f,0.7f,1));
+        for(auto& imtex : data->imtex) {
+            if(imtex == nullptr) { ImGui::Text("invalid framebuffer"); continue; }
+            ImGui::Image(imtex, ImVec2(r->full_viewport.width * 0.1,r->full_viewport.height * 0.1),
+                    ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(0.7f,0.7f,0.7f,1));
+        }
     }
 };
 
@@ -336,7 +344,10 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
                 break;
         }
     }
-    auto newfb = std::make_unique<image>(this->dev, vk::ImageType::e2D,
+    auto isrg = vk::ImageSubresourceRange { aspects_for_type(desc.type), 0, 1, 0, desc.count };
+    auto newfb = std::make_unique<image>(this->dev,
+            vk::ImageCreateFlagBits::e2DArrayCompatible,
+            vk::ImageType::e2D,
             vk::Extent3D { swpc->extent.width, swpc->extent.height, 1 },
             format,
             vk::ImageTiling::eOptimal,
@@ -344,10 +355,28 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
             vk::ImageUsageFlagBits::eSampled |
             usage_for_type(desc.type),
             vk::MemoryPropertyFlagBits::eDeviceLocal,
-            &iv, vk::ImageViewType::e2D,
-            vk::ImageSubresourceRange { aspects_for_type(desc.type), 0, 1, 0, 1 });
+            1, desc.count,
+            &iv, desc.count > 1 ? vk::ImageViewType::e2DArray : vk::ImageViewType::e2D, isrg);
     framebuffer_ref id = next_id ++;
-    buffers[id] = std::move(std::tuple{std::move(newfb), true, std::move(iv), desc.type});
+    std::vector<vk::UniqueImageView> ivs;
+    ivs.emplace_back(std::move(iv));
+    if(desc.count > 1) {
+        isrg.layerCount = 1;
+        for(uint32_t i = 0; i < desc.count; ++i) {
+            isrg.baseArrayLayer = i;
+            ivs.emplace_back(dev->dev->createImageViewUnique(
+                vk::ImageViewCreateInfo {
+                    vk::ImageViewCreateFlags(),
+                    newfb->img,
+                    vk::ImageViewType::e2D,
+                    format,
+                    vk::ComponentMapping(),
+                    isrg
+                }
+            ));
+        }
+    }
+    buffers[id] = std::tuple{std::move(newfb), true, std::move(ivs), desc.type};
     return id;
 }
 
@@ -571,7 +600,10 @@ void renderer::compile_render_graph() {
     framebuffers  = swpc->create_framebuffers(render_pass.get(), [&](size_t index, std::vector<vk::ImageView>& att) {
             for(const auto& fb : buffers) {
                 if(!std::get<1>(fb.second)) continue;
-                att.push_back(std::get<2>(fb.second).get());
+                for(const auto& iv : std::get<2>(fb.second)) {
+                    att.push_back(iv.get());
+                }
+                // att.push_back(std::get<2>(fb.second).get());
             }
     });
 

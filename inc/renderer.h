@@ -1,4 +1,6 @@
 #pragma once
+#include <utility>
+
 #include "cmmn.h"
 #include "app.h"
 #include "swap_chain.h"
@@ -21,13 +23,14 @@ struct framebuffer_desc {
     vk::Format format;
     framebuffer_type type;
     framebuffer_mode mode;
-    framebuffer_desc(std::string name, vk::Format fmt, framebuffer_type ty, framebuffer_mode mode = framebuffer_mode::shader_input)
-        : name(name), format(fmt), type(ty), mode(mode) {}
+    uint32_t count;
+    framebuffer_desc(std::string name, vk::Format fmt, framebuffer_type ty, framebuffer_mode mode = framebuffer_mode::shader_input, uint32_t count = 1)
+        : name(std::move(name)), format(fmt), type(ty), mode(mode), count(count) {}
 };
 
 struct render_node_data {
     virtual json serialize() const = 0;
-    virtual ~render_node_data() {}
+    virtual ~render_node_data() = default;
 };
 
 struct render_node_prototype {
@@ -45,7 +48,7 @@ struct render_node_prototype {
     virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return nullptr; }
     virtual const char* name() const { return "fail"; }
     virtual size_t id() const = 0;
-    virtual ~render_node_prototype() {}
+    virtual ~render_node_prototype() = default;
 };
 
 struct render_node {
@@ -99,7 +102,7 @@ public:
     std::shared_ptr<render_node> screen_output_node;
 
     framebuffer_ref next_id;
-    std::map<framebuffer_ref, std::tuple<std::unique_ptr<image>, bool, vk::UniqueImageView, framebuffer_type>> buffers;
+    std::map<framebuffer_ref, std::tuple<std::unique_ptr<image>, bool, std::vector<vk::UniqueImageView>, framebuffer_type>> buffers;
 
     vk::UniqueRenderPass render_pass;
     std::vector<vk::ClearValue> clear_values;
