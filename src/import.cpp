@@ -222,6 +222,27 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        if(scene->HasCameras()) {
+            for(auto i = 0; i < scene->mNumCameras; ++i) {
+                auto* cam = scene->mCameras[i];
+                    std::cout << "\tprocessing camera: " << cam->mName.C_Str() << "\n";
+                    auto cam_objp = std::find_if(
+                            std::begin(out_scene["graph"]["c"]), std::end(out_scene["graph"]["c"]),
+                            [&](const auto& obj) {
+                                return obj["name"] == cam->mName.C_Str();
+                            }
+                        );
+                    if(cam_objp == std::end(out_scene["graph"]["c"])) {
+                        std::cout << "\t\tscene graph missing corresponding node\n";
+                        continue;
+                    }
+                    auto& cam_obj = *cam_objp;
+                    cam_obj["t"][std::to_string(TRAIT_ID_CAMERA)] = json {
+                        {"fov", cam->mHorizontalFOV}
+                    };
+            }
+        }
+
         std::ofstream outs(scene_path);
         outs << out_scene;
     }
