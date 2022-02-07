@@ -15,7 +15,19 @@ enum class framebuffer_type {
 };
 
 enum class framebuffer_mode {
-    shader_input, blend_input, output
+    /// framebuffer is bound as an input attachement
+    input_attachment,
+    /// framebuffer is bound only as shader input
+    shader_input,
+    /// framebuffer used as source for blending onto the output at a matching index
+    blend_input,
+    /// framebuffer is a render target
+    output
+};
+
+enum class framebuffer_subpass_binding_order {
+    parallel,
+    sequential
 };
 
 struct framebuffer_desc {
@@ -24,8 +36,15 @@ struct framebuffer_desc {
     framebuffer_type type;
     framebuffer_mode mode;
     uint32_t count;
-    framebuffer_desc(std::string name, vk::Format fmt, framebuffer_type ty, framebuffer_mode mode = framebuffer_mode::shader_input, uint32_t count = 1)
-        : name(std::move(name)), format(fmt), type(ty), mode(mode), count(count) {}
+    framebuffer_subpass_binding_order subpass_binding_order;
+    framebuffer_desc(
+            std::string name,
+            vk::Format fmt,
+            framebuffer_type ty,
+            framebuffer_mode mode = framebuffer_mode::input_attachment,
+            uint32_t count = 1,
+            framebuffer_subpass_binding_order bo = framebuffer_subpass_binding_order::parallel
+    ) : name(std::move(name)), format(fmt), type(ty), mode(mode), count(count), subpass_binding_order(bo) {}
 };
 
 struct render_node_data {
@@ -38,14 +57,20 @@ struct render_node_prototype {
     vk::UniquePipelineLayout pipeline_layout;
     std::vector<framebuffer_desc> inputs, outputs;
 
+    virtual size_t subpass_repeat_count(class renderer* r, struct render_node* node) { return 1; }
+
     virtual void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
             std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) {}
     virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) {}
+
     virtual vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) = 0;
-    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) {}
-    virtual std::optional<vk::UniqueCommandBuffer> generate_command_buffer(class renderer*, struct render_node* node) { return {}; }
+
+    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) {}
+    virtual std::optional<std::vector<vk::UniqueCommandBuffer>> generate_command_buffer(class renderer*, struct render_node* node) { return {}; }
+
     virtual void build_gui(class renderer*, struct render_node* node) {}
     virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return nullptr; }
+
     virtual const char* name() const { return "fail"; }
     virtual size_t id() const = 0;
     virtual ~render_node_prototype() = default;
@@ -53,8 +78,8 @@ struct render_node_prototype {
 
 struct render_node {
     bool visited;
-    uint32_t subpass_index;
-    std::optional<vk::UniqueCommandBuffer> subpass_commands;
+    uint32_t subpass_index, subpass_count;
+    std::optional<std::vector<vk::UniqueCommandBuffer>> subpass_commands;
     vk::UniquePipeline pipeline;
     vk::UniqueDescriptorSet desc_set;
 

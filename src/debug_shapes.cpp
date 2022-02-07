@@ -138,7 +138,7 @@ vk::UniquePipeline debug_shape_render_node_prototype::generate_pipeline(renderer
     return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
 }
 
-void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb) {
+void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
     vec3 global_scale = vec3(node->data == nullptr ? 1.f :
         ((node_data*)node->data.get())->global_scale);
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());

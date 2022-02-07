@@ -144,7 +144,7 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
         return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
     }
 
-    virtual void generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb) override {
+    void generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) override {
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
                 0, { node->desc_set.get() }, {});
@@ -175,7 +175,7 @@ struct output_render_node_prototype : public render_node_prototype {
     size_t id() const override { return 0x0000ffff; }
     const char* name() const override { return "Display Output"; }
 
-    virtual vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
+    vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
         return vk::UniquePipeline(nullptr);
     }
 };
@@ -199,7 +199,7 @@ struct color_preview_render_node_prototype : public render_node_prototype {
     size_t id() const override { return 0x0000fffe; }
     const char* name() const override { return "Preview [Color]"; }
 
-    virtual vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
+    vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
         return vk::UniquePipeline(nullptr);
     }
 
@@ -230,18 +230,17 @@ struct color_preview_render_node_prototype : public render_node_prototype {
 };
 
 render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
-    : prototype(prototype),
-		inputs(prototype->inputs.size(), { {},0 }),
-        outputs(prototype->outputs.size(), 0),
-        data(nullptr),
-        id(rand()),
+    : visited(false),
+		subpass_index(-1),
+        pipeline(nullptr),
+        desc_set(nullptr),
 
-        visited(false), subpass_index(-1), subpass_commands(std::nullopt), pipeline(nullptr), desc_set(nullptr)
+        id(rand()), prototype(prototype), inputs(prototype->inputs.size(), { {},0 }), outputs(prototype->outputs.size(), 0), data(nullptr)
 {
 }
 
 render_node::render_node(renderer* r, size_t id, json data)
-    : id(id), subpass_commands(std::nullopt), subpass_index(123456789)
+    : subpass_index(123456789), subpass_commands({}), id(id)
 {
     auto prototype_id = data.at("prototype_id").get<int>();
     auto prototypep = std::find_if(r->prototypes.begin(), r->prototypes.end(),
@@ -254,7 +253,7 @@ render_node::render_node(renderer* r, size_t id, json data)
     }
     outputs = std::vector<framebuffer_ref>(prototype->outputs.size(), 0);
     inputs = std::vector<std::pair<std::optional<std::weak_ptr<render_node>>, size_t>>(prototype->inputs.size(), { {},0 });
-    this->data = std::move(prototype->deserialize_node_data(data.at("data")));
+    this->data = prototype->deserialize_node_data(data.at("data"));
 }
 
 json render_node::serialize() const {
@@ -399,101 +398,134 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
         return;
     }
 
-    vk::AttachmentReference *input_atch_start = nullptr, *color_atch_start = nullptr,
-        *depth_atch_start = nullptr;
+    node->subpass_index = (uint32_t)subpasses.size();
+    node->subpass_count = node->prototype->subpass_repeat_count(this, node.get());
+    if(log_compile) std::cout << "\tassigning node subpass index #" << node->subpass_index << " x " << node->subpass_count << "\n";
+    subpass_order.push_back(node);
 
-    uint32_t num_inputs = 0;
-    for(size_t i = 0; i < node->inputs.size(); ++i) {
-        num_inputs += node->prototype->inputs[i].count;
-    }
-    input_atch_start = reference_pool.alloc_array(num_inputs);
-    auto input_atch_next = input_atch_start;
-    uint32_t num_input_atch = 0;
-    for(size_t i = 0; i < node->inputs.size(); ++i) {
-        // skip blend fbs since they only need output attachment
-        if(node->prototype->inputs[i].mode == framebuffer_mode::blend_input) continue;
-        const auto& [input_node, input_index] = node->inputs[i];
-        if (!input_node.has_value()) continue;
-        framebuffer_ref fb = input_node->lock()->outputs[input_index];
-        for(uint32_t ai = 0; ai < node->prototype->inputs[i].count; ++ai) {
-            *(input_atch_next++) = (vk::AttachmentReference {
-                    attachement_refs.at(fb) + ai,
+    for(size_t rep_index = 0; rep_index < node->subpass_count; ++rep_index) {
+
+        vk::AttachmentReference *input_atch_start = nullptr, *color_atch_start = nullptr,
+            *depth_atch_start = nullptr;
+
+        uint32_t num_inputs = 0;
+        for(size_t i = 0; i < node->inputs.size(); ++i) {
+            num_inputs +=
+                node->prototype->inputs[i].subpass_binding_order == framebuffer_subpass_binding_order::parallel
+                    ? node->prototype->inputs[i].count : 1;
+        }
+        input_atch_start = reference_pool.alloc_array(num_inputs);
+        auto* input_atch_next = input_atch_start;
+        uint32_t num_input_atch = 0;
+        for(size_t i = 0; i < node->inputs.size(); ++i) {
+            // skip blend fbs since they only need output attachment
+            if(node->prototype->inputs[i].mode == framebuffer_mode::blend_input ||
+                    node->prototype->inputs[i].mode == framebuffer_mode::shader_input) continue;
+            const auto& [input_node, input_index] = node->inputs[i];
+            if (!input_node.has_value()) continue;
+            framebuffer_ref fb = input_node->lock()->outputs[input_index];
+            if(node->prototype->inputs[i].subpass_binding_order == framebuffer_subpass_binding_order::parallel) {
+                for(uint32_t ai = 0; ai < node->prototype->inputs[i].count; ++ai) {
+                    *(input_atch_next++) = (vk::AttachmentReference {
+                        attachement_refs.at(fb) + ai,
+                        vk::ImageLayout::eShaderReadOnlyOptimal
+                    });
+                    num_input_atch++;
+                }
+            } else if(node->prototype->inputs[i].subpass_binding_order == framebuffer_subpass_binding_order::sequential) {
+                *(input_atch_next++) = (vk::AttachmentReference {
+                    attachement_refs.at(fb) + (uint32_t)rep_index,
                     vk::ImageLayout::eShaderReadOnlyOptimal
-            });
-            num_input_atch++;
-        }
-    }
-
-    uint32_t num_color_out = 0;
-    for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
-        if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
-            num_color_out += node->prototype->outputs[i].count;
-        }
-    }
-    color_atch_start = reference_pool.alloc_array(num_color_out);
-    auto color_atch_next = color_atch_start;
-    for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
-        if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
-            for(uint32_t ai = 0; ai < node->prototype->outputs[i].count; ++ai) {
-                *(color_atch_next++) = (vk::AttachmentReference {
-                        attachement_refs.at(node->outputs[i]) + ai,
-                        vk::ImageLayout::eColorAttachmentOptimal
                 });
+                num_input_atch++;
             }
         }
-    }
 
-    bool has_depth = false;
-    for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
-        if(node->prototype->outputs[i].type == framebuffer_type::depth ||
-                node->prototype->outputs[i].type == framebuffer_type::depth_stencil && node->outputs[i] != 0) {
-            has_depth = true;
-            depth_atch_start = reference_pool.alloc(vk::AttachmentReference {
-                    attachement_refs.at(node->outputs[i]),
-                    vk::ImageLayout::eDepthStencilAttachmentOptimal
-            });
-            break; //only one is possible
+        uint32_t num_color_out = 0;
+        for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
+            if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
+                num_color_out += 
+                    node->prototype->outputs[i].subpass_binding_order == framebuffer_subpass_binding_order::parallel
+                        ? node->prototype->outputs[i].count : 1;
+            }
         }
-    }
-    if(!has_depth) depth_atch_start = nullptr;
+        color_atch_start = reference_pool.alloc_array(num_color_out);
+        auto* color_atch_next = color_atch_start;
+        for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
+            if(node->prototype->outputs[i].type == framebuffer_type::color && node->outputs[i] != 0) {
+                if(node->prototype->outputs[i].subpass_binding_order == framebuffer_subpass_binding_order::parallel) {
+                    for(uint32_t ai = 0; ai < node->prototype->outputs[i].count; ++ai) {
+                        *(color_atch_next++) = (vk::AttachmentReference {
+                            attachement_refs.at(node->outputs[i]) + ai,
+                            vk::ImageLayout::eColorAttachmentOptimal
+                        });
+                    }
+                } else if(node->prototype->outputs[i].subpass_binding_order == framebuffer_subpass_binding_order::sequential) {
+                    *(color_atch_next++) = (vk::AttachmentReference {
+                        attachement_refs.at(node->outputs[i]) + (uint32_t)rep_index,
+                        vk::ImageLayout::eColorAttachmentOptimal
+                    });
+                }
+            }
+        }
 
-    node->subpass_index = (uint32_t)subpasses.size();
-    if(log_compile) std::cout << "\tassigning node subpass index #" << node->subpass_index << "\n";
-    subpass_order.push_back(node);
-    subpasses.push_back(vk::SubpassDescription {
-        vk::SubpassDescriptionFlags(),
-        vk::PipelineBindPoint::eGraphics,
-        num_input_atch, input_atch_start,
-        num_color_out, color_atch_start,
-        nullptr, depth_atch_start,
-    });
+        bool has_depth = false;
+        for(size_t i = 0; i < node->prototype->outputs.size(); ++i) {
+            if((node->prototype->outputs[i].type == framebuffer_type::depth ||
+                    node->prototype->outputs[i].type == framebuffer_type::depth_stencil) && node->outputs[i] != 0) {
+                has_depth = true;
+                uint32_t offset = 0;
+                if(node->prototype->outputs[i].count > 1) {
+                    if(node->prototype->outputs[i].subpass_binding_order == framebuffer_subpass_binding_order::sequential) {
+                        offset = (uint32_t)rep_index;
+                    } else {
+                        throw;
+                    }
+                }
+                depth_atch_start = reference_pool.alloc(vk::AttachmentReference {
+                    attachement_refs.at(node->outputs[i]) + offset,
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal
+                });
+                break; //only one is possible
+            }
+        }
+        if(!has_depth) depth_atch_start = nullptr;
 
-    // emit dependencies
-    // see: https://developer.samsung.com/galaxy-gamedev/resources/articles/renderpasses.html
-    // assuming that we are always consuming inputs in fragment shaders
-    for(const auto& [_input_node, input_index] : node->inputs) {
-        if(!_input_node.has_value()) continue;
-        auto input_node = _input_node->lock();
-        if (input_node == screen_output_node) continue;
-        const auto& fb_desc = input_node->prototype->outputs[input_index];
-        if(fb_desc.type == framebuffer_type::color && fb_desc.mode != framebuffer_mode::blend_input) {
-            dependencies.push_back(vk::SubpassDependency {
-                input_node->subpass_index, node->subpass_index,
-                vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                vk::PipelineStageFlagBits::eFragmentShader,
-                vk::AccessFlagBits::eColorAttachmentWrite,
-                vk::AccessFlagBits::eShaderRead,
-                vk::DependencyFlagBits::eByRegion
-            });
-        } else if(fb_desc.type == framebuffer_type::depth || fb_desc.type == framebuffer_type::depth_stencil) {
-            dependencies.push_back(vk::SubpassDependency {
-                input_node->subpass_index, node->subpass_index,
-                vk::PipelineStageFlagBits::eLateFragmentTests,
-                vk::PipelineStageFlagBits::eFragmentShader,
-                vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-                vk::AccessFlagBits::eShaderRead,
-                vk::DependencyFlagBits::eByRegion
-            });
+        subpasses.emplace_back(
+            vk::SubpassDescriptionFlags(),
+            vk::PipelineBindPoint::eGraphics,
+            num_input_atch, input_atch_start,
+            num_color_out, color_atch_start,
+            nullptr, depth_atch_start
+        );
+
+        // emit dependencies
+        // see: https://developer.samsung.com/galaxy-gamedev/resources/articles/renderpasses.html
+        // assuming that we are always consuming inputs in fragment shaders
+        for(const auto& [_input_node, input_index] : node->inputs) {
+            if(!_input_node.has_value()) continue;
+            auto input_node = _input_node->lock();
+            if (input_node == screen_output_node) continue;
+            const auto& fb_desc = input_node->prototype->outputs[input_index];
+            if(fb_desc.type == framebuffer_type::color && fb_desc.mode != framebuffer_mode::blend_input) {
+                dependencies.emplace_back(
+                    input_node->subpass_index, node->subpass_index + rep_index,
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                    vk::PipelineStageFlagBits::eFragmentShader,
+                    vk::AccessFlagBits::eColorAttachmentWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    vk::DependencyFlagBits::eByRegion
+                );
+            } else if(fb_desc.type == framebuffer_type::depth || fb_desc.type == framebuffer_type::depth_stencil) {
+                dependencies.emplace_back(
+                    input_node->subpass_index, node->subpass_index + rep_index,
+                    vk::PipelineStageFlagBits::eLateFragmentTests,
+                    vk::PipelineStageFlagBits::eFragmentShader,
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    vk::DependencyFlagBits::eByRegion
+                );
+            }
         }
     }
 }
@@ -625,16 +657,15 @@ void renderer::compile_render_graph() {
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     std::vector<vk::DescriptorSetLayout> layouts;
     std::vector<vk::UniqueDescriptorSet*> outputs;
-    for(size_t i = 0; i < subpass_order.size(); ++i) {
-        auto node = subpass_order[i];
-        node->prototype->collect_descriptor_layouts(node.get(), pool_sizes, layouts, outputs);
+    for(const auto& node : subpass_order) {
+         node->prototype->collect_descriptor_layouts(node.get(), pool_sizes, layouts, outputs);
     }
 
     /* std::cout << "desc_pool = " << desc_pool.get() << "\n"; */
-    desc_pool = std::move(dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
+    desc_pool = dev->dev->createDescriptorPoolUnique(vk::DescriptorPoolCreateInfo {
         vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         (uint32)outputs.size(), (uint32)pool_sizes.size(), pool_sizes.data()
-    }));
+    });
     /* std::cout << "desc_pool = " << desc_pool.get() << "\n"; */
     auto sets = dev->dev->allocateDescriptorSetsUnique(vk::DescriptorSetAllocateInfo {
         desc_pool.get(), (uint32)layouts.size(), layouts.data()
@@ -655,10 +686,7 @@ void renderer::compile_render_graph() {
             node->prototype->generate_pipeline(this, node.get(), render_pass.get(), i);
 
         // generate command buffers
-        auto subpass_commands = node->prototype->generate_command_buffer(this, node.get());
-        if(subpass_commands.has_value()) {
-            node->subpass_commands.swap(subpass_commands);
-        }
+        node->subpass_commands = node->prototype->generate_command_buffer(this, node.get());
     }
     dev->dev->updateDescriptorSets(desc_writes, {});
     should_recompile = false;
@@ -757,7 +785,7 @@ void renderer::build_gui(frame_state* fs) {
                 auto i = node->id;
                 ImNodes::BeginNode((int)i);
                 ImNodes::BeginNodeTitleBar();
-                ImGui::Text("%s", node->prototype->name());
+                ImGui::Text("%s[%u]", node->prototype->name(), node->subpass_count);
                 ImGui::SameLine();
                 if(ImGui::SmallButton(" x ")) {
                     deleted_nodes.push_back(node);
@@ -1128,19 +1156,21 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* 
 
     render_pass_begin_info.framebuffer = framebuffers[image_index].get();
     cb.beginRenderPass(render_pass_begin_info,
-            subpass_order[0]->subpass_commands.has_value() ? vk::SubpassContents::eSecondaryCommandBuffers
-                : vk::SubpassContents::eInline);
+            !subpass_order[0]->subpass_commands.has_value() ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers);
 
     for(size_t i = 0; i < subpass_order.size(); ++i) {
-        if(subpass_order[i]->subpass_commands.has_value()) {
-            cb.executeCommands({subpass_order[i]->subpass_commands.value().get()});
-        } else {
-            subpass_order[i]->prototype->generate_command_buffer_inline(this, subpass_order[i].get(), cb);
+        for(size_t x = 0; x < subpass_order[i]->subpass_count; ++x) {
+            if(subpass_order[i]->subpass_commands.has_value()) {
+                cb.executeCommands({subpass_order[i]->subpass_commands.value()[x].get()});
+                if(x+1 < subpass_order[i]->subpass_count) cb.nextSubpass(vk::SubpassContents::eSecondaryCommandBuffers);
+            } else {
+                subpass_order[i]->prototype->generate_command_buffer_inline(this, subpass_order[i].get(), cb, x);
+                if(x+1 < subpass_order[i]->subpass_count) cb.nextSubpass(vk::SubpassContents::eInline);
+            }
         }
 
         if(i+1 < subpass_order.size()) {
-            cb.nextSubpass(subpass_order[i+1]->subpass_commands.has_value() ? vk::SubpassContents::eSecondaryCommandBuffers
-                    : vk::SubpassContents::eInline);
+            cb.nextSubpass(!subpass_order[i+1]->subpass_commands.has_value() ? vk::SubpassContents::eInline : vk::SubpassContents::eSecondaryCommandBuffers);
         }
     }
 

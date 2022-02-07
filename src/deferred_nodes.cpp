@@ -113,7 +113,7 @@ vk::UniquePipeline gbuffer_geom_render_node_prototype::generate_pipeline(rendere
     return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
 }
 
-void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb) {
+void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
@@ -135,7 +135,7 @@ void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer
 directional_light_render_node_prototype::directional_light_render_node_prototype(device* dev) {
     inputs = {
         framebuffer_desc{"input_color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::blend_input},
-        framebuffer_desc{"geometery", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::shader_input, 3},
+        framebuffer_desc{"geometery", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::input_attachment, 3},
     };
     outputs = {
         framebuffer_desc{"color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
@@ -248,7 +248,7 @@ vk::UniquePipeline directional_light_render_node_prototype::generate_pipeline(re
     return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
 }
 
-void directional_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb) {
+void directional_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
@@ -266,7 +266,7 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(ren
 point_light_render_node_prototype::point_light_render_node_prototype(device* dev) {
     inputs = {
         framebuffer_desc{"input_color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::blend_input},
-        framebuffer_desc{"geometry", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::shader_input, 3},
+        framebuffer_desc{"geometry", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::input_attachment, 3},
     };
     outputs = {
         framebuffer_desc{"color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
@@ -391,7 +391,7 @@ float light_radius(light_trait* light) {
     return sqrt(-5.f + 256.f * i) / sqrt(5.f * light->param.x);
 }
 
-void point_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb) {
+void point_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});

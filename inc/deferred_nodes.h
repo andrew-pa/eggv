@@ -11,7 +11,7 @@ struct gbuffer_geom_render_node_prototype : public render_node_prototype {
     virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes,
             arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
     virtual vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override;
-    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) override;
+    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) override;
 
     virtual void build_gui(class renderer*, struct render_node* node) override;
 };
@@ -26,7 +26,7 @@ struct directional_light_render_node_prototype : public render_node_prototype {
     virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes,
             arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
     virtual vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override;
-    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) override;
+    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) override;
 
     virtual void build_gui(class renderer*, struct render_node* node) override;
 };
@@ -43,7 +43,7 @@ struct point_light_render_node_prototype : public render_node_prototype {
     virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes,
             arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
     virtual vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override;
-    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&) override;
+    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) override;
 
     virtual void build_gui(class renderer*, struct render_node* node) override;
 };

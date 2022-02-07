@@ -534,7 +534,7 @@ vk::UniquePipeline physics_debug_shape_render_node_prototype::generate_pipeline(
     return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
 }
 
-void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb) {
+void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
     if (!world->getIsDebugRenderingEnabled()) return;
     auto& dr = world->getDebugRenderer();
     if (dr.getNbLines() > 0) {
