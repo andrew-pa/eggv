@@ -30,6 +30,8 @@ enum class framebuffer_subpass_binding_order {
     sequential
 };
 
+const uint32_t framebuffer_count_is_subpass_count = (uint32_t)-1;
+
 struct framebuffer_desc {
     std::string name;
     vk::Format format;
@@ -127,6 +129,7 @@ public:
     std::shared_ptr<render_node> screen_output_node;
 
     framebuffer_ref next_id;
+    // TODO: this tuple should be a struct
     std::map<framebuffer_ref, std::tuple<std::unique_ptr<image>, bool, std::vector<vk::UniqueImageView>, framebuffer_type>> buffers;
 
     vk::UniqueRenderPass render_pass;

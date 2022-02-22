@@ -399,7 +399,6 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
     }
 
     node->subpass_index = (uint32_t)subpasses.size();
-    node->subpass_count = node->prototype->subpass_repeat_count(this, node.get());
     if(log_compile) std::cout << "\tassigning node subpass index #" << node->subpass_index << " x " << node->subpass_count << "\n";
     subpass_order.push_back(node);
 
@@ -563,6 +562,9 @@ void renderer::compile_render_graph() {
     screen_output_node->outputs[0] = 1;
     prototypes[0]->inputs[0].format = swpc->format;
     for(auto& node : render_graph) {
+        // compute subpass count early so we can use it from framebuffer counts as well
+        node->subpass_count = node->prototype->subpass_repeat_count(this, node.get());
+
         for(size_t i = 0; i < node->outputs.size(); ++i) {
             // assign a new framebuffer to each output that is unassigned and not a blend input
             if(node->outputs[i] == 0 &&

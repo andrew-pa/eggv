@@ -60,7 +60,7 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
         {"Selected Object", true},
         {"ImGui Demo", false},
         {"ImGui Metrics", false},
-        {"Physics World", true}
+        {"Physics World", false}
       })
 {
     r.init(dev.get());
