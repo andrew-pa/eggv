@@ -121,6 +121,22 @@ struct gpu_material {
     gpu_material(material* mat) : base_color(mat->base_color) {}
 };
 
+struct framebuffer_values {
+    std::unique_ptr<image> img;
+    bool in_use;
+    std::vector<vk::UniqueImageView> image_views;
+    framebuffer_type type;
+
+    framebuffer_values()
+        : img(nullptr), in_use(false), type(framebuffer_type::color) {}
+
+    framebuffer_values(std::unique_ptr<image>&& img, bool in_use, std::vector<vk::UniqueImageView>&& image_views, framebuffer_type type)
+        : img(std::move(img)), in_use(in_use), image_views(std::move(image_views)), type(type) {}
+
+    inline bool is_array() const { return image_views.size() > 1; }
+    inline size_t num_layers() const { return image_views.size() == 1 ? 1 : image_views.size() - 1; }
+};
+
 class renderer {
 public:
     device* dev; swap_chain* swpc;
@@ -129,8 +145,7 @@ public:
     std::shared_ptr<render_node> screen_output_node;
 
     framebuffer_ref next_id;
-    // TODO: this tuple should be a struct
-    std::map<framebuffer_ref, std::tuple<std::unique_ptr<image>, bool, std::vector<vk::UniqueImageView>, framebuffer_type>> buffers;
+    std::map<framebuffer_ref, framebuffer_values> buffers;
 
     vk::UniqueRenderPass render_pass;
     std::vector<vk::ClearValue> clear_values;

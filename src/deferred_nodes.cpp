@@ -175,7 +175,7 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
     for(int i = 0; i < 3; ++i) {
         writes.emplace_back(node->desc_set.get(), i, 0, 1, vk::DescriptorType::eInputAttachment,
                     img_infos.alloc(vk::DescriptorImageInfo(nullptr,
-                            std::get<2>(r->buffers[node->input_framebuffer(1).value()])[1+i].get(),
+                            r->buffers[node->input_framebuffer(1).value()].image_views[1+i].get(),
                             vk::ImageLayout::eShaderReadOnlyOptimal)));
     }
 
@@ -447,7 +447,7 @@ void point_light_render_node_prototype::update_descriptor_sets(class renderer* r
     for(int i = 0; i < 3; ++i) {
         writes.emplace_back(node->desc_set.get(), i, 0, 1, vk::DescriptorType::eInputAttachment,
                     img_infos.alloc(vk::DescriptorImageInfo(nullptr,
-                            std::get<2>(r->buffers[node->input_framebuffer(1).value()])[i+1].get(),
+                            r->buffers[node->input_framebuffer(1).value()].image_views[i+1].get(),
                             vk::ImageLayout::eShaderReadOnlyOptimal)));
     }
 

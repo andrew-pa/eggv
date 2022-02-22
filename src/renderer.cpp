@@ -210,14 +210,15 @@ struct color_preview_render_node_prototype : public render_node_prototype {
         }
         auto* data = (node_data*)node->data.get();
         if(data->fb != node->input_framebuffer(0)) {
-            auto& [fb_img, fb_alloc, fb_img_views, fb_type] = r->buffers[node->input_framebuffer(0).value()];
+            auto& fb = r->buffers[node->input_framebuffer(0).value()];
             data->imtex.clear();
-            if(fb_img_views.size() > 1) {
-                for(size_t i = 1; i < fb_img_views.size(); ++i) {
-                    data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb_img_views[i].get(), (VkImageLayout)vk::ImageLayout::eGeneral));
+            if(fb.is_array()) {
+                for(size_t i = 1; i < fb.image_views.size(); ++i) {
+                    data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb.image_views[i].get(),
+                                (VkImageLayout)vk::ImageLayout::eGeneral));
                 }
-            } else if(fb_img_views.size() == 1) {
-                data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb_img_views[0].get(), (VkImageLayout)vk::ImageLayout::eGeneral));
+            } else {
+                data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb.image_views[0].get(), (VkImageLayout)vk::ImageLayout::eGeneral));
             }
             data->fb = node->input_framebuffer(0).value();
         }
@@ -320,11 +321,11 @@ void renderer::init(device* _dev) {
 }
 
 framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
-    for(auto& buf : buffers) {
-        if(!std::get<1>(buf.second)) {
-            if(std::get<0>(buf.second)->info.format == desc.format) {
-                std::get<1>(buf.second) = true;
-                return buf.first;
+    for(auto& [ref, fb] : buffers) {
+        if(fb.in_use) {
+            if(fb.img->info.format == desc.format) {
+                fb.in_use = true;
+                return ref;
             }
         }
     }
@@ -375,7 +376,7 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
             ));
         }
     }
-    buffers[id] = std::tuple{std::move(newfb), true, std::move(ivs), desc.type};
+    buffers.emplace(id, framebuffer_values{std::move(newfb), true, std::move(ivs), desc.type});
     return id;
 }
 
@@ -547,7 +548,7 @@ void renderer::propagate_blended_framebuffers(std::shared_ptr<render_node> node)
 void renderer::compile_render_graph() {
     // free all framebuffers we still have and do other clean up
     for(auto& buf : buffers) {
-        std::get<1>(buf.second) = false;
+        buf.second.in_use = false;
     }
     for(auto& n : render_graph) {
         n->visited = false;
@@ -586,19 +587,19 @@ void renderer::compile_render_graph() {
     attachement_refs[1] = 0;
 
     clear_values.clear();
-    clear_values.push_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.0f, 0.0f, 0.f}));
+    clear_values.emplace_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.0f, 0.0f, 0.f}));
     for(const auto& fb : buffers) {
         /* std::cout << "fb " << fb.first << "\n"; */
-        if(!std::get<1>(fb.second)) continue;
+        if(!fb.second.in_use) continue;
         attachement_refs[fb.first] = (uint32_t)attachments.size();
-        size_t num_layers = std::get<2>(fb.second).size() == 1 ? 1 : std::get<2>(fb.second).size()-1;
+        size_t num_layers = fb.second.num_layers(); //std::get<2>(fb.second).size() == 1 ? 1 : std::get<2>(fb.second).size()-1;
         for(size_t i = 0; i < num_layers; ++i) {
             attachments.emplace_back(vk::AttachmentDescriptionFlags(),
-                    std::get<0>(fb.second)->info.format,
+                    fb.second.img->info.format,
                     vk::SampleCountFlagBits::e1, vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
                     vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
                     vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral);
-            switch(std::get<3>(fb.second)) {
+            switch(fb.second.type) {
                 case framebuffer_type::color:
                     clear_values.emplace_back(vk::ClearColorValue(std::array<float,4>{0.f, 0.f, 0.f, 0.f}));
                     break;
@@ -643,14 +644,14 @@ void renderer::compile_render_graph() {
 
    // create new framebuffers
     framebuffers  = swpc->create_framebuffers(render_pass.get(), [&](size_t index, std::vector<vk::ImageView>& att) {
-            for(const auto& fb : buffers) {
-                if(!std::get<1>(fb.second)) continue;
-                if(std::get<2>(fb.second).size() > 1) {
-                    for(size_t i = 1; i < std::get<2>(fb.second).size(); ++i) {
-                        att.push_back(std::get<2>(fb.second)[i].get());
+            for(const auto& [ref, fb] : buffers) {
+                if(!fb.in_use) continue;
+                if(fb.is_array()) {
+                    for(size_t i = 1; i < fb.image_views.size(); ++i) {
+                        att.push_back(fb.image_views[i].get());
                     }
                 } else {
-                    att.push_back(std::get<2>(fb.second)[0].get());
+                    att.push_back(fb.image_views[0].get());
                 }
             }
     });
@@ -830,7 +831,7 @@ void renderer::build_gui(frame_state* fs) {
                 });
                 if (out_attrib_id == gui_node_attribs.end()) continue;
                 ImNodes::Link((int)gui_links.size(), attrib_id, out_attrib_id->first);
-                gui_links.push_back({ attrib_id, out_attrib_id->first });
+                gui_links.emplace_back( attrib_id, out_attrib_id->first );
             }
 
             if(ImGui::BeginPopupContextWindow()) {
