@@ -80,6 +80,7 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
 
     r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get(), &r));
     r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
+    r.prototypes.emplace_back(std::make_shared<directional_light_shadowmap_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world));
 

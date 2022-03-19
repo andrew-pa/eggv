@@ -212,13 +212,9 @@ struct color_preview_render_node_prototype : public render_node_prototype {
         if(data->fb != node->input_framebuffer(0)) {
             auto& fb = r->buffers[node->input_framebuffer(0).value()];
             data->imtex.clear();
-            if(fb.is_array()) {
-                for(size_t i = 1; i < fb.image_views.size(); ++i) {
-                    data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb.image_views[i].get(),
-                                (VkImageLayout)vk::ImageLayout::eGeneral));
-                }
-            } else {
-                data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb.image_views[0].get(), (VkImageLayout)vk::ImageLayout::eGeneral));
+            for(size_t i = fb.is_array() ? 1 : 0; i < fb.image_views.size(); ++i) {
+                data->imtex.emplace_back(ImGui_ImplVulkan_AddTexture(r->texture_sampler.get(), fb.image_views[i].get(),
+                            (VkImageLayout)vk::ImageLayout::eGeneral));
             }
             data->fb = node->input_framebuffer(0).value();
         }
@@ -320,7 +316,7 @@ void renderer::init(device* _dev) {
 	screen_output_node->inputs[0] = { test, 0 };
 }
 
-framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
+framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc, uint32_t subpass_count) {
     for(auto& [ref, fb] : buffers) {
         if(fb.in_use) {
             if(fb.img->info.format == desc.format) {
@@ -344,7 +340,8 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
                 break;
         }
     }
-    auto isrg = vk::ImageSubresourceRange { aspects_for_type(desc.type), 0, 1, 0, desc.count };
+    auto actual_count = desc.count == framebuffer_count_is_subpass_count ? subpass_count : desc.count;
+    auto isrg = vk::ImageSubresourceRange { aspects_for_type(desc.type), 0, 1, 0, actual_count };
     auto newfb = std::make_unique<image>(this->dev,
             vk::ImageCreateFlags(),
             vk::ImageType::e2D,
@@ -360,9 +357,9 @@ framebuffer_ref renderer::allocate_framebuffer(const framebuffer_desc& desc) {
     framebuffer_ref id = next_id ++;
     std::vector<vk::UniqueImageView> ivs;
     ivs.emplace_back(std::move(iv));
-    if(desc.count > 1) {
+    if(actual_count > 1) {
         isrg.layerCount = 1;
-        for(uint32_t i = 0; i < desc.count; ++i) {
+        for(uint32_t i = 0; i < actual_count; ++i) {
             isrg.baseArrayLayer = i;
             ivs.emplace_back(dev->dev->createImageViewUnique(
                 vk::ImageViewCreateInfo {
@@ -405,7 +402,8 @@ void renderer::generate_subpasses(std::shared_ptr<render_node> node, std::vector
 
     for(size_t rep_index = 0; rep_index < node->subpass_count; ++rep_index) {
 
-        vk::AttachmentReference *input_atch_start = nullptr, *color_atch_start = nullptr,
+        vk::AttachmentReference *input_atch_start = nullptr,
+            *color_atch_start = nullptr,
             *depth_atch_start = nullptr;
 
         uint32_t num_inputs = 0;
@@ -539,7 +537,7 @@ void renderer::propagate_blended_framebuffers(std::shared_ptr<render_node> node)
             if(node->input_node(i) != nullptr) {
                 node->outputs[i] = node->input_framebuffer(i).value();
             } else {
-                node->outputs[i] = this->allocate_framebuffer(node->prototype->outputs[i]);
+                node->outputs[i] = this->allocate_framebuffer(node->prototype->outputs[i], node->subpass_count);
             }
         }
     }
@@ -568,9 +566,8 @@ void renderer::compile_render_graph() {
 
         for(size_t i = 0; i < node->outputs.size(); ++i) {
             // assign a new framebuffer to each output that is unassigned and not a blend input
-            if(node->outputs[i] == 0 &&
-                    !(i < node->prototype->inputs.size() && node->prototype->inputs[i].mode == framebuffer_mode::blend_input))
-                node->outputs[i] = this->allocate_framebuffer(node->prototype->outputs[i]);
+            if(node->outputs[i] == 0 && !(i < node->prototype->inputs.size() && node->prototype->inputs[i].mode == framebuffer_mode::blend_input))
+                node->outputs[i] = this->allocate_framebuffer(node->prototype->outputs[i], node->subpass_count);
         }
     }
     // copy blend mode framebuffers so that nodes that take a blend mode framebuffer also output to the same framebuffer
@@ -892,7 +889,7 @@ void renderer::build_gui(frame_state* fs) {
                 output_node->outputs[output_ix] = 0;
             }
 
-            for(auto n : deleted_nodes) {
+            for(const auto& n : deleted_nodes) {
                 auto f = std::find(render_graph.begin(), render_graph.end(), n);
                 if(f != render_graph.end())
                     render_graph.erase(f);
@@ -914,19 +911,18 @@ void renderer::build_gui(frame_state* fs) {
                 ImGui::TableSetupColumn("Size");
                 ImGui::TableSetupColumn("Count");
                 ImGui::TableHeadersRow();
-                for(const auto& [id, _fb] : buffers) {
-                    const auto&[img, allocated, imv, type] = _fb;
+                for(const auto& [id, fb] : buffers) {
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
                     ImGui::Text("%lu", id);
                     ImGui::TableNextColumn();
-                    ImGui::Text("%s", allocated ? "Y" : "N");
+                    ImGui::Text("%s", fb.in_use ? "Y" : "N");
                     ImGui::TableNextColumn();
-                    ImGui::Text("%s", vk::to_string(img->info.format).c_str());
+                    ImGui::Text("%s", vk::to_string(fb.img->info.format).c_str());
                     ImGui::TableNextColumn();
-                    ImGui::Text("%u x %u", img->info.extent.width, img->info.extent.height);
+                    ImGui::Text("%u x %u", fb.img->info.extent.width, fb.img->info.extent.height);
                     ImGui::TableNextColumn();
-                    ImGui::Text("%lu", imv.size() > 1 ? imv.size()-1 : 1);
+                    ImGui::Text("%lu", fb.num_layers());
                 }
                 ImGui::EndTable();
             }

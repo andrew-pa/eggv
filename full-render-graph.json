@@ -24,6 +24,10 @@
                 {
                     "src_idx": 0,
                     "src_node": 99377912
+                },
+                {
+                    "src_idx": 0,
+                    "src_node": 99377912
                 }
             ],
             "prototype_id": 65537

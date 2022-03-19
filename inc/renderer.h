@@ -167,7 +167,7 @@ public:
     vk::UniqueDescriptorPool material_desc_pool;
     vk::UniqueDescriptorSetLayout material_desc_set_layout;
 
-    framebuffer_ref allocate_framebuffer(const framebuffer_desc&);
+    framebuffer_ref allocate_framebuffer(const framebuffer_desc&, uint32_t subpass_count);
     void compile_render_graph();
     void propagate_blended_framebuffers(std::shared_ptr<render_node> node);
     void generate_subpasses(std::shared_ptr<render_node>, std::vector<vk::SubpassDescription>&, std::vector<vk::SubpassDependency>& dependencies,

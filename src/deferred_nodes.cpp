@@ -136,6 +136,7 @@ directional_light_render_node_prototype::directional_light_render_node_prototype
     inputs = {
         framebuffer_desc{"input_color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::blend_input},
         framebuffer_desc{"geometery", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::input_attachment, 3},
+        framebuffer_desc{"shadowmap", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::shader_input},
     };
     outputs = {
         framebuffer_desc{"color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::output},
@@ -300,10 +301,10 @@ size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(r
     return num_lights;
 }
 
-void directional_light_shadowmap_render_node_prototype::build_gui(class renderer *, struct render_node *node) {
+void directional_light_shadowmap_render_node_prototype::build_gui(class renderer* r, struct render_node *node) {
 }
 
-void directional_light_shadowmap_render_node_prototype::collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
+void directional_light_shadowmap_render_node_prototype::collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes,
         std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) 
 {
     pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 1);
@@ -317,11 +318,11 @@ void directional_light_shadowmap_render_node_prototype::update_descriptor_sets(c
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
 }
 
-vk::UniquePipeline directional_light_shadowmap_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {
+vk::UniquePipeline directional_light_shadowmap_render_node_prototype::generate_pipeline(renderer* r, struct render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eVertex,
-            r->dev->load_shader("full.vert.spv"), "main"
+            r->dev->load_shader("multiview-simple.vert.spv"), "main"
         },
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eFragment,

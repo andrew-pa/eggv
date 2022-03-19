@@ -43,6 +43,7 @@ function(add_spirv_shader SHADER_STAGE INPUT_FILE OUTPUT_FILE)
 endfunction()
 
 add_spirv_shader(vertex src/shaders/simple.vert.glsl simple.vert.spv)
+add_spirv_shader(vertex src/shaders/multiview-simple.vert.glsl multiview-simple.vert.spv)
 add_spirv_shader(vertex src/shaders/full.vert.glsl full.vert.spv)
 add_spirv_shader(fragment src/shaders/simple.frag.glsl simple.frag.spv)
 add_spirv_shader(fragment src/shaders/gbuffer.frag.glsl gbuffer.frag.spv)
@@ -97,7 +98,7 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/physics.h src/physics.cpp
     simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv
     entire-screen.vert.spv directional-light.frag.spv point-light.vert.spv
-    point-light.frag.spv solid-color.frag.spv nop.frag.spv)
+    point-light.frag.spv solid-color.frag.spv nop.frag.spv multiview-simple.vert.spv)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json
     stduuid mio::mio stb ReactPhysics3D::reactphysics3d)
 target_compile_features(eggv PUBLIC cxx_std_17)
