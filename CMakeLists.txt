@@ -88,7 +88,8 @@ target_compile_features(stb PRIVATE cxx_std_17)
 add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/main.cpp src/swap_chain.cpp
     inc/mem_arena.h inc/ndcommon.h
-    inc/renderer.h src/renderer.cpp inc/mesh.h
+    inc/renderer.h src/renderer.cpp inc/renderer_basic_nodes.h src/renderer_graph_compiler.cpp src/renderer_gui.cpp
+    inc/mesh.h
     inc/deferred_nodes.h src/deferred_nodes.cpp
     inc/debug_shapes.h src/debug_shapes.cpp
     inc/mesh_gen.h inc/par_shapes.h src/mesh_gen.cpp

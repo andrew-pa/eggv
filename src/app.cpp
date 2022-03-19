@@ -37,12 +37,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 
 app::app(const std::string& title, vec2 winsize)
 {
-	if (!glfwInit()) throw std::runtime_error("GLFW init failed!");
-	glfwSetErrorCallback([](int ec, const char* em) {
-                std::cout << "GLFW error: " << em << " << error code = " << std::ios_base::hex << ec << "\n";
-                //sprintf_s(s, 64, "GLFW error: %s, (error code: %08X)", em, ec);
-		throw std::runtime_error(em);
-        });
+    if (!glfwInit()) throw std::runtime_error("GLFW init failed!");
+    glfwSetErrorCallback([](int ec, const char* em) {
+        if(ec == 865540) {
+            return; // "invalid scancode"
+        }
+        std::cout << "GLFW error: " << em << " << error code = " << std::ios_base::hex << ec << "\n";
+        //throw std::runtime_error(em);
+    });
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_FOCUSED, false);

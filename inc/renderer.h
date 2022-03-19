@@ -138,6 +138,13 @@ struct framebuffer_values {
 };
 
 class renderer {
+    void build_gui_menu(frame_state* fs);
+    void build_gui_graph_view(frame_state* fs);
+    void build_gui_stats(frame_state* fs);
+    void build_gui_textures(frame_state* fs);
+
+    void generate_attachment_descriptions(std::vector<vk::AttachmentDescription>& attachments, std::map<framebuffer_ref, uint32_t>& attachment_refs);
+    void generate_clear_values();
 public:
     device* dev; swap_chain* swpc;
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
@@ -170,8 +177,8 @@ public:
     framebuffer_ref allocate_framebuffer(const framebuffer_desc&, uint32_t subpass_count);
     void compile_render_graph();
     void propagate_blended_framebuffers(std::shared_ptr<render_node> node);
-    void generate_subpasses(std::shared_ptr<render_node>, std::vector<vk::SubpassDescription>&, std::vector<vk::SubpassDependency>& dependencies,
-            const std::map<framebuffer_ref, uint32_t>& attachement_refs, arena<vk::AttachmentReference>& reference_pool);
+    void generate_subpasses(const std::shared_ptr<render_node>&, std::vector<vk::SubpassDescription>&, std::vector<vk::SubpassDependency>& dependencies,
+            const std::map<framebuffer_ref, uint32_t>& attachment_refs, arena<vk::AttachmentReference>& reference_pool);
 
     void deserialize_render_graph(json data);
     json serialize_render_graph();
