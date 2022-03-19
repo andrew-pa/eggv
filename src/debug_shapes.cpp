@@ -65,9 +65,7 @@ void debug_shape_render_node_prototype::update_descriptor_sets(renderer* r, rend
     writes.emplace_back(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, b);
 }
 
-vk::UniquePipeline debug_shape_render_node_prototype::generate_pipeline(renderer* r, render_node* node,
-        vk::RenderPass render_pass, uint32_t subpass)
-{
+void debug_shape_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eVertex,
@@ -135,13 +133,13 @@ vk::UniquePipeline debug_shape_render_node_prototype::generate_pipeline(renderer
         render_pass, subpass
     );
 
-    return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
+    ((node_data*)node->data.get())->pipeline = r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);
 }
 
 void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
-    vec3 global_scale = vec3(node->data == nullptr ? 1.f :
-        ((node_data*)node->data.get())->global_scale);
-    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
+    node_data* data = ((node_data*)node->data.get());
+    vec3 global_scale = vec3(data->global_scale);
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, data->pipeline.get());
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     cb.bindVertexBuffers(0, {frame_axis_mesh.vertex_buffer->buf}, {0});
@@ -158,16 +156,13 @@ void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer*
 }
 
 void debug_shape_render_node_prototype::build_gui(class renderer* r, struct render_node* node) {
-    if(node->data == nullptr) {
-        node->data = std::make_unique<node_data>();
-    }
     float* global_scale = &((node_data*)node->data.get())->global_scale;
     ImGui::SetNextItemWidth(100.f);
     ImGui::DragFloat("Scale", global_scale, 0.01f, 0.f, 1000.f, "%.1f");
 }
 
 std::unique_ptr<render_node_data> debug_shape_render_node_prototype::deserialize_node_data(json data) {
-    if(data == nullptr) return nullptr;
+    if(data == nullptr) return initialize_node_data();
     return std::make_unique<node_data>(data["scale"]);
 }
 

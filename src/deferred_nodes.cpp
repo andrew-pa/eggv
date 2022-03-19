@@ -46,7 +46,7 @@ void gbuffer_geom_render_node_prototype::update_descriptor_sets(class renderer* 
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
 }
 
-vk::UniquePipeline gbuffer_geom_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {
+void gbuffer_geom_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eVertex,
@@ -110,11 +110,11 @@ vk::UniquePipeline gbuffer_geom_render_node_prototype::generate_pipeline(rendere
         render_pass, subpass
     );
 
-    return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
+    this->create_pipeline(r, node, cfo);
 }
 
 void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
-    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     for(const auto&[mesh, world_transform] : r->active_meshes) {
@@ -187,7 +187,7 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
 }
 
-vk::UniquePipeline directional_light_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {
+void directional_light_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eVertex,
@@ -247,11 +247,11 @@ vk::UniquePipeline directional_light_render_node_prototype::generate_pipeline(re
         render_pass, subpass
     );
 
-    return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
+    this->create_pipeline(r, node, cfo);
 }
 
 void directional_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
-    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     /* std::cout << r->active_lights.size() << "\n"; */
@@ -289,7 +289,7 @@ directional_light_shadowmap_render_node_prototype::directional_light_shadowmap_r
 
 size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(renderer* r, render_node* n) {
     size_t num_lights = 0;
-    r->current_scene->for_each_object([&](std::shared_ptr<scene_object> o) {
+    r->current_scene->for_each_object([&](const std::shared_ptr<scene_object>& o) {
             auto lt = o->traits.find(TRAIT_ID_LIGHT);
             if(lt != o->traits.end()) {
                 if(((light_trait*)(lt->second.get()))->type == light_type::directional) {
@@ -319,7 +319,7 @@ void directional_light_shadowmap_render_node_prototype::update_descriptor_sets(c
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
 }
 
-vk::UniquePipeline directional_light_shadowmap_render_node_prototype::generate_pipeline(renderer* r, struct render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
+void directional_light_shadowmap_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eVertex,
@@ -383,20 +383,20 @@ vk::UniquePipeline directional_light_shadowmap_render_node_prototype::generate_p
         render_pass, subpass
     );
 
-    return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
+    // return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
 }
 
 void directional_light_shadowmap_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
-    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
-    cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
-            0, { node->desc_set.get() }, {});
-    for(const auto&[mesh, world_transform] : r->active_meshes) {
-        auto m = mesh->m;
-        cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
-        cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
-        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
-        cb.drawIndexed(m->index_count, 1, 0, 0, 0);
-    }
+    // cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
+    // cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
+    //         0, { node->desc_set.get() }, {});
+    // for(const auto&[mesh, world_transform] : r->active_meshes) {
+    //     auto m = mesh->m;
+    //     cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
+    //     cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
+    //     cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
+    //     cb.drawIndexed(m->index_count, 1, 0, 0, 0);
+    // }
 }
 
 
@@ -460,7 +460,7 @@ void point_light_render_node_prototype::update_descriptor_sets(class renderer* r
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
 }
 
-vk::UniquePipeline point_light_render_node_prototype::generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {
+void point_light_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eVertex,
@@ -524,7 +524,7 @@ vk::UniquePipeline point_light_render_node_prototype::generate_pipeline(renderer
         render_pass, subpass
     );
 
-    return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo).value;
+    this->create_pipeline(r, node, cfo);
 }
 
 float light_radius(light_trait* light) {
@@ -533,7 +533,7 @@ float light_radius(light_trait* light) {
 }
 
 void point_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
-    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     cb.bindVertexBuffers(0, { sphere_mesh->vertex_buffer->buf }, {0});

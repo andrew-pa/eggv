@@ -395,10 +395,9 @@ void renderer::compile_render_graph() {
     arena<vk::DescriptorImageInfo> img_infos;
     for(uint32_t i = 0; i < subpass_order.size(); ++i) {
         auto node = subpass_order[i];
-        if(log_compile) std::cout << "initializing pipeline objects for " << node->id << ":" << node->prototype->name() << "\n";
+        if(log_compile) std::cout << "initializing " << node->id << ":" << node->prototype->name() << "\n";
         node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
-        node->pipeline =
-            node->prototype->generate_pipeline(this, node.get(), render_pass.get(), i);
+        node->prototype->generate_pipelines(this, node.get(), render_pass.get(), i);
 
         // generate command buffers
         node->subpass_commands = node->prototype->generate_command_buffer(this, node.get());

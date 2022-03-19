@@ -1,8 +1,9 @@
 #pragma once
+#include "cmmn.h"
 #include "renderer.h"
 #include "imgui.h"
 
-struct simple_geom_render_node_prototype : public render_node_prototype { 
+struct simple_geom_render_node_prototype : public single_pipeline_render_node_prototype { 
     simple_geom_render_node_prototype(renderer* r, device* dev) {
         inputs = {
             framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color, framebuffer_mode::blend_input}
@@ -49,7 +50,7 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
                     nullptr, b));
     }
 
-    virtual vk::UniquePipeline generate_pipeline(renderer* r, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
+    void generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) override {
         vk::PipelineShaderStageCreateInfo shader_stages[] = {
             vk::PipelineShaderStageCreateInfo {
                 {}, vk::ShaderStageFlagBits::eVertex,
@@ -111,11 +112,11 @@ struct simple_geom_render_node_prototype : public render_node_prototype {
             render_pass, subpass
         );
 
-        return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
+        this->create_pipeline(r, node, cfo);
     }
 
-    void generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) override {
-        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
+    void generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index) override {
+        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, this->pipeline(node));
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
                 0, { node->desc_set.get() }, {});
         for(const auto&[mesh, world_transform] : r->active_meshes) {
@@ -144,10 +145,6 @@ struct output_render_node_prototype : public render_node_prototype {
 
     size_t id() const override { return 0x0000ffff; }
     const char* name() const override { return "Display Output"; }
-
-    vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
-        return vk::UniquePipeline(nullptr);
-    }
 };
 
 
@@ -169,15 +166,11 @@ struct color_preview_render_node_prototype : public render_node_prototype {
     size_t id() const override { return 0x0000fffe; }
     const char* name() const override { return "Preview [Color]"; }
 
-    vk::UniquePipeline generate_pipeline(renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override {
-        return vk::UniquePipeline(nullptr);
-    }
+    std::unique_ptr<render_node_data> initialize_node_data() override { return std::make_unique<node_data>(); }
 
     void build_gui(renderer* r, render_node* node) override {
         if(node->input_node(0) == nullptr) return;
-        if(node->data == nullptr) {
-            node->data = std::make_unique<node_data>();
-        }
+        
         auto* data = (node_data*)node->data.get();
         if(data->fb != node->input_framebuffer(0)) {
             auto& fb = r->buffers[node->input_framebuffer(0).value()];

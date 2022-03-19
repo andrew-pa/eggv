@@ -379,10 +379,14 @@ const size_t NUM_DEBUG_LINES = 2048;
 const size_t NUM_DEBUG_TRIS = 512;
 
 struct physics_debug_shape_render_node_data : render_node_data {
-    vk::UniquePipeline triangle_pipeline;
-    physics_debug_shape_render_node_data(vk::UniquePipeline&& pipe) : triangle_pipeline(std::move(pipe)) {}
+    vk::UniquePipeline line_pipeline, triangle_pipeline;
+    physics_debug_shape_render_node_data() {}
     json serialize() const override { return json{}; }
 };
+
+std::unique_ptr<render_node_data> physics_debug_shape_render_node_prototype::initialize_node_data() {
+    return std::make_unique<physics_debug_shape_render_node_data>();
+}
 
 physics_debug_shape_render_node_prototype::physics_debug_shape_render_node_prototype(device* dev, PhysicsWorld* world)
     : world(world)
@@ -456,9 +460,7 @@ void physics_debug_shape_render_node_prototype::update_descriptor_sets(renderer*
     writes.emplace_back(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, b);
 }
 
-vk::UniquePipeline physics_debug_shape_render_node_prototype::generate_pipeline(renderer* r, render_node* node,
-        vk::RenderPass render_pass, uint32_t subpass)
-{
+void physics_debug_shape_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo {
             {}, vk::ShaderStageFlagBits::eVertex,
@@ -527,11 +529,12 @@ vk::UniquePipeline physics_debug_shape_render_node_prototype::generate_pipeline(
             render_pass, subpass
             );
 
-    node->data = std::make_unique<physics_debug_shape_render_node_data>(r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo));
+    physics_debug_shape_render_node_data* data = (physics_debug_shape_render_node_data*)node->data.get();
+    data->line_pipeline =  r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);
 
     input_assembly.topology = vk::PrimitiveTopology::eLineList;
 
-    return r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);// .value;
+    data->triangle_pipeline = std::move(r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo));// .value;
 }
 
 void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
@@ -546,8 +549,10 @@ void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(r
                 sizeof(DebugRenderer::DebugTriangle) * max(NUM_DEBUG_TRIS, (size_t)dr.getNbTriangles()));
     }
 
+    auto data = (physics_debug_shape_render_node_data*)(node->data.get());
+
     if (dr.getNbLines() > 0) {
-        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, node->pipeline.get());
+        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, data->line_pipeline.get());
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
                 0, { node->desc_set.get() }, {});
         cb.bindVertexBuffers(0, { geo_buffer->buf }, { 0 });
@@ -557,7 +562,6 @@ void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(r
     }
 
     if (dr.getNbTriangles() > 0) {
-        auto data = (physics_debug_shape_render_node_data*)(node->data.get());
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, data->triangle_pipeline.get());
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
                 0, { node->desc_set.get() }, {});

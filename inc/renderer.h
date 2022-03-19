@@ -54,6 +54,12 @@ struct render_node_data {
     virtual ~render_node_data() = default;
 };
 
+struct single_pipeline_node_data : public render_node_data {
+    vk::UniquePipeline pipeline;
+    json serialize() const override { return json{}; }
+    ~single_pipeline_node_data() override = default;
+};
+
 struct render_node_prototype {
     vk::UniqueDescriptorSetLayout desc_layout;
     vk::UniquePipelineLayout pipeline_layout;
@@ -65,13 +71,14 @@ struct render_node_prototype {
             std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) {}
     virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) {}
 
-    virtual vk::UniquePipeline generate_pipeline(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) = 0;
+    virtual void generate_pipelines(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {}
 
     virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) {}
     virtual std::optional<std::vector<vk::UniqueCommandBuffer>> generate_command_buffer(class renderer*, struct render_node* node) { return {}; }
 
     virtual void build_gui(class renderer*, struct render_node* node) {}
-    virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return nullptr; }
+    virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return initialize_node_data(); }
+    virtual std::unique_ptr<render_node_data> initialize_node_data() { return nullptr; }
 
     virtual const char* name() const { return "fail"; }
     virtual size_t id() const = 0;
@@ -82,7 +89,6 @@ struct render_node {
     bool visited;
     uint32_t subpass_index, subpass_count;
     std::optional<std::vector<vk::UniqueCommandBuffer>> subpass_commands;
-    vk::UniquePipeline pipeline;
     vk::UniqueDescriptorSet desc_set;
 
     size_t id;
@@ -110,6 +116,7 @@ struct render_node {
 //        std::cout << "goodbye rendernode\n";
     }
 };
+
 
 struct frame_uniforms {
     mat4 view, proj;
@@ -207,4 +214,20 @@ public:
     void update(frame_state*);
     void render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs);
     ~renderer();
+};
+
+struct single_pipeline_render_node_prototype : public render_node_prototype {
+    std::unique_ptr<render_node_data> initialize_node_data() override { return std::make_unique<single_pipeline_node_data>(); }
+    ~single_pipeline_render_node_prototype() override = default;
+
+    inline vk::Pipeline pipeline(render_node* node) {
+        return ((single_pipeline_node_data*)node->data.get())->pipeline.get();
+    }
+
+    inline vk::Pipeline pipeline(const std::shared_ptr<render_node>& node) { return pipeline(node.get()); }
+
+    inline void create_pipeline(renderer* r, render_node* node, const vk::GraphicsPipelineCreateInfo& desc) {
+        ((single_pipeline_node_data*)node->data.get())->pipeline = 
+            r->dev->dev->createGraphicsPipelineUnique(nullptr, desc);
+    }
 };

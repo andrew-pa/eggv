@@ -9,10 +9,9 @@
 render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
     : visited(false),
 		subpass_index(-1),
-        pipeline(nullptr),
         desc_set(nullptr),
 
-        id(rand()), prototype(prototype), inputs(prototype->inputs.size(), { {},0 }), outputs(prototype->outputs.size(), 0), data(nullptr)
+        id(rand()), prototype(prototype), inputs(prototype->inputs.size(), { {},0 }), outputs(prototype->outputs.size(), 0), data(prototype->initialize_node_data())
 {
 }
 
