@@ -52,7 +52,7 @@ debug_shape_render_node_prototype::debug_shape_render_node_prototype(device* dev
 void debug_shape_render_node_prototype::collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
         std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs)
 {
-    pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1));
+    pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 1);
     layouts.push_back(desc_layout.get());
     outputs.push_back(&node->desc_set);
 }
@@ -61,8 +61,8 @@ void debug_shape_render_node_prototype::update_descriptor_sets(renderer* r, rend
         std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos,
         arena<vk::DescriptorImageInfo>& img_infos)
 {
-    auto b = buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)));
-    writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, b));
+    auto* b = buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)));
+    writes.emplace_back(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, b);
 }
 
 vk::UniquePipeline debug_shape_render_node_prototype::generate_pipeline(renderer* r, render_node* node,

@@ -147,7 +147,7 @@ directional_light_render_node_prototype::directional_light_render_node_prototype
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
+        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment)
     });
 
     vk::PushConstantRange push_consts[] = {
@@ -166,7 +166,8 @@ void directional_light_render_node_prototype::collect_descriptor_layouts(render_
         std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) 
 {
     pool_sizes.emplace_back(vk::DescriptorType::eInputAttachment, 3);
-    pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 2);
+    pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 1);
+    pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
     layouts.push_back(desc_layout.get());
     outputs.push_back(&node->desc_set);
 }
@@ -182,7 +183,7 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
 
     writes.emplace_back(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
-    if(r->materials_buf) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eUniformBuffer,
+    if(r->materials_buf) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eStorageBuffer,
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
 }
 
@@ -416,7 +417,7 @@ point_light_render_node_prototype::point_light_render_node_prototype(device* dev
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eVertex),
-        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment)
+        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment)
     });
 
     vk::PushConstantRange push_consts[] = {
@@ -438,7 +439,8 @@ void point_light_render_node_prototype::collect_descriptor_layouts(render_node* 
         std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) 
 {
     pool_sizes.emplace_back(vk::DescriptorType::eInputAttachment, 3);
-    pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 2);
+    pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 1);
+    pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
     layouts.push_back(desc_layout.get());
     outputs.push_back(&node->desc_set);
 }
@@ -454,7 +456,7 @@ void point_light_render_node_prototype::update_descriptor_sets(class renderer* r
 
     writes.emplace_back(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
-    if(r->materials_buf) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eUniformBuffer,
+    if(r->materials_buf) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eStorageBuffer,
                 nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
 }
 

@@ -153,19 +153,19 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
 
     auto mt = obj->traits.find(TRAIT_ID_MESH);
     if(mt != obj->traits.end()) {
-        auto mmt = (mesh_trait*)mt->second.get();
+        auto* mmt = (mesh_trait*)mt->second.get();
         if (mmt->m != nullptr)
-            active_meshes.push_back({ mmt, T });
+            active_meshes.emplace_back( mmt, T );
     }
 
     auto lt = obj->traits.find(TRAIT_ID_LIGHT);
     if(lt != obj->traits.end()) {
-        auto llt = (light_trait*)lt->second.get();
-        active_lights.push_back({llt, T});
+        auto* llt = (light_trait*)lt->second.get();
+        active_lights.emplace_back(llt, T);
     }
 
     if(obj == current_scene->active_camera.get()) {
-        auto cam = (camera_trait*)obj->traits.find(TRAIT_ID_CAMERA)->second.get();
+        auto* cam = (camera_trait*)obj->traits.find(TRAIT_ID_CAMERA)->second.get();
         mapped_frame_uniforms->proj = glm::perspective(cam->fov,
                 (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f);
         mapped_frame_uniforms->view = inverse(T);
@@ -175,7 +175,7 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
         t->postprocess_transform(obj, T, fs);
     }
 
-    for(auto c : obj->children)
+    for(const auto& c : obj->children)
         traverse_scene_graph(c.get(), fs, T);
 }
 
@@ -239,7 +239,7 @@ size_t renderer::create_texture2d(const std::string& name, uint32_t width, uint3
 			);
 	dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
 	size_t index = texture_cache.size();
-	texture_cache.push_back({ name, img, std::move(img_view), 0 });
+	texture_cache.emplace_back( name, img, std::move(img_view), 0 );
 	return index;
 }
 
@@ -259,7 +259,7 @@ void renderer::update(frame_state* fs) {
                 // and then use desc set offsets instead of push constants
                 // I guess that wouldn't work well for lights
                 materials_buf = std::make_unique<buffer>(dev, sizeof(gpu_material)*num_gpu_mats,
-                        vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
+                        vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
                         (void**)&mapped_materials);
                 vk::DescriptorPoolSize pool_sizes[] = {
                     vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, num_gpu_mats)
@@ -283,10 +283,8 @@ void renderer::update(frame_state* fs) {
             std::vector<vk::WriteDescriptorSet> desc_writes;
             arena<vk::DescriptorBufferInfo> buf_infos;
             arena<vk::DescriptorImageInfo> img_infos;
-			auto* default_info = img_infos.alloc(vk::DescriptorImageInfo{
-						texture_sampler.get(), std::get<2>(texture_cache[0]).get(),
-						vk::ImageLayout::eShaderReadOnlyOptimal
-			});
+            auto* default_info = img_infos.alloc(vk::DescriptorImageInfo {
+                    texture_sampler.get(), std::get<2>(texture_cache[0]).get(), vk::ImageLayout::eShaderReadOnlyOptimal });
 
             uplcb.begin(vk::CommandBufferBeginInfo { vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
             for(uint32_t i = 0; i < current_scene->materials.size(); ++i) {
@@ -294,27 +292,22 @@ void renderer::update(frame_state* fs) {
                 current_scene->materials[i]->_render_index = i;
                 if(current_scene->materials[i]->diffuse_texpath.has_value()) {
                     auto ix = load_texture(current_scene->materials[i]->diffuse_texpath.value(), uplcb);
-					auto* info = img_infos.alloc(vk::DescriptorImageInfo {
-						texture_sampler.get(), std::get<2>(texture_cache[ix]).get(),
-						vk::ImageLayout::eShaderReadOnlyOptimal
-					});
-					desc_writes.push_back(vk::WriteDescriptorSet(current_scene->materials[i]->desc_set,
-						0, 0, 1,
-						vk::DescriptorType::eCombinedImageSampler, info));
+                    auto* info = img_infos.alloc(vk::DescriptorImageInfo {
+                            texture_sampler.get(), std::get<2>(texture_cache[ix]).get(),
+                            vk::ImageLayout::eShaderReadOnlyOptimal
+                            });
+                    desc_writes.emplace_back(current_scene->materials[i]->desc_set, 0, 0, 1, vk::DescriptorType::eCombinedImageSampler, info);
                 } else {
-					desc_writes.push_back(vk::WriteDescriptorSet(current_scene->materials[i]->desc_set,
-						0, 0, 1,
-						vk::DescriptorType::eCombinedImageSampler, default_info));
+                    desc_writes.emplace_back(current_scene->materials[i]->desc_set, 0, 0, 1, vk::DescriptorType::eCombinedImageSampler, default_info);
                 }
-			}
-			uplcb.end();
-			dev->graphics_qu.submit({ vk::SubmitInfo(0,nullptr,nullptr,1,&uplcb) }, nullptr);
+            }
+            uplcb.end();
+            dev->graphics_qu.submit({ vk::SubmitInfo(0,nullptr,nullptr,1,&uplcb) }, nullptr);
 
             if(!should_recompile && recreating_mat_buf) {
                 // make sure render node descriptor sets are up to date
-                for(size_t i = 0; i < subpass_order.size(); ++i) {
-                    auto node = subpass_order[i];
-                    node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
+                for(const auto& node : subpass_order) {
+                     node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
                 }
             }
             dev->dev->updateDescriptorSets(desc_writes, {});
@@ -368,7 +361,7 @@ mesh::mesh(device* dev, uint32_t vcount, size_t _vsize, uint32_t icount, std::fu
          isize = sizeof(uint16)*icount;
     auto staging_buffer = std::make_unique<buffer>(dev, vsize+isize,
             vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible);
-    auto staging_map = staging_buffer->map();
+    auto* staging_map = staging_buffer->map();
     write_buffer(staging_map);
     staging_buffer->unmap();
 
