@@ -50,7 +50,7 @@ struct framebuffer_desc {
 };
 
 struct render_node_data {
-    virtual json serialize() const = 0;
+    virtual json serialize() const { return json{}; }
     virtual ~render_node_data() = default;
 };
 

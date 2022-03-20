@@ -84,13 +84,6 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
     r.prototypes.emplace_back(std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world));
 
-    if(args.render_graph_path.has_value()) {
-        std::ifstream input(args.render_graph_path.value());
-        json data; input >> data;
-        r.deserialize_render_graph(data);
-        r.compile_render_graph();
-    }
-
     if(args.scene_path.has_value()) {
         std::ifstream input(args.scene_path.value());
         json data; input >> data;
@@ -100,6 +93,13 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     }
 
     r.current_scene = current_scene;
+
+    if(args.render_graph_path.has_value()) {
+        std::ifstream input(args.render_graph_path.value());
+        json data; input >> data;
+        r.deserialize_render_graph(data);
+        r.compile_render_graph();
+    }
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
     upload_cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });

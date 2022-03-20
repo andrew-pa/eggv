@@ -10,8 +10,7 @@ layout(push_constant) uniform push_constants {
 } pc;
 
 struct camera {
-    mat4 view;
-    mat4 proj;
+    mat4 viewproj;
 };
 
 layout(set = 0, binding = 0) buffer cameras_buf {
@@ -20,6 +19,5 @@ layout(set = 0, binding = 0) buffer cameras_buf {
 
 void main() {
     vec4 _world_pos =  pc.world * vec4(pos, 1.0);
-    vec4 _view_pos = cameras.data[pc.camera_index].view * _world_pos;
-    gl_Position = (cameras.data[pc.camera_index].proj * _view_pos);
+    gl_Position = (cameras.data[pc.camera_index].viewproj * _world_pos);
 }

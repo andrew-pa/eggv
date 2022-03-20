@@ -285,6 +285,18 @@ void renderer::generate_clear_values() {
     }
 }
 
+/*
+ * initialize_node_data/deserialize_node_data
+ *
+ * subpass_repeat_count
+ * collect_descriptor_layouts
+ *
+ * update_descriptor_sets
+ * generate_pipelines
+ * generate_command_buffer
+ *
+ */
+
 void renderer::compile_render_graph() {
     // free all framebuffers we still have and do other clean up
     for(auto& buf : buffers) {
@@ -393,11 +405,10 @@ void renderer::compile_render_graph() {
     std::vector<vk::WriteDescriptorSet> desc_writes;
     arena<vk::DescriptorBufferInfo> buf_infos;
     arena<vk::DescriptorImageInfo> img_infos;
-    for(uint32_t i = 0; i < subpass_order.size(); ++i) {
-        auto node = subpass_order[i];
+    for(const auto& node : subpass_order) {
         if(log_compile) std::cout << "initializing " << node->id << ":" << node->prototype->name() << "\n";
         node->prototype->update_descriptor_sets(this, node.get(), desc_writes, buf_infos, img_infos);
-        node->prototype->generate_pipelines(this, node.get(), render_pass.get(), i);
+        node->prototype->generate_pipelines(this, node.get(), render_pass.get(), node->subpass_index);
 
         // generate command buffers
         node->subpass_commands = node->prototype->generate_command_buffer(this, node.get());
