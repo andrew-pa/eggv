@@ -54,7 +54,8 @@ renderer::renderer() : dev(nullptr), next_id(10), desc_pool(nullptr), num_gpu_ma
 
 void renderer::init(device* _dev) {
     this->dev = _dev;
-    frame_uniforms_buf = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
+    global_buffers[GLOBAL_BUF_MATERIALS] = nullptr;
+    global_buffers[GLOBAL_BUF_FRAME_UNIFORMS] = std::make_unique<buffer>(dev, sizeof(frame_uniforms),
             vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
             (void**)&mapped_frame_uniforms);
 
@@ -243,21 +244,21 @@ size_t renderer::create_texture2d(const std::string& name, uint32_t width, uint3
 }
 
 void renderer::update(frame_state* fs) {
-    if(should_recompile || materials_buf == nullptr || current_scene->materials_changed) {
+    if(should_recompile || global_buffers[GLOBAL_BUF_MATERIALS] == nullptr || current_scene->materials_changed) {
         dev->graphics_qu.waitIdle();
         dev->present_qu.waitIdle();
     }
     
-    if(materials_buf == nullptr || current_scene->materials_changed) {
+    if(global_buffers[GLOBAL_BUF_MATERIALS] == nullptr || current_scene->materials_changed) {
         if(current_scene->materials.size() != 0) {
             // recreate material buffer if necessary
-            bool recreating_mat_buf = materials_buf == nullptr || num_gpu_mats != current_scene->materials.size();
+            bool recreating_mat_buf = global_buffers[GLOBAL_BUF_MATERIALS] == nullptr || num_gpu_mats != current_scene->materials.size();
             if(recreating_mat_buf) {
                 num_gpu_mats = (uint32_t)current_scene->materials.size();
                 // we could probably move the materials ubuffer into the material desc set
                 // and then use desc set offsets instead of push constants
                 // I guess that wouldn't work well for lights
-                materials_buf = std::make_unique<buffer>(dev, sizeof(gpu_material)*num_gpu_mats,
+                global_buffers[GLOBAL_BUF_MATERIALS] = std::make_unique<buffer>(dev, sizeof(gpu_material)*num_gpu_mats,
                         vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostCoherent,
                         (void**)&mapped_materials);
                 vk::DescriptorPoolSize pool_sizes[] = {

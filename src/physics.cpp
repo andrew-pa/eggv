@@ -456,7 +456,7 @@ void physics_debug_shape_render_node_prototype::update_descriptor_sets(renderer*
         std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos,
         arena<vk::DescriptorImageInfo>& img_infos)
 {
-    auto* b = buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)));
+    auto* b = buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_FRAME_UNIFORMS]->buf, 0, sizeof(frame_uniforms)));
     writes.emplace_back(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, b);
 }
 

@@ -144,6 +144,9 @@ struct framebuffer_values {
     inline size_t num_layers() const { return image_views.size() == 1 ? 1 : image_views.size() - 1; }
 };
 
+const size_t GLOBAL_BUF_FRAME_UNIFORMS = 1;
+const size_t GLOBAL_BUF_MATERIALS = 2;
+
 class renderer {
     void build_gui_menu(frame_state* fs);
     void build_gui_graph_view(frame_state* fs);
@@ -167,10 +170,8 @@ public:
     std::vector<std::shared_ptr<render_node>> subpass_order;
     vk::UniqueDescriptorPool desc_pool;
 
-    std::unique_ptr<buffer> frame_uniforms_buf;
+    std::map<size_t, std::unique_ptr<buffer>> global_buffers;
     frame_uniforms* mapped_frame_uniforms;
-    
-    std::unique_ptr<buffer> materials_buf;
     gpu_material* mapped_materials;
     uint32_t num_gpu_mats;
 

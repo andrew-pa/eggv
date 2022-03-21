@@ -45,7 +45,7 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
 
     virtual void update_descriptor_sets(class renderer* r, struct render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override 
     {
-        auto b = buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms)));
+        auto b = buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_FRAME_UNIFORMS]->buf, 0, sizeof(frame_uniforms)));
         writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer,
                     nullptr, b));
     }

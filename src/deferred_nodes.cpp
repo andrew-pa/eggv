@@ -43,7 +43,7 @@ void gbuffer_geom_render_node_prototype::collect_descriptor_layouts(render_node*
 void gbuffer_geom_render_node_prototype::update_descriptor_sets(class renderer* r, struct render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos)
 {
     writes.emplace_back(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_FRAME_UNIFORMS]->buf, 0, sizeof(frame_uniforms))));
 }
 
 void gbuffer_geom_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
@@ -182,9 +182,9 @@ void directional_light_render_node_prototype::update_descriptor_sets(class rende
     }
 
     writes.emplace_back(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
-    if(r->materials_buf) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eStorageBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_FRAME_UNIFORMS]->buf, 0, sizeof(frame_uniforms))));
+    if(r->global_buffers[GLOBAL_BUF_MATERIALS]) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eStorageBuffer,
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_MATERIALS]->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
 }
 
 void directional_light_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
@@ -263,7 +263,7 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(ren
     }
 }
 
-directional_light_shadowmap_render_node_prototype::directional_light_shadowmap_render_node_prototype(device* dev) {
+directional_light_shadowmap_render_node_prototype::directional_light_shadowmap_render_node_prototype(device* dev) : scene_radius(8.f) {
     inputs = {};
     outputs = {
         framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::output,
@@ -307,12 +307,15 @@ size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(r
     });
 
     this->outputs[0].count = num_lights;
-    light_viewproj_buffer = std::make_unique<buffer>(r->dev, sizeof(mat4)*num_lights, 
+    r->global_buffers[GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ] = std::make_unique<buffer>(r->dev, sizeof(mat4)*num_lights, 
             vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostCoherent, (void**)&mapped_light_viewprojs);
     return num_lights;
 }
 
+#include "imgui.h"
 void directional_light_shadowmap_render_node_prototype::build_gui(class renderer* r, struct render_node *node) {
+    ImGui::SetNextItemWidth(150.f);
+    ImGui::DragFloat("Scene Radius", &this->scene_radius, 1.f, 1.f, 0.f);
 }
 
 void directional_light_shadowmap_render_node_prototype::collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes,
@@ -326,7 +329,7 @@ void directional_light_shadowmap_render_node_prototype::collect_descriptor_layou
 void directional_light_shadowmap_render_node_prototype::update_descriptor_sets(renderer* r, render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos)
 {
     writes.emplace_back(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eStorageBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(light_viewproj_buffer->buf, 0, sizeof(mat4) * node->subpass_count)));
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ]->buf, 0, sizeof(mat4) * node->subpass_count)));
 }
 
 void directional_light_shadowmap_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
@@ -413,7 +416,7 @@ void directional_light_shadowmap_render_node_prototype::generate_command_buffer_
     }
     if(light == nullptr) return;
 
-    const float scene_radius = 8.f;
+    // const float scene_radius = 8.f;
     mat4 light_proj = glm::ortho(-scene_radius, scene_radius, -scene_radius, scene_radius, -scene_radius, scene_radius);
     mapped_light_viewprojs[subpass_index] = light_proj * glm::lookAt(-light->param, vec3(0.f), vec3(0.f, -1.f, 0.f));
 
@@ -487,9 +490,9 @@ void point_light_render_node_prototype::update_descriptor_sets(class renderer* r
     }
 
     writes.emplace_back(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->frame_uniforms_buf->buf, 0, sizeof(frame_uniforms))));
-    if(r->materials_buf) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eStorageBuffer,
-                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->materials_buf->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_FRAME_UNIFORMS]->buf, 0, sizeof(frame_uniforms))));
+    if(r->global_buffers[GLOBAL_BUF_MATERIALS]) writes.emplace_back(node->desc_set.get(), 4, 0, 1, vk::DescriptorType::eStorageBuffer,
+                nullptr, buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_MATERIALS]->buf, 0, r->num_gpu_mats*sizeof(gpu_material))));
 }
 
 void point_light_render_node_prototype::generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) {
