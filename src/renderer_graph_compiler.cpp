@@ -173,9 +173,13 @@ void emit_node_subpass_dependencies(render_node* node, std::vector<vk::SubpassDe
         auto input_node = _input_node->lock();
         if (input_node->prototype->id() == 0x0000ffff) continue; // screen output node
         const auto& fb_desc = input_node->prototype->outputs[input_index];
+
+        auto from_subpass = input_node->subpass_index + input_node->subpass_count-1;
+        auto to_subpass   = node->subpass_index + rep_index;
+
         if(fb_desc.type == framebuffer_type::color && fb_desc.mode != framebuffer_mode::blend_input) {
             dependencies.emplace_back(
-                    input_node->subpass_index, node->subpass_index + rep_index,
+                    from_subpass, to_subpass,
                     vk::PipelineStageFlagBits::eColorAttachmentOutput,
                     vk::PipelineStageFlagBits::eFragmentShader,
                     vk::AccessFlagBits::eColorAttachmentWrite,
@@ -183,7 +187,7 @@ void emit_node_subpass_dependencies(render_node* node, std::vector<vk::SubpassDe
                     vk::DependencyFlagBits::eByRegion);
         } else if(fb_desc.type == framebuffer_type::depth || fb_desc.type == framebuffer_type::depth_stencil) {
             dependencies.emplace_back(
-                    input_node->subpass_index, node->subpass_index + rep_index,
+                    from_subpass, to_subpass,
                     vk::PipelineStageFlagBits::eLateFragmentTests,
                     vk::PipelineStageFlagBits::eFragmentShader,
                     vk::AccessFlagBits::eDepthStencilAttachmentWrite,

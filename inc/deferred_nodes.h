@@ -16,7 +16,9 @@ struct gbuffer_geom_render_node_prototype : public single_pipeline_render_node_p
     void build_gui(class renderer*, struct render_node* node) override;
 };
 
-struct directional_light_render_node_prototype : public single_pipeline_render_node_prototype {
+class directional_light_render_node_prototype : public single_pipeline_render_node_prototype {
+    std::shared_ptr<class directional_light_shadowmap_render_node_prototype> shadowmap_node_proto;
+public:
     directional_light_render_node_prototype(device* dev);
     size_t id() const override { return 0x00010001; }
     const char* name() const override { return "Directional Light"; };
@@ -29,6 +31,7 @@ struct directional_light_render_node_prototype : public single_pipeline_render_n
     void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) override;
 
     void build_gui(class renderer*, struct render_node* node) override;
+    
 };
 
 const size_t GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ = 3;
@@ -36,8 +39,9 @@ class directional_light_shadowmap_render_node_prototype : public render_node_pro
     // std::unique_ptr<buffer> light_viewproj_buffer;
     mat4* mapped_light_viewprojs;
     std::map<size_t, std::shared_ptr<scene_object>> pass_to_light_map;
-    float scene_radius;
 public:
+    float scene_radius;
+
     directional_light_shadowmap_render_node_prototype(device* dev);
     size_t id() const override { return 0x00010003; }
     const char* name() const override { return "Directional Light Shadowmap"; };

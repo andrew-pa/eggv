@@ -135,7 +135,7 @@ void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer
 directional_light_render_node_prototype::directional_light_render_node_prototype(device* dev) {
     inputs = {
         framebuffer_desc{"input_color", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::blend_input},
-        framebuffer_desc{"geometery", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::input_attachment, 3},
+        framebuffer_desc{"geometry", vk::Format::eR32G32B32A32Sfloat, framebuffer_type::color, framebuffer_mode::input_attachment, 3},
         framebuffer_desc{"shadowmap", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::shader_input},
     };
     outputs = {
@@ -147,11 +147,12 @@ directional_light_render_node_prototype::directional_light_render_node_prototype
         vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eInputAttachment, 1, vk::ShaderStageFlagBits::eFragment),
         vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eFragment),
-        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment)
+        vk::DescriptorSetLayoutBinding(4, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eFragment),
+        vk::DescriptorSetLayoutBinding(5, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment)
     });
 
     vk::PushConstantRange push_consts[] = {
-        vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, 0, sizeof(vec4)*2 }
+        vk::PushConstantRange { vk::ShaderStageFlagBits::eFragment, 0, sizeof(vec4)*2 + sizeof(mat4) }
     };
 
     pipeline_layout = dev->dev->createPipelineLayoutUnique(vk::PipelineLayoutCreateInfo {
@@ -168,17 +169,24 @@ void directional_light_render_node_prototype::collect_descriptor_layouts(render_
     pool_sizes.emplace_back(vk::DescriptorType::eInputAttachment, 3);
     pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 1);
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
+    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 1);
     layouts.push_back(desc_layout.get());
     outputs.push_back(&node->desc_set);
 }
 
-void directional_light_render_node_prototype::update_descriptor_sets(class renderer* r, struct render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos)
+void directional_light_render_node_prototype::update_descriptor_sets(renderer* r, render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos)
 {
     for(int i = 0; i < 3; ++i) {
         writes.emplace_back(node->desc_set.get(), i, 0, 1, vk::DescriptorType::eInputAttachment,
                     img_infos.alloc(vk::DescriptorImageInfo(nullptr,
                             r->buffers[node->input_framebuffer(1).value()].image_views[1+i].get(),
                             vk::ImageLayout::eShaderReadOnlyOptimal)));
+    }
+
+    if(node->input_framebuffer(2).has_value()) {
+        writes.emplace_back(node->desc_set.get(), 5, 0, 1, vk::DescriptorType::eCombinedImageSampler,
+                img_infos.alloc(vk::DescriptorImageInfo(r->texture_sampler.get(), 
+                        r->buffers[node->input_framebuffer(2).value()].image_views[0].get(), vk::ImageLayout::eShaderReadOnlyOptimal)));
     }
 
     writes.emplace_back(node->desc_set.get(), 3, 0, 1, vk::DescriptorType::eUniformBuffer,
@@ -248,17 +256,44 @@ void directional_light_render_node_prototype::generate_pipelines(renderer* r, re
     );
 
     this->create_pipeline(r, node, cfo);
+
+    shadowmap_node_proto = nullptr;
+    for(const auto& proto : r->prototypes) {
+        if(proto->id() == 0x00010003) { //directional light shadow map
+            shadowmap_node_proto = std::dynamic_pointer_cast<directional_light_shadowmap_render_node_prototype>(proto);
+        }
+    }
 }
 
 void directional_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
-    /* std::cout << r->active_lights.size() << "\n"; */
+    bool has_shadowmap = false;
+    mat4 light_proj, inverse_view;
+    if(shadowmap_node_proto != nullptr) {
+        has_shadowmap = true;
+        float scene_radius = shadowmap_node_proto->scene_radius;
+        light_proj = mat4(0.5f, 0.0f, 0.0f, 0.0f,
+                0.0f, 0.5f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.5f, 0.0f,
+                0.5f, 0.5f, 0.5f, 1.0f) // convert from ndc to texture coords
+            * glm::ortho(-scene_radius, scene_radius, -scene_radius, scene_radius, -scene_radius, scene_radius);
+        inverse_view = glm::inverse(r->mapped_frame_uniforms->view);
+    }
     for(const auto& [light, T] : r->active_lights) {
         if(light->type != light_type::directional) continue;
+        int light_index = -1;
+        if(has_shadowmap) {
+            light_index = light->_render_index;
+        }
         cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
-                0, { vec4(light->param,0.f), vec4(light->color,0.f) });
+                0, { r->mapped_frame_uniforms->view*vec4(light->param,0.f), vec4(light->color, light_index) });
+        if(has_shadowmap) {
+            mat4 light_viewproj = light_proj * glm::lookAt(-light->param, vec3(0.f), vec3(0.f, -1.f, 0.f)) * inverse_view;
+            cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
+                    sizeof(vec4)*2, { light_viewproj });
+        }
         cb.draw(3, 1, 0, 0);
     }
 }
@@ -299,8 +334,10 @@ size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(r
     r->current_scene->for_each_object([&](const std::shared_ptr<scene_object>& o) {
             auto lt = o->traits.find(TRAIT_ID_LIGHT);
             if(lt != o->traits.end()) {
-                if(((light_trait*)(lt->second.get()))->type == light_type::directional) {
+                auto* ltt = ((light_trait*)(lt->second.get()));
+                if(ltt->type == light_type::directional) {
                     pass_to_light_map[num_lights] = o;
+                    ltt->_render_index = num_lights;
                     num_lights++;
                 }
             }

@@ -143,8 +143,9 @@ struct light_trait : public trait {
     light_type type;
     vec3 param;
     vec3 color;
+    size_t _render_index;
 
-    light_trait(trait_factory* f, light_type t, vec3 p, vec3 c) : type(t), param(p), color(c), trait(f) {}
+    light_trait(trait_factory* f, light_type t, vec3 p, vec3 c) : trait(f), type(t), param(p), color(c) {}
 
     json serialize() const override;
     void build_gui(struct scene_object*, frame_state*) override;

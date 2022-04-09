@@ -45,7 +45,12 @@ device::device(app* app) {
 	};
 	dcfo.enabledExtensionCount = (uint32_t)ext.size();
 	dcfo.ppEnabledExtensionNames = ext.data();
+    try {
 	dev = pdevice.createDeviceUnique(dcfo);
+    } catch(vk::FeatureNotPresentError e) {
+        std::cerr << "physical device feature not present: " << e.what() << "[" << e.code() << "]\n";
+        exit(1);
+    }
 
     std::cout << "Vulkan build header version: " << VK_HEADER_VERSION << "\n";
 
