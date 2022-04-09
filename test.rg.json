@@ -1,0 +1,99 @@
+{
+    "nodes": {
+        "158370411": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 702880864
+                }
+            ],
+            "prototype_id": 65534
+        },
+        "1658175218": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 17441314
+                },
+                {
+                    "src_idx": 0,
+                    "src_node": 99377912
+                }
+            ],
+            "prototype_id": 65538
+        },
+        "17441314": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 1840006141
+                },
+                {
+                    "src_idx": 0,
+                    "src_node": 99377912
+                },
+                {
+                    "src_idx": 0,
+                    "src_node": 702880864
+                }
+            ],
+            "prototype_id": 65537
+        },
+        "1840006141": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 911113086
+                }
+            ],
+            "prototype_id": 65535
+        },
+        "678087503": {
+            "data": {
+                "scale": 1.0
+            },
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 1658175218
+                }
+            ],
+            "prototype_id": 65532
+        },
+        "702880864": {
+            "data": null,
+            "inputs": [],
+            "prototype_id": 65539
+        },
+        "911113086": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 678087503
+                }
+            ],
+            "prototype_id": 43690
+        },
+        "916637362": {
+            "data": null,
+            "inputs": [
+                {
+                    "src_idx": 0,
+                    "src_node": 99377912
+                }
+            ],
+            "prototype_id": 65534
+        },
+        "99377912": {
+            "data": null,
+            "inputs": [],
+            "prototype_id": 65536
+        }
+    },
+    "ui_state": "[editor]\npanning=0,0\n\n[node.1840006141]\norigin=663,250\n\n[node.99377912]\norigin=37,87\n\n[node.17441314]\norigin=383,92\n\n[node.1658175218]\norigin=414,251\n\n[node.678087503]\norigin=415,404\n\n[node.911113086]\norigin=411,556\n\n[node.916637362]\norigin=31,234\n\n[node.702880864]\norigin=69,1002\n\n[node.158370411]\norigin=684,406\n"
+}
