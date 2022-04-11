@@ -385,6 +385,7 @@ void light_trait::build_gui(scene_object* obj, frame_state*) {
         ImGui::DragFloat("Falloff", &this->param.x, 0.000f, 0.001f, 1000.f, "%.6f");
     }
     ImGui::ColorEdit3("Color", (float*)&this->color, ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
+    ImGui::Text("Light Render Index: %lu", this->_render_index);
 }
 
 void light_trait::collect_viewport_shapes(scene_object* ob, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) {

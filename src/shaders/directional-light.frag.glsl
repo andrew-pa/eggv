@@ -37,8 +37,13 @@ void main() {
     bool in_shadow = false;
     if(light.shadow_index >= 0) {
         vec4 shadow_pos = light.shadow_viewproj * view_pos;
-        in_shadow = texture(shadow_map, vec3(shadow_pos.xy, light.shadow_index)).z < shadow_pos.z;
+        float v = texture(shadow_map, vec3(shadow_pos.xy, light.shadow_index)).r;
+        /* frag_color = vec4(max(v - shadow_pos.z, 0.0), max(-(v-shadow_pos.z), 0.0), 0.0, 1.); */
+        /* return; */
+        in_shadow = v < shadow_pos.z;
     }
 
     frag_color = vec4(compute_lighting(nor, L, light.color.rgb, mat, txc_mat.xyz) * (in_shadow ? 0.2 : 1.0),1.0);
+    /* float x = texture(shadow_map, vec3(txc_mat.xy, light.shadow_index)).r*0.01; */
+    /* frag_color = vec4(x, x, x, 1.f); */
 }

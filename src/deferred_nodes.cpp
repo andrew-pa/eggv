@@ -266,18 +266,34 @@ void directional_light_render_node_prototype::generate_pipelines(renderer* r, re
 }
 
 void directional_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
+    /*if(node->input_framebuffer(2).has_value()) {
+        cb.pipelineBarrier(vk::PipelineStageFlagBits::eLateFragmentTests, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion, {}, {}, {
+                vk::ImageMemoryBarrier(
+                    vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                    vk::AccessFlagBits::eShaderRead,
+                    vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                    vk::ImageLayout::eShaderReadOnlyOptimal,
+                    VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                    r->buffers[node->input_framebuffer(2).value()].img->img,
+                    vk::ImageSubresourceRange{}
+                )
+        });
+    }*/
+
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     bool has_shadowmap = false;
     mat4 light_proj, inverse_view;
     if(shadowmap_node_proto != nullptr) {
+        //TODO: could we just reuse the uniform buffer from rendering the shadowmaps instead of passing this matrix as a push constant?
         has_shadowmap = true;
         float scene_radius = shadowmap_node_proto->scene_radius;
-        light_proj = mat4(0.5f, 0.0f, 0.0f, 0.0f,
+        light_proj = mat4(
+                0.5f, 0.0f, 0.0f, 0.0f,
                 0.0f, 0.5f, 0.0f, 0.0f,
-                0.0f, 0.0f, 0.5f, 0.0f,
-                0.5f, 0.5f, 0.5f, 1.0f) // convert from ndc to texture coords
+                0.0f, 0.0f, 1.0f, 0.0f,
+                0.5f, 0.5f, 0.0f, 1.0f) // convert from ndc to texture coords
             * glm::ortho(-scene_radius, scene_radius, -scene_radius, scene_radius, -scene_radius, scene_radius);
         inverse_view = glm::inverse(r->mapped_frame_uniforms->view);
     }
@@ -288,7 +304,9 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(ren
             light_index = light->_render_index;
         }
         cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
-                0, { r->mapped_frame_uniforms->view*vec4(light->param,0.f), vec4(light->color, light_index) });
+                0, { r->mapped_frame_uniforms->view*vec4(light->param,0.f), vec4(light->color, 0.f) });
+        cb.pushConstants<int>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
+                sizeof(vec4) + sizeof(vec3), { light_index });
         if(has_shadowmap) {
             mat4 light_viewproj = light_proj * glm::lookAt(-light->param, vec3(0.f), vec3(0.f, -1.f, 0.f)) * inverse_view;
             cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
@@ -298,7 +316,7 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(ren
     }
 }
 
-directional_light_shadowmap_render_node_prototype::directional_light_shadowmap_render_node_prototype(device* dev) : scene_radius(8.f) {
+directional_light_shadowmap_render_node_prototype::directional_light_shadowmap_render_node_prototype(device* dev) : scene_radius(11.f) {
     inputs = {};
     outputs = {
         framebuffer_desc{"depth", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::output,
@@ -396,8 +414,8 @@ void directional_light_shadowmap_render_node_prototype::generate_pipelines(rende
     };
 
     auto rasterizer_state = vk::PipelineRasterizationStateCreateInfo{
-        {}, false, false, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack,
-            vk::FrontFace::eClockwise, false, 0.f, 0.f, 0.f, 1.f
+        {}, VK_TRUE, VK_FALSE, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack,
+            vk::FrontFace::eClockwise, VK_TRUE, 1.25f, 0.0f, 1.75f, 1.f
     };
 
     auto multisample_state = vk::PipelineMultisampleStateCreateInfo{};

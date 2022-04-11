@@ -123,9 +123,9 @@ struct frame_uniforms {
 };
 
 struct gpu_material {
-    vec3 base_color;
+    vec4 base_color;
 
-    gpu_material(material* mat) : base_color(mat->base_color) {}
+    gpu_material(material* mat) : base_color(mat->base_color, 1.f) {}
 };
 
 struct framebuffer_values {

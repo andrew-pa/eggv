@@ -32,6 +32,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	else if (flg & vk::DebugReportFlagBitsEXT::ePerformanceWarning) std::cout << "[PERF]";
 	else if (flg & vk::DebugReportFlagBitsEXT::eWarning) std::cout << "[\033[33mWARN\033[0m]";
 	std::cout << ' ' /*<< layerPrefix << " | "*/ << msg << "\n";
+    //throw code;
 	return VK_FALSE;
 }
 

@@ -32,6 +32,7 @@ device::device(app* app) {
 	devfeat.fillModeNonSolid = VK_TRUE;
 	devfeat.tessellationShader = VK_TRUE;
 	devfeat.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+    devfeat.depthBiasClamp = VK_TRUE;
 	dcfo.pEnabledFeatures = &devfeat;
 	std::vector<const char*> layer_names{
 #ifdef _DEBUG

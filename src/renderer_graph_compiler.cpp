@@ -186,6 +186,7 @@ void emit_node_subpass_dependencies(render_node* node, std::vector<vk::SubpassDe
                     vk::AccessFlagBits::eShaderRead,
                     vk::DependencyFlagBits::eByRegion);
         } else if(fb_desc.type == framebuffer_type::depth || fb_desc.type == framebuffer_type::depth_stencil) {
+            std::cout << "DD\n";
             dependencies.emplace_back(
                     from_subpass, to_subpass,
                     vk::PipelineStageFlagBits::eLateFragmentTests,
@@ -193,6 +194,8 @@ void emit_node_subpass_dependencies(render_node* node, std::vector<vk::SubpassDe
                     vk::AccessFlagBits::eDepthStencilAttachmentWrite,
                     vk::AccessFlagBits::eShaderRead,
                     vk::DependencyFlagBits::eByRegion);
+        } else {
+            std::cout << "??\n";
         }
     }
 }

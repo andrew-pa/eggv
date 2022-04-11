@@ -16,7 +16,7 @@ struct debug_shape_render_node_prototype : public render_node_prototype {
     debug_shape_render_node_prototype(device* dev);
 
     std::unique_ptr<render_node_data> initialize_node_data() override {
-        return std::unique_ptr<node_data>();
+        return std::make_unique<node_data>();
     }
 
     void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
