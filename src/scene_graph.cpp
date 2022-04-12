@@ -4,7 +4,7 @@
 #include "app.h"
 #include "geometry_set.h"
 
-static std::mt19937 default_random_gen;
+static std::mt19937 default_random_gen(std::random_device{}());
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
 
 scene_object::scene_object(std::optional<std::string> name, uuids::uuid id) : name(name), should_delete(false), traits{}, children{} {
@@ -277,8 +277,9 @@ void scene::build_gui(frame_state* fs) {
             materials_changed = true;
         }
         ImGui::Separator();
-        if(selected_material != nullptr)
+        if(selected_material != nullptr) {
             materials_changed = selected_material->build_gui(fs) || materials_changed;
+        }
         ImGui::End();
     }
 
@@ -456,6 +457,7 @@ bool material::build_gui(frame_state*) {
 
     bool changed = false;
     changed = ImGui::ColorEdit3("Base", &this->base_color[0], ImGuiColorEditFlags_Float) || changed;
+    ImGui::Text("Id: %s", uuids::to_string(this->id).c_str());
 
     return changed;
 }

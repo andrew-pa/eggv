@@ -340,10 +340,26 @@ directional_light_shadowmap_render_node_prototype::directional_light_shadowmap_r
 
 struct dir_light_shadowmap_node_data : public render_node_data {
     std::vector<vk::UniquePipeline> pipelines;
+    float* scene_radius;
+
+    dir_light_shadowmap_node_data(float* scene_radius) : scene_radius(scene_radius) { }
+
+    json serialize() const override {
+        return json{
+            {"scene_radius", *this->scene_radius}
+        };
+    }
 };
 
 std::unique_ptr<render_node_data> directional_light_shadowmap_render_node_prototype::initialize_node_data() {
-    return std::make_unique<dir_light_shadowmap_node_data>();
+    return std::make_unique<dir_light_shadowmap_node_data>(&this->scene_radius);
+}
+
+std::unique_ptr<render_node_data> directional_light_shadowmap_render_node_prototype::deserialize_node_data(json data) {
+    if(data.contains("scene_radius")) {
+        this->scene_radius = data["scene_radius"];
+    }
+    return initialize_node_data();
 }
 
 size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(renderer* r, render_node* n) {

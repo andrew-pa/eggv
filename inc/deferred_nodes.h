@@ -57,6 +57,7 @@ public:
     size_t subpass_repeat_count(class renderer* r, struct render_node* n) override;
 
     void build_gui(class renderer* r, struct render_node* node) override;
+    std::unique_ptr<render_node_data> deserialize_node_data(json data) override;
 };
 
 struct point_light_render_node_prototype : public single_pipeline_render_node_prototype {
