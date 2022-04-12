@@ -28,6 +28,8 @@ add_subdirectory(depd/mio)
 
 add_subdirectory(depd/reactphysics3d)
 
+add_subdirectory(depd/emlisp)
+
 #############################
 ###    compile shaders    ###
 
@@ -62,7 +64,7 @@ message("${COMPILED_SHADERS}")
 include_directories(inc/ depd/glm depd/vk_mem_alloc/include/
     depd/imgui/ depd/imgui/backends/ depd/imnodes/
     depd/ImGuiFileDialog/
-    depd/stb/)
+    depd/stb/ depd/emlisp/inc)
 
 if(WIN32)
     include_directories(depd/dirent/include)
@@ -101,7 +103,7 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     entire-screen.vert.spv directional-light.frag.spv point-light.vert.spv
     point-light.frag.spv solid-color.frag.spv nop.frag.spv multiview-simple.vert.spv)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json
-    stduuid mio::mio stb ReactPhysics3D::reactphysics3d)
+    stduuid mio::mio stb ReactPhysics3D::reactphysics3d emlisp)
 target_compile_features(eggv PUBLIC cxx_std_17)
 
 include_directories(depd/quickhull)
