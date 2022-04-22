@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "renderer.h"
 #include "physics.h"
+#include "emlisp.h"
 
 const float physics_fixed_time_step = 1.f / 60.f;
 
@@ -12,6 +13,8 @@ struct eggv_cmdline_args {
     vec2 resolution;
     eggv_cmdline_args(int argc, const char* argv[]);
 };
+
+struct script_repl_window_t;
 
 class eggv_app : public app {
     vk::UniqueDescriptorPool desc_pool;
@@ -29,6 +32,7 @@ class eggv_app : public app {
     void init_swapchain_depd();
     void init_render_pass();
     void init_gui();
+    void init_script_runtime();
 
     std::shared_ptr<scene> create_test_scene();
     std::vector<std::shared_ptr<trait_factory>> collect_factories();
@@ -40,6 +44,9 @@ class eggv_app : public app {
 
     float ui_key_cooldown;
     float physics_sim_time;
+
+    std::shared_ptr<emlisp::runtime> script_runtime;
+    std::unique_ptr<script_repl_window_t> script_repl_window;
 public:
     eggv_app(const eggv_cmdline_args& args);
 

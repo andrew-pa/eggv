@@ -25,6 +25,72 @@ std::shared_ptr<scene> eggv_app::create_test_scene() {
     return s;
 }
 
+struct script_repl_window_t {
+    char input[256];
+    bool scroll_to_bottom;
+    bool reclaim_focus;
+    std::vector<std::string> lines;
+
+    script_repl_window_t() : scroll_to_bottom(true), reclaim_focus(true) {
+        memset(&input, 0, 256);
+    }
+
+    void build_gui(emlisp::runtime* rt, bool* visible) {
+        if(*visible) {
+            ImGui::Begin("Script Console", visible, ImGuiWindowFlags_MenuBar);
+            if(ImGui::BeginMenuBar()) {
+                if(ImGui::BeginMenu("File")) {
+                    ImGui::EndMenu();
+                }
+                if(ImGui::BeginMenu("Runtime")) {
+                    if(ImGui::MenuItem("Collect Garbage")) {
+                        emlisp::heap_info ifo;
+                        rt->collect_garbage(&ifo);
+                        std::ostringstream oss;
+                        oss << "garbage collected " << (ifo.old_size - ifo.new_size) << " bytes";
+                        lines.emplace_back(oss.str());
+                    }
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMenuBar();
+            }
+
+            ImGui::BeginChild("script-console-log", ImVec2(0,-ImGui::GetFrameHeightWithSpacing()), true, ImGuiWindowFlags_HorizontalScrollbar);
+
+            for(const auto& line : lines) {
+                ImGui::TextUnformatted(line.c_str());
+            }
+
+            if(scroll_to_bottom)
+                ImGui::SetScrollHereY(1);
+            scroll_to_bottom = false;
+            ImGui::EndChild();
+
+            ImGui::PushItemWidth(-1);
+            if(ImGui::InputText("##input", input, 256, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                std::ostringstream oss;
+                try {
+                    auto res = rt->eval(rt->read(input));
+                    rt->write(oss, res);
+                } catch(std::runtime_error e) {
+                    oss << "error: " << e.what();
+                }
+                lines.emplace_back(oss.str());
+                strcpy(input, "");
+                reclaim_focus = true;
+                scroll_to_bottom = true;
+            }
+            ImGui::PopItemWidth();
+            ImGui::SetItemDefaultFocus();
+            if(reclaim_focus) {
+                ImGui::SetKeyboardFocusHere(-1);
+                reclaim_focus = false;
+            }
+            ImGui::End();
+        }
+    }
+};
+
 eggv_cmdline_args::eggv_cmdline_args(int argc, const char* argv[])
     : resolution(1920, 1080)
 {
@@ -52,6 +118,8 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     : app("erg", args.resolution),
         current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
         cam_mouse_enabled(false), phys_cmmn(), physics_sim_time(0),
+        script_runtime(std::make_shared<emlisp::runtime>()),
+        script_repl_window(std::make_unique<script_repl_window_t>()),
       gui_open_windows({
         {"Renderer", false},
         {"Scene", true},
@@ -60,7 +128,8 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
         {"Selected Object", true},
         {"ImGui Demo", false},
         {"ImGui Metrics", false},
-        {"Physics World", false}
+        {"Physics World", false},
+        {"Script Console", true}
       })
 {
     r.init(dev.get());
@@ -100,6 +169,8 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
         r.deserialize_render_graph(data);
         r.compile_render_graph();
     }
+
+    init_script_runtime();
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
     upload_cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
@@ -214,6 +285,7 @@ void eggv_app::build_gui(frame_state* fs) {
     r.build_gui(fs);
     current_scene->build_gui(fs);
     build_physics_world_gui(fs, &fs->gui_open_windows->at("Physics World"), phys_world);
+    script_repl_window->build_gui(script_runtime.get(), &fs->gui_open_windows->at("Script Console"));
 }
 
 void eggv_app::update(float t, float dt) {
@@ -319,7 +391,7 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
         cb->endRenderPass();
     }
 
-	cb->end();
+    cb->end();
 
     return cb.get();
 }
