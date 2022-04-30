@@ -233,6 +233,7 @@ void eggv_app::init_gui() {
     auto& style = ImGui::GetStyle();
     style.WindowRounding = 6.f;
     style.TabRounding = 1.f;
+
     float xsc, ysc;
     glfwGetWindowContentScale(this->wnd, &xsc, &ysc);
     style.ScaleAllSizes(max(xsc, ysc));
@@ -252,15 +253,17 @@ void eggv_app::init_gui() {
     init_info.CheckVkResultFn = nullptr;
     ImGui_ImplVulkan_Init(&init_info, gui_render_pass.get());
 
-    io.Fonts->AddFontFromFileTTF(
-#if WIN32
-            "C:\\Windows\\Fonts\\segoeui.ttf"
-#elif APPLE
-            "/System/Library/Fonts/NewYork.ttf"
-#else
-            "/usr/share/fonts/fira-code/FiraCode-Medium.ttf"
+#ifdef WIN32
+    std::cout << "W";
+    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 16.0f);
 #endif
-            , 24.0f);
+#ifdef __APPLE__
+    std::cout << "A";
+    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 16.0f);
+#else
+    std::cout << "U";
+    io.Fonts->AddFontFromFileTTF("/usr/share/fonts/fira-code/FiraCode-Medium.ttf", 16.0f);
+#endif
 
     ImNodes::CreateContext();
 }
