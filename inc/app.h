@@ -100,9 +100,9 @@ public:
 	virtual void key_down(uint keycode, key_action action, key_mod mods) {}
 	virtual void post_submit(uint32_t image_index) {}
 
-	inline ivec2 size() {
+	inline ivec2 size() const {
 		ivec2 wh;
-		glfwGetWindowSize(wnd, &wh.x, &wh.y);
+		glfwGetFramebufferSize(wnd, &wh.x, &wh.y);
 		return wh;
 	}
 

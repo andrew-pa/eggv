@@ -77,12 +77,16 @@ void renderer::build_gui_graph_view(frame_state* fs) {
     for (const auto& [attrib_id, scnd] : gui_node_attribs) {
         const auto& [node, input_ix, is_output] = scnd;
         if (is_output) continue;
-        auto out_attrib_id = std::find_if(
-                gui_node_attribs.begin(), gui_node_attribs.end(),
-                [&](const auto& p) { // this closure unsafely captures the reference `node` and `input_ix` by reference
-                    return std::get<2>(p.second) && std::get<0>(p.second) == node->input_node(input_ix) 
-                        && std::get<1>(p.second) == node->inputs[input_ix].second; 
-                });
+        auto out_attrib_id = gui_node_attribs.end();
+        for(auto p = gui_node_attribs.begin(); p != gui_node_attribs.end(); ++p) {
+            if(std::get<2>(p->second)
+                && std::get<0>(p->second) == node->input_node(input_ix)
+                && std::get<1>(p->second) == node->inputs[input_ix].second)
+            {
+                out_attrib_id = p;
+                break;
+            }
+        }
         if (out_attrib_id == gui_node_attribs.end()) continue;
         ImNodes::Link((int)gui_links.size(), attrib_id, out_attrib_id->first);
         gui_links.emplace_back( attrib_id, out_attrib_id->first );

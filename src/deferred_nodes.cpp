@@ -430,7 +430,7 @@ void directional_light_shadowmap_render_node_prototype::generate_pipelines(rende
     };
 
     auto rasterizer_state = vk::PipelineRasterizationStateCreateInfo{
-        {}, VK_TRUE, VK_FALSE, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack,
+        {}, VK_FALSE, VK_FALSE, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack,
             vk::FrontFace::eClockwise, VK_TRUE, 1.25f, 0.0f, 1.75f, 1.f
     };
 
