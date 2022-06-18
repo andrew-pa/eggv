@@ -99,18 +99,19 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/scene_graph.h src/scene_graph.cpp
     inc/eggv_app.h src/eggv_app.cpp
     inc/physics.h src/physics.cpp
+    src/script_runtime.cpp
     simple.vert.spv simple.frag.spv full.vert.spv gbuffer.frag.spv
     entire-screen.vert.spv directional-light.frag.spv point-light.vert.spv
     point-light.frag.spv solid-color.frag.spv nop.frag.spv multiview-simple.vert.spv)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json
     stduuid mio::mio stb ReactPhysics3D::reactphysics3d emlisp)
 target_compile_features(eggv PUBLIC cxx_std_17)
+add_compile_options(-fcolor-diagnostics)
+
 
 include_directories(depd/quickhull)
 add_executable(eggv_import inc/ndcommon.h src/import.cpp depd/quickhull/QuickHull.cpp)
 target_compile_features(eggv_import PUBLIC cxx_std_17)
 target_link_libraries(eggv_import nlohmann_json::nlohmann_json stduuid assimp)
-
-
 
 

@@ -14,8 +14,8 @@ struct trait {
     struct trait_factory* parent;
 
     trait(trait_factory* p) : parent(p) {}
- 
-    virtual void update(struct scene_object*, frame_state*, const mat4& T) {}
+
+    virtual void update(struct scene_object*, frame_state*) {}
 
     virtual void append_transform(struct scene_object*, mat4& T, frame_state*) {}
     virtual void postprocess_transform(struct scene_object*, const mat4& T, frame_state*) {}
@@ -27,13 +27,15 @@ struct trait {
     virtual json serialize() const { return {}; }
 
     // only called when a trait is removed from an object while running. Only the destructor will be called at exit
+    // TODO: call this at exit
     virtual void remove_from(struct scene_object*) {}
 
-    virtual ~trait() {}
+    virtual ~trait() = default;
 };
 
 struct trait_factory {
     virtual trait_id id() const = 0;
+    //TODO: this should probably be a reference or string_view
     virtual std::string name() const = 0;
 
     virtual void add_to(struct scene_object* obj, void* create_info) = 0;
@@ -43,7 +45,7 @@ struct trait_factory {
         return true;
     }
 
-    virtual ~trait_factory() {}
+    virtual ~trait_factory() = default;
 };
 
 struct scene_object : public std::enable_shared_from_this<scene_object> {

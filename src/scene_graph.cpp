@@ -91,7 +91,7 @@ void scene::for_each_object(std::function<void(std::shared_ptr<scene_object>)> f
     _for_each_object(root, f);
 }
 
-void _cleanup_objects(std::shared_ptr<scene_object> ob) {
+void _cleanup_objects(const std::shared_ptr<scene_object>& ob) {
     for (auto i = ob->children.begin(); i != ob->children.end(); ++i) {
         if((*i)->should_delete) {
             auto x = i;
@@ -106,8 +106,12 @@ void _cleanup_objects(std::shared_ptr<scene_object> ob) {
 }
 
 void scene::update(frame_state* fs, app* app) {
-    // TODO: call update on all traits on all objects
     _cleanup_objects(root);
+    for_each_object([&](std::shared_ptr<scene_object> ob) {
+        for(const auto&[_, t] : ob->traits) {
+            t->update(ob.get(), fs);
+        }
+    });
 }
 
 void scene::build_scene_graph_tree(std::shared_ptr<scene_object> obj) {

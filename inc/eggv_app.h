@@ -23,7 +23,6 @@ class eggv_app : public app {
     std::vector<vk::UniqueCommandBuffer> command_buffers;
     std::vector<vk::UniqueFramebuffer> framebuffers;
 
-    std::shared_ptr<scene> current_scene;
     renderer r;
 
     bool gui_visible, cam_mouse_enabled;
@@ -45,9 +44,11 @@ class eggv_app : public app {
     float ui_key_cooldown;
     float physics_sim_time;
 
-    std::shared_ptr<emlisp::runtime> script_runtime;
     std::unique_ptr<script_repl_window_t> script_repl_window;
 public:
+    std::shared_ptr<emlisp::runtime> script_runtime;
+    std::shared_ptr<scene> current_scene;
+
     eggv_app(const eggv_cmdline_args& args);
 
     void resize() override;
