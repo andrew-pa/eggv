@@ -6,7 +6,9 @@
 using entity_id = size_t;
 using system_id = size_t;
 
-enum class static_systems : system_id { };
+enum class static_systems : system_id {
+    transform, light, camera
+};
 
 #include "scene_graph.h"
 
@@ -18,10 +20,9 @@ enum class static_systems : system_id { };
 //         : t(t), dt(dt), gui_open_windows(gow) {}
 // };
 
-
 class abstract_entity_system {
 public:
-    virtual void update(const frame_state& fs) {}
+    virtual void update(const frame_state& fs, class world* w) {}
     virtual void remove_entity(entity_id id) = 0;
 
     virtual void build_gui(const frame_state& fs, entity_id selected_entity) = 0;
@@ -41,6 +42,11 @@ struct unordered_map_storage {
     template<typename T>
     static void remove(type<T>& self, entity_id id) {
         self.erase(id);
+    }
+
+    template<typename T>
+    static bool contains(type<T>& self, entity_id id) {
+        return self.contains(id);
     }
 
     template<typename T>
@@ -74,10 +80,14 @@ struct assoc_vector_storage {
     }
 
     template<typename T>
-    static T& get(type<T>& self, entity_id id) {
+    static bool contains(type<T>& self, entity_id id) {
         auto i = std::find_if(self.begin(), self.end(), [id](const auto& p) { return p.first == id; });
-        if(i == self.end()) throw "not found";
-        return i->second;
+        return i != self.end();
+    }
+
+    template<typename T>
+    static T& get(type<T>& self, entity_id id) {
+        return std::any_of(self.begin(), self.end(), [id](const auto& p) { return p.first == id; });
     }
 
     template<typename T>
@@ -104,6 +114,10 @@ public:
         Storage::template remove<Component>(this->entity_data, id);
     }
 
+    bool has_data_for_entity(entity_id id) const {
+        return Storage::template contains<Component>(this->entity_data, id);
+    }
+
     const Component& get_data_for_entity(entity_id id) const {
         return Storage::template get<Component>(this->entity_data, id);
     }
@@ -115,6 +129,7 @@ public:
     friend class world;
 };
 
+static const entity_id root_id = (entity_id)1;
 
 class world {
     std::unordered_map<system_id, std::shared_ptr<abstract_entity_system>> systems;
@@ -146,6 +161,24 @@ public:
             return *this;
         }
 
+        template<typename System>
+        bool has_component(system_id id = (system_id)System::id) const {
+            auto* system = w->system<System>(id);
+            return system->has_data_for_entity(_node->entity);
+        }
+
+        template<typename System>
+        auto get_component(system_id id = (system_id)System::id) -> typename System::component_t& {
+            auto* system = w->system<System>(id);
+            return system->get_data_for_entity(_node->entity);
+        }
+
+        template<typename System>
+        auto get_component(system_id id = (system_id)System::id) const -> const typename System::component_t& {
+            auto* system = w->system<System>(id);
+            return system->get_data_for_entity(_node->entity);
+        }
+
         void remove_component(system_id id) {
             auto system = w->systems[id];
             system->remove_entity(_node->entity);
@@ -168,7 +201,7 @@ public:
         }
 
         template<typename F>
-        void for_each_child(F fn) {
+        void for_each_child(F fn) const {
             for(const auto& c : _node->children) {
                 fn(entity_handle{w, c});
             }
@@ -182,12 +215,13 @@ public:
             return this->_node->entity;
         }
 
-        operator entity_id() {
+        operator entity_id() const {
             return this->_node->entity;
         }
 
         friend class world;
     };
+
 
     world();
 
@@ -214,11 +248,13 @@ public:
         return entity_handle{this, nodes[id]};
     }
 
+    entity_handle root() { return entity_handle{this, root_entity}; }
+
     void update(const frame_state& fs);
     void build_gui(const frame_state& fs);
 
 private:
     // gui state
     entity_id selected_entity;
-    void build_scene_tree_gui(entity_handle& e);
+    void build_scene_tree_gui(const entity_handle& e);
 };

@@ -10,6 +10,8 @@
 #include "deferred_nodes.h"
 #include "geometry_set.h"
 
+#include "scene_components.h"
+
 std::vector<std::shared_ptr<trait_factory>> eggv_app::collect_factories() {
     return std::vector<std::shared_ptr<trait_factory>>{
         std::make_shared<transform_trait_factory>(),

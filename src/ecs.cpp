@@ -2,18 +2,18 @@
 #include "imgui.h"
 
 world::world()
-    : next_id(1), root_entity(std::make_shared<world::node>((entity_id)0, "Root"))
+    : next_id(root_id + 1), root_entity(std::make_shared<world::node>(root_id, "Root"))
 {
-    nodes.emplace(0, root_entity);
+    nodes.emplace(root_id, root_entity);
 }
 
 void world::update(const frame_state& fs) {
     for(const auto& [_, sys] : systems) {
-        sys->update(fs);
+        sys->update(fs, this);
     }
 }
 
-void world::build_scene_tree_gui(world::entity_handle& e) {
+void world::build_scene_tree_gui(const world::entity_handle& e) {
     ImGui::PushID(e.id());
     auto node_open = ImGui::TreeNodeEx(
             (void*)e.id(),
@@ -37,8 +37,7 @@ void world::build_scene_tree_gui(world::entity_handle& e) {
 void world::build_gui(const frame_state& fs) {
     if(fs.gui_open_windows->at("World")) {
         ImGui::Begin("World", &fs.gui_open_windows->at("World"));
-        auto root = entity((entity_id)0);
-        this->build_scene_tree_gui(root);
+        this->build_scene_tree_gui(this->root());
         ImGui::End();
     }
 
