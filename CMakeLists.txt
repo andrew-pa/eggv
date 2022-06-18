@@ -96,6 +96,7 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/debug_shapes.h src/debug_shapes.cpp
     inc/mesh_gen.h inc/par_shapes.h src/mesh_gen.cpp
     inc/geometry_set.h src/geometry_set.cpp
+    inc/ecs.h src/ecs.cpp
     inc/scene_graph.h src/scene_graph.cpp
     inc/eggv_app.h src/eggv_app.cpp
     inc/physics.h src/physics.cpp

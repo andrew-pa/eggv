@@ -118,18 +118,21 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     : app("erg", args.resolution),
         current_scene(nullptr), r(), gui_visible(true), ui_key_cooldown(0.f),
         cam_mouse_enabled(false), phys_cmmn(), physics_sim_time(0),
+        w(std::make_shared<world>()),
         script_runtime(std::make_shared<emlisp::runtime>()),
         script_repl_window(std::make_unique<script_repl_window_t>()),
       gui_open_windows({
         {"Renderer", false},
-        {"Scene", true},
+        {"Scene", false},
         {"Geometry Sets", false},
         {"Materials", false},
-        {"Selected Object", true},
+        {"Selected Object", false},
+        {"Selected Entity", true},
         {"ImGui Demo", false},
         {"ImGui Metrics", false},
         {"Physics World", false},
-        {"Script Console", true}
+        {"Script Console", true},
+        {"World", true}
       })
 {
     r.init(dev.get());
@@ -162,6 +165,12 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     }
 
     r.current_scene = current_scene;
+
+    auto thing = w->create_entity("Thing");
+    thing.add_child("thing 1");
+    thing.add_child("thing 2");
+    thing.add_child("thing 3");
+    auto thing2 = w->create_entity("Thing 2");
 
     if(args.render_graph_path.has_value()) {
         std::ifstream input(args.render_graph_path.value());
@@ -285,6 +294,7 @@ void eggv_app::build_gui(frame_state* fs) {
     ImGui::End();
     if(fs->gui_open_windows->at("ImGui Demo")) ImGui::ShowDemoWindow(&fs->gui_open_windows->at("ImGui Demo"));
     if(fs->gui_open_windows->at("ImGui Metrics")) ImGui::ShowMetricsWindow(&fs->gui_open_windows->at("ImGui Metrics"));
+    w->build_gui(*fs);
     r.build_gui(fs);
     current_scene->build_gui(fs);
     build_physics_world_gui(fs, &fs->gui_open_windows->at("Physics World"), phys_world);
@@ -294,6 +304,7 @@ void eggv_app::build_gui(frame_state* fs) {
 void eggv_app::update(float t, float dt) {
     frame_state fs(t, dt, current_scene, &gui_open_windows);
     current_scene->update(&fs, this);
+    w->update(fs);
     r.update(&fs);
 
     physics_sim_time += dt;

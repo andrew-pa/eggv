@@ -4,6 +4,7 @@
 #include "renderer.h"
 #include "physics.h"
 #include "emlisp.h"
+#include "ecs.h"
 
 const float physics_fixed_time_step = 1.f / 60.f;
 
@@ -22,6 +23,8 @@ class eggv_app : public app {
 
     std::vector<vk::UniqueCommandBuffer> command_buffers;
     std::vector<vk::UniqueFramebuffer> framebuffers;
+
+    std::shared_ptr<world> w;
 
     renderer r;
 
