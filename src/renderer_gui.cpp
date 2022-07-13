@@ -5,7 +5,7 @@
 #include "imgui_impl_vulkan.h"
 #include <iomanip>
 
-void renderer::build_gui_menu(frame_state* fs) {
+void renderer::build_gui_menu(const frame_state& fs) {
     if(ImGui::BeginMenuBar()) {
         if(ImGui::BeginMenu("File")) {
             if(ImGui::MenuItem("New graph")) {
@@ -32,7 +32,7 @@ void renderer::build_gui_menu(frame_state* fs) {
     }
 }
 
-void renderer::build_gui_graph_view(frame_state* fs) {
+void renderer::build_gui_graph_view(const frame_state& fs) {
     ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
 
     ImNodes::BeginNodeEditor();
@@ -154,9 +154,10 @@ void renderer::build_gui_graph_view(frame_state* fs) {
     }
 }
 
-void renderer::build_gui_stats(frame_state* fs) {
-    ImGui::Text("%zu active meshes, %zu active lights, %zu active shapes, %zu running subpasses",
-            active_meshes.size(), active_lights.size(), active_shapes.size(), subpass_order.size());
+void renderer::build_gui_stats(const frame_state& fs) {
+    //TODO: stats are nice
+    //ImGui::Text("%zu active meshes, %zu active lights, %zu active shapes, %zu running subpasses",
+    //        active_meshes.size(), active_lights.size(), active_shapes.size(), subpass_order.size());
     ImGui::Text("%zu temp command buffers, %zu temp upload buffers", dev->tmp_cmd_buffers.size(), dev->tmp_upload_buffers.size());
 
     ImGui::Separator();
@@ -186,7 +187,7 @@ void renderer::build_gui_stats(frame_state* fs) {
 
 }
 
-void renderer::build_gui_textures(frame_state* fs) {
+void renderer::build_gui_textures(const frame_state& fs) {
     if (ImGui::BeginTable("#RenderTextureTable", 4, ImGuiTableFlags_Resizable)) {
         ImGui::TableSetupColumn("Name");
         ImGui::TableSetupColumn("Format");
@@ -213,9 +214,9 @@ void renderer::build_gui_textures(frame_state* fs) {
     }
 }
 
-void renderer::build_gui(frame_state* fs) {
-    if(!fs->gui_open_windows->at("Renderer")) return;
-    if (!ImGui::Begin("Renderer", &fs->gui_open_windows->at("Renderer"), ImGuiWindowFlags_MenuBar)) { ImGui::End(); return; }
+void renderer::build_gui(const frame_state& fs, entity_id selected_entity) {
+    if(!fs.gui_open_windows->at("Renderer")) return;
+    if (!ImGui::Begin("Renderer", &fs.gui_open_windows->at("Renderer"), ImGuiWindowFlags_MenuBar)) { ImGui::End(); return; }
 
     build_gui_menu(fs);
 

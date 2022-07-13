@@ -152,10 +152,10 @@ class renderer : public entity_system<mesh_component>{
     //THOUGHT: in some sense, the renderer is really another inner ECS `world` with its own subsystems and components...
 
     // GUI subcomponents
-    void build_gui_menu(frame_state* fs);
-    void build_gui_graph_view(frame_state* fs);
-    void build_gui_stats(frame_state* fs);
-    void build_gui_textures(frame_state* fs);
+    void build_gui_menu(const frame_state& fs);
+    void build_gui_graph_view(const frame_state& fs);
+    void build_gui_stats(const frame_state& fs);
+    void build_gui_textures(const frame_state& fs);
 
     // render graph compilation helpers
     void generate_attachment_descriptions(std::vector<vk::AttachmentDescription>& attachments, std::map<framebuffer_ref, uint32_t>& attachment_refs);

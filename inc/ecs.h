@@ -217,13 +217,13 @@ public:
 
         template<typename System>
         auto get_component(system_id id = (system_id)System::id) -> typename System::component_t& {
-            auto* system = w->system<System>(id);
+            auto* system = w->system<System>(id).get();
             return system->get_data_for_entity(_node->entity);
         }
 
         template<typename System>
         auto get_component(system_id id = (system_id)System::id) const -> const typename System::component_t& {
-            auto* system = w->system<System>(id);
+            auto* system = w->system<System>(id).get();
             return system->get_data_for_entity(_node->entity);
         }
 
