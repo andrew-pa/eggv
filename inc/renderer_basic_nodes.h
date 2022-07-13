@@ -1,7 +1,9 @@
 #pragma once
 #include "cmmn.h"
+#include "imgui_impl_vulkan.h"
 #include "renderer.h"
 #include "imgui.h"
+#include "scene_components.h"
 
 struct simple_geom_render_node_prototype : public single_pipeline_render_node_prototype { 
     simple_geom_render_node_prototype(renderer* r, device* dev) {
@@ -119,15 +121,22 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, this->pipeline(node));
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
                 0, { node->desc_set.get() }, {});
-        for(const auto&[mesh, world_transform] : r->active_meshes) {
+
+        auto transforms = r->cur_world->system<transform_system>();
+
+        for(auto meshi = r->begin_components(); meshi != r->end_components(); ++meshi) {
+            const auto& [id, mesh] = *meshi;
+            if(!transforms->has_data_for_entity(id)) continue;
+            const auto& transform = transforms->get_data_for_entity(id);
+
             cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
-                1, { mesh->mat->desc_set }, {});
-            auto m = mesh->m;
+                1, { mesh.mat->desc_set }, {});
+            const auto& m = mesh.m;
             cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
             cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
-            cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
+            cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { transform.world });
             cb.pushConstants<vec3>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
-                    { vec3(mesh->mat ? mesh->mat->base_color : vec3(0.5f, 0.f, 0.2f)) });
+                    { vec3(mesh.mat ? mesh.mat->base_color : vec3(0.5f, 0.f, 0.2f)) });
             cb.drawIndexed(m->index_count, 1, 0, 0, 0);
         }
     }

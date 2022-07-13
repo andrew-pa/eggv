@@ -1,5 +1,6 @@
 #include "deferred_nodes.h"
 #include "glm/gtx/component_wise.hpp"
+#include "scene_components.h"
 
 // --- geometery buffer
 
@@ -117,17 +118,18 @@ void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
-    for(const auto&[mesh, world_transform] : r->active_meshes) {
+
+    r->for_each_renderable([&](auto entity_id, auto mesh, auto transform) {
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
-            1, { mesh->mat->desc_set }, {});
-        auto m = mesh->m;
+            1, { mesh.mat->desc_set }, {});
+        auto m = mesh.m;
         cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
         cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
-        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
+        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { transform.world });
         cb.pushConstants<uint32>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4),
-                { mesh->mat ? mesh->mat->_render_index : 0 });
+                { mesh.mat ? mesh.mat->_render_index : 0 });
         cb.drawIndexed(m->index_count, 1, 0, 0, 0);
-    }
+    });
 }
 
 
@@ -297,18 +299,22 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(ren
             * glm::ortho(-scene_radius, scene_radius, -scene_radius, scene_radius, -scene_radius, scene_radius);
         inverse_view = glm::inverse(r->mapped_frame_uniforms->view);
     }
-    for(const auto& [light, T] : r->active_lights) {
-        if(light->type != light_type::directional) continue;
+
+    auto lights = r->cur_world->system<light_system>();
+
+    for(auto lighti = lights->begin_components(); lighti != lights->end_components(); ++lighti) {
+        const auto&[id, light] = *lighti;
+        if(light.type != light_type::directional) continue;
         int light_index = -1;
         if(has_shadowmap) {
-            light_index = light->_render_index;
+            light_index = light._render_index;
         }
         cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
-                0, { r->mapped_frame_uniforms->view*vec4(light->param,0.f), vec4(light->color, 0.f) });
+                0, { r->mapped_frame_uniforms->view*vec4(light.param,0.f), vec4(light.color, 0.f) });
         cb.pushConstants<int>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
                 sizeof(vec4) + sizeof(vec3), { light_index });
         if(has_shadowmap) {
-            mat4 light_viewproj = light_proj * glm::lookAt(-light->param, vec3(0.f), vec3(0.f, -1.f, 0.f)) * inverse_view;
+            mat4 light_viewproj = light_proj * glm::lookAt(-light.param, vec3(0.f), vec3(0.f, -1.f, 0.f)) * inverse_view;
             cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
                     sizeof(vec4)*2, { light_viewproj });
         }
@@ -365,21 +371,22 @@ std::unique_ptr<render_node_data> directional_light_shadowmap_render_node_protot
 size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(renderer* r, render_node* n) {
     size_t num_lights = 0;
     pass_to_light_map.clear();
-    r->current_scene->for_each_object([&](const std::shared_ptr<scene_object>& o) {
-            auto lt = o->traits.find(TRAIT_ID_LIGHT);
-            if(lt != o->traits.end()) {
-                auto* ltt = ((light_trait*)(lt->second.get()));
-                if(ltt->type == light_type::directional) {
-                    pass_to_light_map[num_lights] = o;
-                    ltt->_render_index = num_lights;
-                    num_lights++;
-                }
-            }
-    });
+
+    auto lights = r->cur_world->system<light_system>();
+
+    for(auto lighti = lights->begin_components(); lighti != lights->end_components(); ++lighti) {
+        auto&[id, light] = *lighti;
+        if (light.type == light_type::directional) {
+            pass_to_light_map[num_lights] = id;
+            light._render_index = num_lights;
+            num_lights++;
+        }
+    }
 
     this->outputs[0].count = num_lights;
     r->global_buffers[GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ] = std::make_unique<buffer>(r->dev, sizeof(mat4)*num_lights, 
             vk::BufferUsageFlagBits::eStorageBuffer, vk::MemoryPropertyFlagBits::eHostCoherent, (void**)&mapped_light_viewprojs);
+
     return num_lights;
 }
 
@@ -477,32 +484,34 @@ void directional_light_shadowmap_render_node_prototype::generate_pipelines(rende
 
 void directional_light_shadowmap_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
 
-    const auto& current_light = pass_to_light_map[subpass_index];
-    light_trait* light = nullptr;
-    auto lt = current_light->traits.find(TRAIT_ID_LIGHT);
+    /*auto lt = current_light->traits.find(TRAIT_ID_LIGHT);
     if(lt != current_light->traits.end()) {
         if(((light_trait*)(lt->second.get()))->type == light_type::directional) {
             light = (light_trait*)lt->second.get();
         }
-    }
-    if(light == nullptr) return;
+    }*/
+    auto light_ent = r->cur_world->entity(pass_to_light_map[subpass_index]);
+    const light& light = light_ent.get_component<light_system>();
 
     // const float scene_radius = 8.f;
     mat4 light_proj = glm::ortho(-scene_radius, scene_radius, -scene_radius, scene_radius, -scene_radius, scene_radius);
-    mapped_light_viewprojs[subpass_index] = light_proj * glm::lookAt(-light->param, vec3(0.f), vec3(0.f, -1.f, 0.f));
+    mapped_light_viewprojs[subpass_index] = light_proj * glm::lookAt(-light.param, vec3(0.f), vec3(0.f, -1.f, 0.f));
 
     auto* data = (dir_light_shadowmap_node_data*)node->data.get();
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, data->pipelines[subpass_index].get());
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
     cb.pushConstants<uint32>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, sizeof(mat4), { (uint32)subpass_index });
-    for(const auto&[mesh, world_transform] : r->active_meshes) {
-        auto m = mesh->m;
+    r->for_each_renderable([&](auto entity_id, auto mesh, auto transform) {
+        auto m = mesh.m;
         cb.bindVertexBuffers(0, {m->vertex_buffer->buf}, {0});
         cb.bindIndexBuffer(m->index_buffer->buf, 0, vk::IndexType::eUint16);
-        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { world_transform });
+        cb.pushConstants<mat4>(
+                this->pipeline_layout.get(),
+                vk::ShaderStageFlagBits::eVertex,
+                0, { transform.world });
         cb.drawIndexed(m->index_count, 1, 0, 0, 0);
-    }
+    });
 }
 
 
@@ -633,9 +642,9 @@ void point_light_render_node_prototype::generate_pipelines(renderer* r, render_n
     this->create_pipeline(r, node, cfo);
 }
 
-float light_radius(light_trait* light) {
-    float i = compMax(light->color);
-    return sqrt(-5.f + 256.f * i) / sqrt(5.f * light->param.x);
+float light_radius(const light& light) {
+    float i = compMax(light.color);
+    return sqrt(-5.f + 256.f * i) / sqrt(5.f * light.param.x);
 }
 
 void point_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
@@ -645,13 +654,17 @@ void point_light_render_node_prototype::generate_command_buffer_inline(renderer*
     cb.bindVertexBuffers(0, { sphere_mesh->vertex_buffer->buf }, {0});
     cb.bindIndexBuffer(sphere_mesh->index_buffer->buf, 0, vk::IndexType::eUint16);
 
-    /* std::cout << r->active_lights.size() << "\n"; */
-    for(const auto& [light, T] : r->active_lights) {
-        if(light->type != light_type::point) continue;
+    auto lights = r->cur_world->system<light_system>();
+    auto transforms = r->cur_world->system<transform_system>();
+
+    for(auto lighti = lights->begin_components(); lighti != lights->end_components(); ++lighti) {
+        auto&[id, light] = *lighti;
+        if(light.type != light_type::point) continue;
+        const auto& T = transforms->get_data_for_entity(id).world;
         vec4 light_view_pos = r->mapped_frame_uniforms->view * T * vec4(0.f, 0.f, 0.f, 1.f);
         cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { scale(T, vec3(light_radius(light))) });
         cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment,
-                sizeof(mat4), { vec4(light->param,0.f), vec4(light->color,0.f), light_view_pos });
+                sizeof(mat4), { vec4(light.param,0.f), vec4(light.color,0.f), light_view_pos });
         cb.drawIndexed(sphere_mesh->index_count, 1, 0, 0, 0);
     }
 }

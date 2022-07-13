@@ -62,6 +62,26 @@ struct unordered_map_storage {
         if(i == self.end()) throw "not found";
         return i->second;
     }
+
+    template<typename T>
+    static auto begin(const type<T>& self) {
+        return self.begin();
+    }
+
+    template<typename T>
+    static auto end(const type<T>& self) {
+        return self.end();
+    }
+
+    template<typename T>
+    static auto begin(type<T>& self) {
+        return self.begin();
+    }
+
+    template<typename T>
+    static auto end(type<T>& self) {
+        return self.end();
+    }
 };
 
 struct assoc_vector_storage {
@@ -96,6 +116,26 @@ struct assoc_vector_storage {
         if(i == self.end()) throw "not found";
         return i->second;
     }
+
+    template<typename T>
+    static auto begin(const type<T>& self) {
+        return self.begin();
+    }
+
+    template<typename T>
+    static auto end(const type<T>& self) {
+        return self.end();
+    }
+
+    template<typename T>
+    static auto begin(type<T>& self) {
+        return self.begin();
+    }
+
+    template<typename T>
+    static auto end(type<T>& self) {
+        return self.end();
+    }
 };
 
 template<typename Component, typename Storage = unordered_map_storage>
@@ -124,6 +164,14 @@ public:
 
     Component& get_data_for_entity(entity_id id) {
         return Storage::template get<Component>(this->entity_data, id);
+    }
+
+    auto begin_components() {
+        return Storage::template begin<Component>(this->entity_data);
+    }
+
+    auto end_components() {
+        return Storage::template end<Component>(this->entity_data);
     }
 
     friend class world;

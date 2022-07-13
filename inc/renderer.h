@@ -3,6 +3,8 @@
 
 #include "cmmn.h"
 #include "app.h"
+#include "ecs.h"
+#include "scene_components.h"
 #include "swap_chain.h"
 #include "scene_graph.h"
 #include "mem_arena.h"
@@ -117,7 +119,6 @@ struct render_node {
     }
 };
 
-
 struct frame_uniforms {
     mat4 view, proj;
 };
@@ -147,42 +148,60 @@ struct framebuffer_values {
 const size_t GLOBAL_BUF_FRAME_UNIFORMS = 1;
 const size_t GLOBAL_BUF_MATERIALS = 2;
 
-class renderer {
+class renderer : public entity_system<mesh_component>{
+    //THOUGHT: in some sense, the renderer is really another inner ECS `world` with its own subsystems and components...
+
+    // GUI subcomponents
     void build_gui_menu(frame_state* fs);
     void build_gui_graph_view(frame_state* fs);
     void build_gui_stats(frame_state* fs);
     void build_gui_textures(frame_state* fs);
 
+    // render graph compilation helpers
     void generate_attachment_descriptions(std::vector<vk::AttachmentDescription>& attachments, std::map<framebuffer_ref, uint32_t>& attachment_refs);
     void generate_clear_values();
-public:
+public: //TODO: a lot of this stuff should be private
     device* dev; swap_chain* swpc;
+
+    world* cur_world;
+
+    // the render graph
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
     std::vector<std::shared_ptr<render_node>> render_graph;
     std::shared_ptr<render_node> screen_output_node;
 
+    // "framebuffers" aka vk::Images that can be rendered to
     framebuffer_ref next_id;
     std::map<framebuffer_ref, framebuffer_values> buffers;
+    framebuffer_ref allocate_framebuffer(const framebuffer_desc&, uint32_t subpass_count);
+    // the actual Vulkan framebuffer objects that contain *all* attachments for a frame
+    std::vector<vk::UniqueFramebuffer> framebuffers;
 
+    // the render pass that was created from the render graph
     vk::UniqueRenderPass render_pass;
     std::vector<vk::ClearValue> clear_values;
     vk::RenderPassBeginInfo render_pass_begin_info;
     std::vector<std::shared_ptr<render_node>> subpass_order;
     vk::UniqueDescriptorPool desc_pool;
 
+    // uniform/storage buffers for shader parameters
     std::map<size_t, std::unique_ptr<buffer>> global_buffers;
     frame_uniforms* mapped_frame_uniforms;
     gpu_material* mapped_materials;
     uint32_t num_gpu_mats;
 
-    std::vector<std::tuple<std::string, std::shared_ptr<image>, vk::UniqueImageView, uint64_t>> texture_cache;
-    size_t create_texture2d(const std::string& name, uint32_t width, uint32_t height, vk::Format fmt, size_t data_size, void* data, vk::CommandBuffer uplcb);
+    // texturing/materials
+    std::vector<std::tuple<std::string, std::shared_ptr<image>, vk::UniqueImageView, uint64_t>> texture_cache; //TODO: refactor this tuple into a struct
+    size_t create_texture2d(
+            const std::string& name,
+            uint32_t width, uint32_t height, vk::Format fmt,
+            size_t data_size, void* data, vk::CommandBuffer uplcb);
     size_t load_texture(const std::string&, vk::CommandBuffer uplcb);
     vk::UniqueSampler texture_sampler;
     vk::UniqueDescriptorPool material_desc_pool;
     vk::UniqueDescriptorSetLayout material_desc_set_layout;
 
-    framebuffer_ref allocate_framebuffer(const framebuffer_desc&, uint32_t subpass_count);
+    // render graph "compilation" from graph -> Vulkan render pass
     void compile_render_graph();
     void propagate_blended_framebuffers(std::shared_ptr<render_node> node);
     void generate_subpasses(const std::shared_ptr<render_node>&, std::vector<vk::SubpassDescription>&, std::vector<vk::SubpassDependency>& dependencies,
@@ -191,30 +210,40 @@ public:
     void deserialize_render_graph(json data);
     json serialize_render_graph();
 
-    void traverse_scene_graph(scene_object*, frame_state*, const mat4& T);
-    bool should_recompile, log_compile;
-    
-    std::map<int, std::tuple<std::shared_ptr<render_node>, size_t, bool /*input|output*/>> gui_node_attribs;
-    std::vector<std::pair<int, int>> gui_links;
-    //---
+    // to trigger a recompile at the next possible time
+    bool should_recompile;
 
-    std::vector<vk::UniqueFramebuffer> framebuffers;
-    std::shared_ptr<scene> current_scene;
+    // log messages about render graph compilation to stdout
+    bool log_compile;
 
-    std::vector<std::tuple<struct mesh_trait*, mat4>> active_meshes;
-    std::vector<std::tuple<light_trait*, mat4>> active_lights;
-    std::vector<viewport_shape> active_shapes;
-    vk::Viewport full_viewport; vk::Rect2D full_scissor;
-
+    // render viewport shapes
     bool show_shapes;
 
+    // render graph editor state
+    std::map<int, std::tuple<std::shared_ptr<render_node>, size_t, bool /*input|output*/>> gui_node_attribs;
+    std::vector<std::pair<int, int>> gui_links;
+
+    // the active objects that have been gathered out of the scene graph
+    /*std::vector<std::tuple<struct mesh_trait*, mat4>> active_meshes;
+    std::vector<std::tuple<light_trait*, mat4>> active_lights;
+    std::vector<viewport_shape> active_shapes;*/
+    std::shared_ptr<scene> current_scene;
+    void traverse_scene_graph(scene_object*, frame_state*, const mat4& T);
+
+    void for_each_renderable(const std::function<void(entity_id, const mesh_component&, const transform&)>& f);
+
+
+    // viewport settings
+    vk::Viewport full_viewport; vk::Rect2D full_scissor;
+
+    // renderer lifecycle
     renderer();
     void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
-    void build_gui(frame_state*);
-    void update(frame_state*);
-    void render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs);
-    ~renderer();
+    void build_gui(const frame_state& fs, entity_id selected_entity) override;
+    void update(const frame_state& fs, world* w) override;
+    void render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs, world* w);
+    ~renderer() override;
 };
 
 struct single_pipeline_render_node_prototype : public render_node_prototype {
@@ -232,3 +261,4 @@ struct single_pipeline_render_node_prototype : public render_node_prototype {
             r->dev->dev->createGraphicsPipelineUnique(nullptr, desc);
     }
 };
+

@@ -7,10 +7,7 @@
 #include "renderer_basic_nodes.h"
 
 render_node::render_node(std::shared_ptr<render_node_prototype> prototype)
-    : visited(false),
-		subpass_index(-1),
-        desc_set(nullptr),
-
+    : visited(false), subpass_index(-1), desc_set(nullptr),
         id(rand()), prototype(prototype), inputs(prototype->inputs.size(), { {},0 }), outputs(prototype->outputs.size(), 0), data(prototype->initialize_node_data())
 {
 }
@@ -139,7 +136,7 @@ void renderer::deserialize_render_graph(json data) {
 }
 
 void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const mat4& parent_T) {
-    mat4 T = parent_T;
+    /*mat4 T = parent_T;
     for(auto&[_, t] : obj->traits) {
         t->append_transform(obj, T, fs);
     }
@@ -176,7 +173,7 @@ void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const ma
     }
 
     for(const auto& c : obj->children)
-        traverse_scene_graph(c.get(), fs, T);
+        traverse_scene_graph(c.get(), fs, T);*/
 }
 
 #include "stb_image.h"
@@ -243,7 +240,9 @@ size_t renderer::create_texture2d(const std::string& name, uint32_t width, uint3
 	return index;
 }
 
-void renderer::update(frame_state* fs) {
+void renderer::update(const frame_state& fs, world* w) {
+    cur_world = w;
+
     if(should_recompile || global_buffers[GLOBAL_BUF_MATERIALS] == nullptr || current_scene->materials_changed) {
         dev->graphics_qu.waitIdle();
         dev->present_qu.waitIdle();
@@ -316,11 +315,8 @@ void renderer::update(frame_state* fs) {
     if(should_recompile) compile_render_graph();
 }
 
-void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, frame_state* fs) {
-    active_meshes.clear();
-    active_lights.clear();
-    active_shapes.clear();
-    traverse_scene_graph(current_scene->root.get(), fs, mat4(1));
+void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs, world* w) {
+    cur_world = w;
 
     render_pass_begin_info.framebuffer = framebuffers[image_index].get();
     cb.beginRenderPass(render_pass_begin_info,
@@ -378,4 +374,15 @@ mesh::mesh(device* dev, uint32_t vcount, size_t _vsize, uint32_t icount, std::fu
     upload_commands.end();
     dev->graphics_qu.submit({ vk::SubmitInfo{0,nullptr,nullptr,1,&upload_commands} }, nullptr);
     dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
+}
+
+void renderer::for_each_renderable(const std::function<void(entity_id, const mesh_component&, const transform&)>& f) {
+    auto transforms = cur_world->system<transform_system>();
+
+    for(auto meshi = this->begin_components(); meshi != this->end_components(); ++meshi) {
+        const auto& [id, mesh] = *meshi;
+        if(!transforms->has_data_for_entity(id)) continue;
+        const auto& transform = transforms->get_data_for_entity(id);
+        f(id, mesh, transform);
+    }
 }

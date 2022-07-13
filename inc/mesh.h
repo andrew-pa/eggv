@@ -36,25 +36,12 @@ struct mesh_create_info {
     std::shared_ptr<material> mat;
 };
 
-struct mesh_trait : public trait {
+struct mesh_component {
     std::shared_ptr<mesh> m;
     std::shared_ptr<class geometry_set> geo_src;
     size_t mesh_index;
     std::shared_ptr<material> mat;
     aabb bounds;
-    mesh_trait(trait_factory* p, mesh_create_info* ci);
-    void append_transform(struct scene_object*, mat4& T, frame_state*) override {}
-    void build_gui(struct scene_object*, frame_state*) override;
-    json serialize() const override;
-    void collect_viewport_shapes(struct scene_object*, frame_state*, const mat4& T, bool selected, std::vector<viewport_shape>& shapes) override;
-};
 
-struct mesh_trait_factory : public trait_factory {
-    trait_id id() const override { return TRAIT_ID_MESH; }
-    std::string name() const override { return "Mesh"; }
-    void deserialize(class scene*, struct scene_object* obj, json data) override;
-    void add_to(scene_object* obj, void* ci) override {
-        obj->traits[id()] = std::make_unique<mesh_trait>(this,
-                ((mesh_create_info*)ci));
-    }
+    mesh_component(std::shared_ptr<class geometry_set> geo_src, size_t mesh_index, std::shared_ptr<material> mat);
 };

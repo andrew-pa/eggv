@@ -38,7 +38,7 @@ const size_t GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ = 3;
 class directional_light_shadowmap_render_node_prototype : public render_node_prototype {
     // std::unique_ptr<buffer> light_viewproj_buffer;
     mat4* mapped_light_viewprojs;
-    std::map<size_t, std::shared_ptr<scene_object>> pass_to_light_map;
+    std::map<size_t, entity_id> pass_to_light_map;
 public:
     float scene_radius;
 
