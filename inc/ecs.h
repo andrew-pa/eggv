@@ -25,7 +25,8 @@ public:
     virtual void update(const frame_state& fs, class world* w) {}
     virtual void remove_entity(entity_id id) = 0;
 
-    virtual void build_gui(const frame_state& fs, entity_id selected_entity) = 0;
+    virtual void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {}
+    virtual void build_gui(const frame_state& fs) {}
 
     virtual ~abstract_entity_system() = default;
 };

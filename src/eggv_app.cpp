@@ -297,7 +297,7 @@ void eggv_app::build_gui(frame_state* fs) {
     if(fs->gui_open_windows->at("ImGui Demo")) ImGui::ShowDemoWindow(&fs->gui_open_windows->at("ImGui Demo"));
     if(fs->gui_open_windows->at("ImGui Metrics")) ImGui::ShowMetricsWindow(&fs->gui_open_windows->at("ImGui Metrics"));
     w->build_gui(*fs);
-    r.build_gui(fs);
+    r.build_gui(*fs);
     current_scene->build_gui(fs);
     build_physics_world_gui(fs, &fs->gui_open_windows->at("Physics World"), phys_world);
     script_repl_window->build_gui(script_runtime.get(), &fs->gui_open_windows->at("Script Console"));
@@ -307,7 +307,7 @@ void eggv_app::update(float t, float dt) {
     frame_state fs(t, dt, current_scene, &gui_open_windows);
     current_scene->update(&fs, this);
     w->update(fs);
-    r.update(&fs);
+    r.update(fs, w.get());
 
     physics_sim_time += dt;
     while (physics_sim_time > physics_fixed_time_step) {
@@ -387,7 +387,7 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
     cb->begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
     frame_state fs(t, dt, current_scene, &gui_open_windows);
-    r.render(cb.get(), image_index, &fs);
+    r.render(cb.get(), image_index, fs, this->w.get());
 
     if(gui_visible) {
         cb->beginRenderPass(

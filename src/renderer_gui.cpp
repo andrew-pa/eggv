@@ -214,7 +214,7 @@ void renderer::build_gui_textures(const frame_state& fs) {
     }
 }
 
-void renderer::build_gui(const frame_state& fs, entity_id selected_entity) {
+void renderer::build_gui(const frame_state& fs) {
     if(!fs.gui_open_windows->at("Renderer")) return;
     if (!ImGui::Begin("Renderer", &fs.gui_open_windows->at("Renderer"), ImGuiWindowFlags_MenuBar)) { ImGui::End(); return; }
 
@@ -239,4 +239,46 @@ void renderer::build_gui(const frame_state& fs, entity_id selected_entity) {
         ImGui::EndTabBar();
     }
     ImGui::End();
+}
+
+#include "geometry_set.h"
+void renderer::build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {
+    auto i_m = this->entity_data.find(selected_entity);
+    if(i_m != this->entity_data.end()) {
+        auto& mesh_comp = i_m->second;
+        auto m = mesh_comp.m;
+        if(m) ImGui::Text("%u vertices, %u indices", m->vertex_count, m->index_count);
+        bool reload_mesh = false;
+        if (ImGui::BeginCombo("Geometry set", mesh_comp.geo_src->path.c_str())) {
+            for (const auto& gs : fs.current_scene->geometry_sets) {
+                if (ImGui::Selectable(gs->path.c_str(), gs == mesh_comp.geo_src)) {
+                    mesh_comp.geo_src = gs;
+                    reload_mesh = true;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        if (ImGui::BeginCombo("Mesh name", mesh_comp.geo_src->mesh_name(mesh_comp.mesh_index))) {
+            for (size_t i = 0; i < mesh_comp.geo_src->num_meshes(); ++i) {
+                if (ImGui::Selectable(mesh_comp.geo_src->mesh_name(i), i == mesh_comp.mesh_index)) {
+                    mesh_comp.mesh_index = i;
+                    reload_mesh = true;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        if(ImGui::BeginCombo("Material", mesh_comp.mat == nullptr ?
+                    "<no material selected>" : mesh_comp.mat->name.c_str()))
+        {
+            for(const auto& m : fs.current_scene->materials) {
+                if(ImGui::Selectable(m->name.c_str(), m == mesh_comp.mat))
+                    mesh_comp.mat = m;
+            }
+            ImGui::EndCombo();
+        }
+
+        if(reload_mesh) {
+            m = mesh_comp.geo_src->load_mesh(mesh_comp.mesh_index);
+        }
+    }
 }

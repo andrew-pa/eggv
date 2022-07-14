@@ -240,7 +240,8 @@ public: //TODO: a lot of this stuff should be private
     renderer();
     void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
-    void build_gui(const frame_state& fs, entity_id selected_entity) override;
+    void build_gui(const frame_state& fs) override;
+    void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
     void update(const frame_state& fs, world* w) override;
     void render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs, world* w);
     ~renderer() override;

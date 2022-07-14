@@ -22,7 +22,7 @@ void transform_system::update(const frame_state& fs, world* w) {
     this->update_world_transforms(w->root(), mat4(1));
 }
 
-void transform_system::build_gui(const frame_state& fs, entity_id selected_entity) {
+void transform_system::build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {
     auto d = this->entity_data.find(selected_entity);
     if(d != this->entity_data.end()) {
         auto& comp = d->second;
@@ -33,7 +33,7 @@ void transform_system::build_gui(const frame_state& fs, entity_id selected_entit
     }
 }
 
-void light_system::build_gui(const frame_state& fs, entity_id selected_entity) {
+void light_system::build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {
     auto d = this->entity_data.find(selected_entity);
     if(d != this->entity_data.end()) {
         auto& comp = d->second;
@@ -49,7 +49,7 @@ void light_system::build_gui(const frame_state& fs, entity_id selected_entity) {
     }
 }
 
-void camera_system::build_gui(const frame_state& fs, entity_id selected_entity) {
+void camera_system::build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {
     auto d = this->entity_data.find(selected_entity);
     if(d != this->entity_data.end()) {
         auto& comp = d->second;

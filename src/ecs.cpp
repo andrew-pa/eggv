@@ -46,8 +46,12 @@ void world::build_gui(const frame_state& fs) {
         auto sel = entity(selected_entity);
         ImGui::Text("%s", sel.name().data());
         for(const auto& [_, sys] : systems) {
-            sys->build_gui(fs, selected_entity);
+            sys->build_gui_for_entity(fs, selected_entity);
         }
         ImGui::End();
+    }
+
+    for(const auto& sys : this->systems) {
+        sys.second->build_gui(fs);
     }
 }

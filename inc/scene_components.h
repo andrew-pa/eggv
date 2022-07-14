@@ -20,7 +20,7 @@ public:
     static const system_id id = (system_id)static_systems::transform;
 
     void update(const frame_state& fs, world* w) override;
-    void build_gui(const frame_state& fs, entity_id selected_entity) override;
+    void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
 };
 
 struct light {
@@ -33,7 +33,7 @@ class light_system : public entity_system<light> {
 public:
     static const system_id id = (system_id)static_systems::light;
 
-    void build_gui(const frame_state& fs, entity_id selected_entity) override;
+    void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
 };
 
 struct camera {
@@ -46,5 +46,5 @@ public:
 
     std::optional<entity_id> active_camera;
 
-    void build_gui(const frame_state& fs, entity_id selected_entity) override;
+    void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
 };
