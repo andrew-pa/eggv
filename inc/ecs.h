@@ -36,78 +36,116 @@ class abstract_entity_system {
 };
 
 struct unordered_map_storage {
-    template<typename T> using type = std::unordered_map<entity_id, T>;
+    template<typename T>
+    using type = std::unordered_map<entity_id, T>;
 
-    template<typename T> static void emplace(type<T>& self, entity_id id, T data) {
+    template<typename T>
+    static void emplace(type<T>& self, entity_id id, T data) {
         self.emplace(id, data);
     }
 
-    template<typename T> static void remove(type<T>& self, entity_id id) { self.erase(id); }
+    template<typename T>
+    static void remove(type<T>& self, entity_id id) {
+        self.erase(id);
+    }
 
-    template<typename T> static bool contains(type<T>& self, entity_id id) {
+    template<typename T>
+    static bool contains(type<T>& self, entity_id id) {
         return self.contains(id);
     }
 
-    template<typename T> static T& get(type<T>& self, entity_id id) {
+    template<typename T>
+    static T& get(type<T>& self, entity_id id) {
         auto i = self.find(id);
         if(i == self.end()) throw "not found";
         return i->second;
     }
 
-    template<typename T> static const T& get(const type<T>& self, entity_id id) {
+    template<typename T>
+    static const T& get(const type<T>& self, entity_id id) {
         auto i = self.find(id);
         if(i == self.end()) throw "not found";
         return i->second;
     }
 
-    template<typename T> static auto begin(const type<T>& self) { return self.begin(); }
+    template<typename T>
+    static auto begin(const type<T>& self) {
+        return self.begin();
+    }
 
-    template<typename T> static auto end(const type<T>& self) { return self.end(); }
+    template<typename T>
+    static auto end(const type<T>& self) {
+        return self.end();
+    }
 
-    template<typename T> static auto begin(type<T>& self) { return self.begin(); }
+    template<typename T>
+    static auto begin(type<T>& self) {
+        return self.begin();
+    }
 
-    template<typename T> static auto end(type<T>& self) { return self.end(); }
+    template<typename T>
+    static auto end(type<T>& self) {
+        return self.end();
+    }
 };
 
 struct assoc_vector_storage {
-    template<typename T> using type = std::vector<std::pair<entity_id, T>>;
+    template<typename T>
+    using type = std::vector<std::pair<entity_id, T>>;
 
-    template<typename T> static void emplace(type<T>& self, entity_id id, T data) {
+    template<typename T>
+    static void emplace(type<T>& self, entity_id id, T data) {
         self.emplace_back(id, data);
     }
 
-    template<typename T> static void remove(type<T>& self, entity_id id) {
+    template<typename T>
+    static void remove(type<T>& self, entity_id id) {
         auto i
             = std::find_if(self.begin(), self.end(), [id](const auto& p) { return p.first == id; });
         self.remove(i);
     }
 
-    template<typename T> static bool contains(type<T>& self, entity_id id) {
+    template<typename T>
+    static bool contains(type<T>& self, entity_id id) {
         auto i
             = std::find_if(self.begin(), self.end(), [id](const auto& p) { return p.first == id; });
         return i != self.end();
     }
 
-    template<typename T> static T& get(type<T>& self, entity_id id) {
+    template<typename T>
+    static T& get(type<T>& self, entity_id id) {
         return std::any_of(
             self.begin(), self.end(), [id](const auto& p) { return p.first == id; }
         );
     }
 
-    template<typename T> static const T& get(const type<T>& self, entity_id id) {
+    template<typename T>
+    static const T& get(const type<T>& self, entity_id id) {
         auto i
             = std::find_if(self.begin(), self.end(), [id](const auto& p) { return p.first == id; });
         if(i == self.end()) throw "not found";
         return i->second;
     }
 
-    template<typename T> static auto begin(const type<T>& self) { return self.begin(); }
+    template<typename T>
+    static auto begin(const type<T>& self) {
+        return self.begin();
+    }
 
-    template<typename T> static auto end(const type<T>& self) { return self.end(); }
+    template<typename T>
+    static auto end(const type<T>& self) {
+        return self.end();
+    }
 
-    template<typename T> static auto begin(type<T>& self) { return self.begin(); }
+    template<typename T>
+    static auto begin(type<T>& self) {
+        return self.begin();
+    }
 
-    template<typename T> static auto end(type<T>& self) { return self.end(); }
+    template<typename T>
+    static auto end(type<T>& self) {
+        return self.end();
+    }
 };
 
 template<typename Component, typename Storage = unordered_map_storage>
@@ -181,7 +219,8 @@ class world {
             return *this;
         }
 
-        template<typename System> bool has_component(system_id id = (system_id)System::id) const {
+        template<typename System>
+        bool has_component(system_id id = (system_id)System::id) const {
             auto* system = w->system<System>(id);
             return system->has_data_for_entity(_node->entity);
         }
@@ -216,7 +255,8 @@ class world {
 
         bool has_children() const { return !_node->children.empty(); }
 
-        template<typename F> void for_each_child(F fn) const {
+        template<typename F>
+        void for_each_child(F fn) const {
             for(const auto& c : _node->children)
                 fn(entity_handle{w, c});
         }
@@ -237,7 +277,8 @@ class world {
         systems.emplace(id, sys);
     }
 
-    template<typename System> std::shared_ptr<System> system(system_id id = (system_id)System::id) {
+    template<typename System>
+    std::shared_ptr<System> system(system_id id = (system_id)System::id) {
         return std::dynamic_pointer_cast<System>(systems.at(id));
     }
 

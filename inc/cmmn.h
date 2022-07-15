@@ -37,7 +37,8 @@ using json = nlohmann::json;
 #undef min
 #undef max
 
-template<typename T, typename E> class result {
+template<typename T, typename E>
+class result {
     uint8_t type;
 
     union {
@@ -64,14 +65,16 @@ template<typename T, typename E> class result {
 
     inline E err() { return e; }
 
-    template<typename U> inline result<U, E> map(std::function<U(T)> f) {
+    template<typename U>
+    inline result<U, E> map(std::function<U(T)> f) {
         if(type)
             return result<U, E>(e);
         else
             return result<U, E>(f(t));
     }
 
-    template<typename G> inline result<T, G> map_err(std::function<G(E)> f) {
+    template<typename G>
+    inline result<T, G> map_err(std::function<G(E)> f) {
         if(!type)
             return result<T, G>(t);
         else

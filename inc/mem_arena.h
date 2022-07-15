@@ -1,6 +1,7 @@
 #include "cmmn.h"
 
-template<typename T> class arena {
+template<typename T>
+class arena {
     size_t          next_item, items_per_block;
     T*              current_block;
     std::vector<T*> used_blocks;
