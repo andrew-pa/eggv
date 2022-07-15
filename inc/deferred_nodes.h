@@ -6,14 +6,33 @@ struct gbuffer_geom_render_node_prototype : public single_pipeline_render_node_p
     size_t id() const override { return 0x00010000; }
     const char* name() const override { return "Geometry Buffer"; };
 
-    void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
-            std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) override; 
-    void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes,
-            arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
-    void generate_pipelines(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override;
-    void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) override;
+    void collect_descriptor_layouts(
+            render_node* node,
+            std::vector<vk::DescriptorPoolSize>& pool_sizes,
+            std::vector<vk::DescriptorSetLayout>& layouts,
+            std::vector<vk::UniqueDescriptorSet*>& outputs) override;
 
-    void build_gui(class renderer*, struct render_node* node) override;
+    void update_descriptor_sets(
+            renderer* r,
+            render_node* node,
+            std::vector<vk::WriteDescriptorSet>& writes,
+            arena<vk::DescriptorBufferInfo>& buf_infos,
+            arena<vk::DescriptorImageInfo>& img_infos) override;
+
+    void generate_pipelines(
+            renderer* r,
+            render_node* node,
+            vk::RenderPass render_pass,
+            uint32_t subpass) override;
+
+    void generate_command_buffer_inline(
+            renderer* r,
+            render_node* node,
+            vk::CommandBuffer& cb,
+            size_t subpass_index,
+            const frame_state& fs) override;
+
+    void build_gui(renderer* r, render_node* node) override;
 };
 
 class directional_light_render_node_prototype : public single_pipeline_render_node_prototype {
@@ -23,15 +42,30 @@ public:
     size_t id() const override { return 0x00010001; }
     const char* name() const override { return "Directional Light"; };
 
-    void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
-            std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) override; 
-    void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes,
-            arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
-    void generate_pipelines(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override;
-    void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) override;
+    void collect_descriptor_layouts(
+            render_node* node,
+            std::vector<vk::DescriptorPoolSize>& pool_sizes,
+            std::vector<vk::DescriptorSetLayout>& layouts,
+            std::vector<vk::UniqueDescriptorSet*>& outputs) override;
+    void update_descriptor_sets(
+            renderer* r,
+            render_node* node,
+            std::vector<vk::WriteDescriptorSet>& writes,
+            arena<vk::DescriptorBufferInfo>& buf_infos,
+            arena<vk::DescriptorImageInfo>& img_infos) override;
+    void generate_pipelines(
+            renderer* r,
+            render_node* node,
+            vk::RenderPass render_pass,
+            uint32_t subpass) override;
+    void generate_command_buffer_inline(
+            renderer* r,
+            render_node* node,
+            vk::CommandBuffer& cb,
+            size_t subpass_index,
+            const frame_state& fs) override;
 
-    void build_gui(class renderer*, struct render_node* node) override;
-    
+    void build_gui(renderer* r, struct render_node* node) override;
 };
 
 const size_t GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ = 3;
@@ -47,17 +81,36 @@ public:
     const char* name() const override { return "Directional Light Shadowmap"; };
 
     std::unique_ptr<render_node_data> initialize_node_data() override;
-    void collect_descriptor_layouts(struct render_node* /*unused*/, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
-            std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) override; 
-    void update_descriptor_sets(class renderer* /*unused*/, struct render_node* /*unused*/, std::vector<vk::WriteDescriptorSet>& writes,
-            arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
-    void generate_pipelines(class renderer* r, struct render_node* n, vk::RenderPass render_pass, uint32_t subpass) override;
-    void generate_command_buffer_inline(class renderer* r, struct render_node* n, vk::CommandBuffer& cb, size_t subpass_index) override;
+
+    void collect_descriptor_layouts(
+            render_node* node,
+            std::vector<vk::DescriptorPoolSize>& pool_sizes,
+            std::vector<vk::DescriptorSetLayout>& layouts,
+            std::vector<vk::UniqueDescriptorSet*>& outputs) override;
+
+    void update_descriptor_sets(
+            renderer* r,
+            render_node* node,
+            std::vector<vk::WriteDescriptorSet>& writes,
+            arena<vk::DescriptorBufferInfo>& buf_infos,
+            arena<vk::DescriptorImageInfo>& img_infos) override;
+
+    void generate_pipelines(
+            renderer* r,
+            render_node* n,
+            vk::RenderPass render_pass,
+            uint32_t subpass) override;
+    void generate_command_buffer_inline(
+            renderer* r,
+            render_node* n,
+            vk::CommandBuffer& cb,
+            size_t subpass_index,
+            const frame_state& fs) override;
 
     size_t subpass_repeat_count(class renderer* r, struct render_node* n) override;
 
     void build_gui(class renderer* r, struct render_node* node) override;
-    std::unique_ptr<render_node_data> deserialize_node_data(json data) override;
+    std::unique_ptr<render_node_data> deserialize_node_data(const json& data) override;
 };
 
 struct point_light_render_node_prototype : public single_pipeline_render_node_prototype {
@@ -67,12 +120,28 @@ struct point_light_render_node_prototype : public single_pipeline_render_node_pr
     size_t id() const override { return 0x00010002; }
     const char* name() const override { return "Point Light"; };
 
-    void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
-            std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) override; 
-    void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes,
-            arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override;
-    void generate_pipelines(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) override;
-    void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) override;
+    void collect_descriptor_layouts(
+            render_node* node,
+            std::vector<vk::DescriptorPoolSize>& pool_sizes,
+            std::vector<vk::DescriptorSetLayout>& layouts,
+            std::vector<vk::UniqueDescriptorSet*>& outputs) override;
+    void update_descriptor_sets(
+            renderer* r,
+            render_node* node,
+            std::vector<vk::WriteDescriptorSet>& writes,
+            arena<vk::DescriptorBufferInfo>& buf_infos,
+            arena<vk::DescriptorImageInfo>& img_infos) override;
+    void generate_pipelines(
+            renderer* r,
+            render_node* node,
+            vk::RenderPass render_pass,
+            uint32_t subpass) override;
+    void generate_command_buffer_inline(
+            renderer* r,
+            render_node* node,
+            vk::CommandBuffer& cb,
+            size_t subpass_index,
+            const frame_state& fs) override;
 
-    void build_gui(class renderer*, struct render_node* node) override;
+    void build_gui(renderer* r, render_node* node) override;
 };

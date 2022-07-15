@@ -136,7 +136,8 @@ void debug_shape_render_node_prototype::generate_pipelines(renderer* r, render_n
     ((node_data*)node->data.get())->pipeline = r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);
 }
 
-void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
+void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index, const frame_state& fs) {
+
     node_data* data = ((node_data*)node->data.get());
     vec3 global_scale = vec3(data->global_scale);
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, data->pipeline.get());
@@ -144,14 +145,16 @@ void debug_shape_render_node_prototype::generate_command_buffer_inline(renderer*
             0, { node->desc_set.get() }, {});
     cb.bindVertexBuffers(0, {frame_axis_mesh.vertex_buffer->buf}, {0});
     cb.bindIndexBuffer(frame_axis_mesh.index_buffer->buf, 0, vk::IndexType::eUint16);
-    for(const auto& shape: r->active_shapes) {
-        cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { scale(shape.T, global_scale) });
-        cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4), {shape.color});
-        if(shape.type == viewport_shape_type::box) {
-            cb.drawIndexed(24, 1, 0, 0, 0);
-        } else if(shape.type == viewport_shape_type::axis) {
-            cb.drawIndexed(6, 1, 24, 8, 0);
-        }
+    for(const auto& [_, sys]: *r->cur_world) {
+        sys->generate_viewport_shapes(r->cur_world, [&](auto shape) {
+            cb.pushConstants<mat4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eVertex, 0, { scale(shape.T, global_scale) });
+            cb.pushConstants<vec4>(this->pipeline_layout.get(), vk::ShaderStageFlagBits::eFragment, sizeof(mat4), {shape.color});
+            if(shape.type == viewport_shape_type::box) {
+                cb.drawIndexed(24, 1, 0, 0, 0);
+            } else if(shape.type == viewport_shape_type::axis) {
+                cb.drawIndexed(6, 1, 24, 8, 0);
+            }
+        }, fs);
     }
 }
 
@@ -161,7 +164,7 @@ void debug_shape_render_node_prototype::build_gui(class renderer* r, struct rend
     ImGui::DragFloat("Scale", global_scale, 0.01f, 0.f, 1000.f, "%.1f");
 }
 
-std::unique_ptr<render_node_data> debug_shape_render_node_prototype::deserialize_node_data(json data) {
+std::unique_ptr<render_node_data> debug_shape_render_node_prototype::deserialize_node_data(const json& data) {
     if(data == nullptr) return initialize_node_data();
     return std::make_unique<node_data>(data["scale"]);
 }

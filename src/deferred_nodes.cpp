@@ -114,7 +114,7 @@ void gbuffer_geom_render_node_prototype::generate_pipelines(renderer* r, render_
     this->create_pipeline(r, node, cfo);
 }
 
-void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
+void gbuffer_geom_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index, const frame_state& fs) {
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});
@@ -267,7 +267,7 @@ void directional_light_render_node_prototype::generate_pipelines(renderer* r, re
     }
 }
 
-void directional_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
+void directional_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index, const frame_state& fs) {
     /*if(node->input_framebuffer(2).has_value()) {
         cb.pipelineBarrier(vk::PipelineStageFlagBits::eLateFragmentTests, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlagBits::eByRegion, {}, {}, {
                 vk::ImageMemoryBarrier(
@@ -361,7 +361,7 @@ std::unique_ptr<render_node_data> directional_light_shadowmap_render_node_protot
     return std::make_unique<dir_light_shadowmap_node_data>(&this->scene_radius);
 }
 
-std::unique_ptr<render_node_data> directional_light_shadowmap_render_node_prototype::deserialize_node_data(json data) {
+std::unique_ptr<render_node_data> directional_light_shadowmap_render_node_prototype::deserialize_node_data(const json& data) {
     if(data.contains("scene_radius")) {
         this->scene_radius = data["scene_radius"];
     }
@@ -482,7 +482,7 @@ void directional_light_shadowmap_render_node_prototype::generate_pipelines(rende
     }
 }
 
-void directional_light_shadowmap_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
+void directional_light_shadowmap_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index, const frame_state& fs) {
 
     /*auto lt = current_light->traits.find(TRAIT_ID_LIGHT);
     if(lt != current_light->traits.end()) {
@@ -647,7 +647,7 @@ float light_radius(const light& light) {
     return sqrt(-5.f + 256.f * i) / sqrt(5.f * light.param.x);
 }
 
-void point_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index) {
+void point_light_render_node_prototype::generate_command_buffer_inline(renderer* r, struct render_node* node, vk::CommandBuffer& cb, size_t subpass_index, const frame_state& fs) {
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline(node));
     cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
             0, { node->desc_set.get() }, {});

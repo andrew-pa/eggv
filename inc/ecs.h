@@ -27,6 +27,9 @@ public:
 
     virtual void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {}
     virtual void build_gui(const frame_state& fs) {}
+    virtual void generate_viewport_shapes(class world* w,
+            const std::function<void(viewport_shape)>& add_shape,
+            const frame_state& fs) { }
 
     virtual ~abstract_entity_system() = default;
 };
@@ -282,6 +285,14 @@ public:
     template<typename System>
     std::shared_ptr<System> system(system_id id = (system_id)System::id) {
         return std::dynamic_pointer_cast<System>(systems.at(id));
+    }
+
+    auto begin() {
+        return systems.begin();
+    }
+
+    auto end() {
+        return systems.end();
     }
 
     entity_handle create_entity(const std::string& name = "") {

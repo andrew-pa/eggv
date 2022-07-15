@@ -34,6 +34,10 @@ public:
     static const system_id id = (system_id)static_systems::light;
 
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
+
+    void generate_viewport_shapes(world* w,
+            const std::function<void(viewport_shape)>& add_shape,
+            const frame_state& fs) override;
 };
 
 struct camera {
@@ -47,4 +51,8 @@ public:
     std::optional<entity_id> active_camera;
 
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
+
+    void generate_viewport_shapes(world* w,
+            const std::function<void(viewport_shape)>& add_shape,
+            const frame_state& fs) override;
 };

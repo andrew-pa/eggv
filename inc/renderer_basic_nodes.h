@@ -37,19 +37,19 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
     size_t id() const override { return 0x0000fffd; }
     const char* name() const override { return "Simple Geometry"; }
 
-    virtual void collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
+    void collect_descriptor_layouts(render_node* node, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
             std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) override
     {
-        pool_sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1));
+        pool_sizes.emplace_back(vk::DescriptorType::eUniformBuffer, 1);
         layouts.push_back(desc_layout.get());
         outputs.push_back(&node->desc_set);
     }
 
-    virtual void update_descriptor_sets(class renderer* r, struct render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override 
+    void update_descriptor_sets(class renderer* r, struct render_node* node, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) override 
     {
-        auto b = buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_FRAME_UNIFORMS]->buf, 0, sizeof(frame_uniforms)));
-        writes.push_back(vk::WriteDescriptorSet(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer,
-                    nullptr, b));
+        auto *b = buf_infos.alloc(vk::DescriptorBufferInfo(r->global_buffers[GLOBAL_BUF_FRAME_UNIFORMS]->buf, 0, sizeof(frame_uniforms)));
+        writes.emplace_back(node->desc_set.get(), 0, 0, 1, vk::DescriptorType::eUniformBuffer,
+                    nullptr, b);
     }
 
     void generate_pipelines(renderer* r, render_node* node, vk::RenderPass render_pass, uint32_t subpass) override {
@@ -117,7 +117,7 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
         this->create_pipeline(r, node, cfo);
     }
 
-    void generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index) override {
+    void generate_command_buffer_inline(renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index, const frame_state& fs) override {
         cb.bindPipeline(vk::PipelineBindPoint::eGraphics, this->pipeline(node));
         cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, this->pipeline_layout.get(),
                 0, { node->desc_set.get() }, {});

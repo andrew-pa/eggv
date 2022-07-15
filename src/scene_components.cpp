@@ -49,8 +49,24 @@ void light_system::build_gui_for_entity(const frame_state& fs, entity_id selecte
     }
 }
 
+void light_system::generate_viewport_shapes(world* world, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs) {
+    auto transforms = world->system<transform_system>();
+    for(const auto& [id, li] : this->entity_data) {
+        if(li.type == light_type::point) {
+            auto trf = transforms->get_data_for_entity(id);
+            add_shape(
+                viewport_shape{
+                    viewport_shape_type::axis,
+                    li.color,
+                    scale(trf.world, vec3(0.25f))
+                }
+            );
+        }
+    }
+}
+
 void camera_system::build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {
-    auto d = this->entity_data.find(selected_entity);
+    auto d = this->entity_data.find(fs.selected_entity);
     if(d != this->entity_data.end()) {
         auto& comp = d->second;
         ImGui::DragFloat("Field of View", &comp.fov, 0.1f, pi<float>()/8.f, pi<float>());
@@ -59,5 +75,19 @@ void camera_system::build_gui_for_entity(const frame_state& fs, entity_id select
                 this->active_camera = selected_entity;
             }
         }
+    }
+}
+
+void camera_system::generate_viewport_shapes(world* world, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs) {
+    auto transforms = world->system<transform_system>();
+    for(const auto& [id, _] : this->entity_data) {
+        auto trf = transforms->get_data_for_entity(id);
+        add_shape(
+            viewport_shape{
+                viewport_shape_type::axis,
+                vec3(1.f),
+                scale(trf.world, vec3(0.4f, 0.4f, 1.f))
+            }
+        );
     }
 }

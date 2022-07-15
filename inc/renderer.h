@@ -69,17 +69,40 @@ struct render_node_prototype {
 
     virtual size_t subpass_repeat_count(class renderer* r, struct render_node* node) { return 1; }
 
-    virtual void collect_descriptor_layouts(struct render_node*, std::vector<vk::DescriptorPoolSize>& pool_sizes, 
-            std::vector<vk::DescriptorSetLayout>& layouts, std::vector<vk::UniqueDescriptorSet*>& outputs) {}
-    virtual void update_descriptor_sets(class renderer*, struct render_node*, std::vector<vk::WriteDescriptorSet>& writes, arena<vk::DescriptorBufferInfo>& buf_infos, arena<vk::DescriptorImageInfo>& img_infos) {}
+    virtual void collect_descriptor_layouts(
+            struct render_node* node,
+            std::vector<vk::DescriptorPoolSize>& pool_sizes,
+            std::vector<vk::DescriptorSetLayout>& layouts,
+            std::vector<vk::UniqueDescriptorSet*>& outputs) {}
+    virtual void update_descriptor_sets(
+            class renderer* r,
+            struct render_node* node,
+            std::vector<vk::WriteDescriptorSet>& writes,
+            arena<vk::DescriptorBufferInfo>& buf_infos,
+            arena<vk::DescriptorImageInfo>& img_infos) {}
 
-    virtual void generate_pipelines(class renderer*, struct render_node*, vk::RenderPass render_pass, uint32_t subpass) {}
+    virtual void generate_pipelines(
+            class renderer* r,
+            struct render_node* node,
+            vk::RenderPass render_pass,
+            uint32_t subpass) {}
 
-    virtual void generate_command_buffer_inline(class renderer*, struct render_node*, vk::CommandBuffer&, size_t subpass_index) {}
-    virtual std::optional<std::vector<vk::UniqueCommandBuffer>> generate_command_buffer(class renderer*, struct render_node* node) { return {}; }
+    virtual void generate_command_buffer_inline(
+            class renderer* r,
+            struct render_node* node,
+            vk::CommandBuffer& cb,
+            size_t subpass_index,
+            const frame_state& fs) {}
+    virtual std::optional<std::vector<vk::UniqueCommandBuffer>> generate_command_buffer(
+            class renderer* r,
+            struct render_node* node
+    ) { return {}; }
 
-    virtual void build_gui(class renderer*, struct render_node* node) {}
-    virtual std::unique_ptr<render_node_data> deserialize_node_data(json data) { return initialize_node_data(); }
+    virtual void build_gui(class renderer* r, struct render_node* node) {}
+
+    virtual std::unique_ptr<render_node_data> deserialize_node_data(const json& data) {
+        return initialize_node_data();
+    }
     virtual std::unique_ptr<render_node_data> initialize_node_data() { return nullptr; }
 
     virtual const char* name() const { return "fail"; }
@@ -225,13 +248,13 @@ public: //TODO: a lot of this stuff should be private
 
     // the active objects that have been gathered out of the scene graph
     /*std::vector<std::tuple<struct mesh_trait*, mat4>> active_meshes;
-    std::vector<std::tuple<light_trait*, mat4>> active_lights;
-    std::vector<viewport_shape> active_shapes;*/
+    std::vector<std::tuple<light_trait*, mat4>> active_lights;*/
     std::shared_ptr<scene> current_scene;
     void traverse_scene_graph(scene_object*, frame_state*, const mat4& T);
 
+    // call `f` on each renderable entity ie every entity with a mesh and transform
+    // provided as a helper for render nodes
     void for_each_renderable(const std::function<void(entity_id, const mesh_component&, const transform&)>& f);
-
 
     // viewport settings
     vk::Viewport full_viewport; vk::Rect2D full_scissor;
@@ -245,6 +268,11 @@ public: //TODO: a lot of this stuff should be private
     void update(const frame_state& fs, world* w) override;
     void render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs, world* w);
     ~renderer() override;
+
+    // generate viewport shapes for meshes
+    void generate_viewport_shapes(world* w,
+            const std::function<void(viewport_shape)>& add_shape,
+            const frame_state& fs) override;
 };
 
 struct single_pipeline_render_node_prototype : public render_node_prototype {

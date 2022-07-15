@@ -328,7 +328,7 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, const frame_s
                 cb.executeCommands({subpass_order[i]->subpass_commands.value()[x].get()});
                 if(x+1 < subpass_order[i]->subpass_count) cb.nextSubpass(vk::SubpassContents::eSecondaryCommandBuffers);
             } else {
-                subpass_order[i]->prototype->generate_command_buffer_inline(this, subpass_order[i].get(), cb, x);
+                subpass_order[i]->prototype->generate_command_buffer_inline(this, subpass_order[i].get(), cb, x, fs);
                 if(x+1 < subpass_order[i]->subpass_count) cb.nextSubpass(vk::SubpassContents::eInline);
             }
         }
@@ -362,3 +362,21 @@ renderer::~renderer() {
 }
 
 
+void renderer::generate_viewport_shapes(world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs) {
+    assert(this->cur_world == w);
+    auto transforms = cur_world->system<transform_system>();
+    if(this->has_data_for_entity(fs.selected_entity)
+            && transforms->has_data_for_entity(fs.selected_entity))
+    {
+        auto msh = this->get_data_for_entity(fs.selected_entity);
+        auto trf = transforms->get_data_for_entity(fs.selected_entity);
+        add_shape(
+            viewport_shape{
+                viewport_shape_type::box,
+                vec3(1.f, 1.f, 0.f),
+                scale(translate(trf.world, msh.bounds.center()),
+                        msh.bounds.extents())
+            }
+        );
+    }
+}
