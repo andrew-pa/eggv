@@ -36,7 +36,7 @@ class eggv_app : public app {
     void init_gui();
     void init_script_runtime();
 
-    std::shared_ptr<scene>                      create_test_scene();
+    std::shared_ptr<bundle>                     create_test_scene();
     std::vector<std::shared_ptr<trait_factory>> collect_factories();
 
     void build_gui();
@@ -51,7 +51,7 @@ class eggv_app : public app {
 
   public:
     std::shared_ptr<emlisp::runtime> script_runtime;
-    std::shared_ptr<scene>           current_scene;
+    std::shared_ptr<bundle>          current_scene;
 
     eggv_app(const eggv_cmdline_args& args);
 

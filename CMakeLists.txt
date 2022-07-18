@@ -98,7 +98,7 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     inc/geometry_set.h src/geometry_set.cpp
     inc/ecs.h src/ecs.cpp
     inc/scene_components.h src/scene_components.cpp
-    inc/scene_graph.h src/scene_graph.cpp
+    inc/bundle.h src/bundle.cpp
     inc/eggv_app.h src/eggv_app.cpp
     inc/physics.h src/physics.cpp
     src/script_runtime.cpp

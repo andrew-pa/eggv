@@ -95,7 +95,7 @@ struct user_trait_factory : public trait_factory {
         obj->traits[id()] = std::make_unique<user_trait>(this, rt->handle_for(state));
     }
 
-    void deserialize(class scene* scene, struct scene_object* obj, json data) override {
+    void deserialize(class bundle* scene, struct scene_object* obj, json data) override {
         value state = rt->read(data["state"].get<std::string>());
         state = rt->apply(*mount_fn, rt->cons(rt->make_extern_reference(obj), rt->cons(state)));
         obj->traits[id()] = std::make_unique<user_trait>(this, rt->handle_for(state));

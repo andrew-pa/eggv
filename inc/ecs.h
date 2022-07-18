@@ -8,15 +8,14 @@ using system_id = size_t;
 
 enum class static_systems : system_id { transform, light, camera };
 
-#include "scene_graph.h"
+struct frame_state {
+    float                        t, dt;
+    std::map<std::string, bool>* gui_open_windows;
+    entity_id                    selected_entity;
 
-// struct frame_state {
-//     float t, dt;
-//     std::map<std::string, bool>* gui_open_windows;
-//
-//     frame_state(float t, float dt, std::map<std::string, bool>* gow)
-//         : t(t), dt(dt), gui_open_windows(gow) {}
-// };
+    frame_state(float t, float dt, std::map<std::string, bool>* gow)
+        : t(t), dt(dt), gui_open_windows(gow) {}
+};
 
 class abstract_entity_system {
   public:

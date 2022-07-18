@@ -1,7 +1,7 @@
-#include "scene_graph.h"
 #include "app.h"
 #include "geometry_set.h"
 #include "imgui.h"
+#include "scene_graph.h"
 #include <glm/gtx/polar_coordinates.hpp>
 
 static std::mt19937                 default_random_gen(std::random_device{}());
@@ -15,7 +15,7 @@ material::material(
 
 #include <filesystem>
 
-bundle::bundle(device* dev, std::filesystem::path path, json data)
+scene::scene(device* dev, std::filesystem::path path, json data)
     : selected_material(nullptr), materials_changed(true) {
     for(const auto& p : data["geometries"]) {
         auto pp = std::filesystem::path(p.get<std::string>());
@@ -68,7 +68,7 @@ void InputTextResizable(const char* label, std::optional<std::string>* str) {
     );
 }
 
-void bundle::build_gui(frame_state* fs) {
+void scene::build_gui(frame_state* fs) {
     if(fs->gui_open_windows->at("Geometry Sets")) {
         ImGui::Begin("Geometry Sets", &fs->gui_open_windows->at("Geometry Sets"));
         if(ImGui::BeginTable("##GeomSets", 2, ImGuiTableFlags_Resizable)) {

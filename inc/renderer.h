@@ -278,7 +278,7 @@ class renderer : public entity_system<mesh_component> {
                                      gui_node_attribs;
     std::vector<std::pair<int, int>> gui_links;
 
-    std::shared_ptr<scene> current_scene;
+    std::shared_ptr<bundle> current_scene;
 
     // call `f` on each renderable entity ie every entity with a mesh and transform
     // provided as a helper for render nodes

@@ -20,7 +20,7 @@ std::vector<std::shared_ptr<trait_factory>> eggv_app::collect_factories() {
         std::make_shared<rigid_body_trait_factory>(&phys_cmmn, phys_world)};
 }
 
-std::shared_ptr<scene> eggv_app::create_test_scene() {
+std::shared_ptr<bundle> eggv_app::create_test_scene() {
     auto s = std::make_shared<scene>(collect_factories(), std::make_shared<scene_object>("Root"));
     return s;
 }
