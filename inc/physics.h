@@ -1,4 +1,5 @@
 #pragma once
+/*
 #include "cmmn.h"
 #include "renderer.h"
 #include "scene_graph.h"
@@ -27,8 +28,8 @@ struct rigid_body_trait : public trait {
     void reset_body();
 };
 
-struct rigid_body_trait_factory : public trait_factory {
-    reactphysics3d::PhysicsCommon* phy;
+struct physics_system : public entity_system<reactphysics3d::RigidBody*> {
+    reactphysics3d::PhysicsCommon phy;
     reactphysics3d::PhysicsWorld*  world;
 
     trait_id id() const override { return TRAIT_ID_RIGID_BODY; }
@@ -84,3 +85,4 @@ struct physics_debug_shape_render_node_prototype : public render_node_prototype 
 };
 
 void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::PhysicsWorld* world);
+*/

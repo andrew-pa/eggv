@@ -161,7 +161,7 @@ class entity_system : public abstract_entity_system {
         Storage::template emplace<Component>(this->entity_data, id, data);
     }
 
-    void remove_entity(entity_id id) override {
+    virtual void remove_entity(entity_id id) {
         Storage::template remove<Component>(this->entity_data, id);
     }
 

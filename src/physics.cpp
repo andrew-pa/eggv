@@ -1,3 +1,4 @@
+/*
 #include "physics.h"
 #include "geometry_set.h"
 #include "imgui.h"
@@ -30,7 +31,7 @@ void rigid_body_trait::append_transform(scene_object* obj, mat4& T, frame_state*
 }
 
 void rigid_body_trait::postprocess_transform(scene_object*, const mat4& T, frame_state*) {
-    if(/*body->getType() == BodyType::STATIC ||*/ should_grab_initial_transform) {
+    if(/body->getType() == BodyType::STATIC ||/ should_grab_initial_transform) {
         Transform t = Transform::identity();
         t.setFromOpenGL((decimal*)&T[0][0]);
         body->setTransform(t);
@@ -487,12 +488,12 @@ void physics_debug_shape_render_node_prototype::generate_pipelines(
 ) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo{
-                                          {}, vk::ShaderStageFlagBits::eVertex, r->dev->load_shader("simple.vert.spv"), "main"},
-        vk::PipelineShaderStageCreateInfo{
+                                          {}, vk::ShaderStageFlagBits::eVertex,
+r->dev->load_shader("simple.vert.spv"), "main"}, vk::PipelineShaderStageCreateInfo{
                                           {},
                                           vk::ShaderStageFlagBits::eFragment,
                                           r->dev->load_shader("solid-color.frag.spv"),
-                                          "main"                                                                              }
+                                          "main" }
     };
 
     auto vertex_binding = vk::VertexInputBindingDescription{
@@ -639,3 +640,4 @@ void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(
         cb.draw(3 * dr.getNbTriangles(), 1, 0, 0);
     }
 }
+*/

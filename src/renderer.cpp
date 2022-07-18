@@ -151,46 +151,46 @@ void renderer::deserialize_render_graph(json data) {
     ImNodes::LoadCurrentEditorStateFromIniString(ui_state.c_str(), ui_state.size());
 }
 
-void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const mat4& parent_T) {
-    /*mat4 T = parent_T;
-    for(auto&[_, t] : obj->traits) {
-        t->append_transform(obj, T, fs);
-    }
-
-    if(show_shapes) {
-        for(auto&[_, t] : obj->traits) {
-            t->collect_viewport_shapes(obj, fs, T,
-                    obj == current_scene->selected_object.get(), this->active_shapes);
-        }
-    }
-
-    auto mt = obj->traits.find(TRAIT_ID_MESH);
-    if(mt != obj->traits.end()) {
-        auto* mmt = (mesh_trait*)mt->second.get();
-        if (mmt->m != nullptr)
-            active_meshes.emplace_back( mmt, T );
-    }
-
-    auto lt = obj->traits.find(TRAIT_ID_LIGHT);
-    if(lt != obj->traits.end()) {
-        auto* llt = (light_trait*)lt->second.get();
-        active_lights.emplace_back(llt, T);
-    }
-
-    if(obj == current_scene->active_camera.get()) {
-        auto* cam = (camera_trait*)obj->traits.find(TRAIT_ID_CAMERA)->second.get();
-        mapped_frame_uniforms->proj = glm::perspective(cam->fov,
-                (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f);
-        mapped_frame_uniforms->view = inverse(T);
-    }
-
-    for (auto& [_, t] : obj->traits) {
-        t->postprocess_transform(obj, T, fs);
-    }
-
-    for(const auto& c : obj->children)
-        traverse_scene_graph(c.get(), fs, T);*/
+// void renderer::traverse_scene_graph(scene_object* obj, frame_state* fs, const mat4& parent_T) {
+/*mat4 T = parent_T;
+for(auto&[_, t] : obj->traits) {
+    t->append_transform(obj, T, fs);
 }
+
+if(show_shapes) {
+    for(auto&[_, t] : obj->traits) {
+        t->collect_viewport_shapes(obj, fs, T,
+                obj == current_scene->selected_object.get(), this->active_shapes);
+    }
+}
+
+auto mt = obj->traits.find(TRAIT_ID_MESH);
+if(mt != obj->traits.end()) {
+    auto* mmt = (mesh_trait*)mt->second.get();
+    if (mmt->m != nullptr)
+        active_meshes.emplace_back( mmt, T );
+}
+
+auto lt = obj->traits.find(TRAIT_ID_LIGHT);
+if(lt != obj->traits.end()) {
+    auto* llt = (light_trait*)lt->second.get();
+    active_lights.emplace_back(llt, T);
+}
+
+if(obj == current_scene->active_camera.get()) {
+    auto* cam = (camera_trait*)obj->traits.find(TRAIT_ID_CAMERA)->second.get();
+    mapped_frame_uniforms->proj = glm::perspective(cam->fov,
+            (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f);
+    mapped_frame_uniforms->view = inverse(T);
+}
+
+for (auto& [_, t] : obj->traits) {
+    t->postprocess_transform(obj, T, fs);
+}
+
+for(const auto& c : obj->children)
+    traverse_scene_graph(c.get(), fs, T);*/
+//}
 
 #include "stb_image.h"
 

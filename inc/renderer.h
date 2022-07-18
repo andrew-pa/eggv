@@ -278,11 +278,7 @@ class renderer : public entity_system<mesh_component> {
                                      gui_node_attribs;
     std::vector<std::pair<int, int>> gui_links;
 
-    // the active objects that have been gathered out of the scene graph
-    /*std::vector<std::tuple<struct mesh_trait*, mat4>> active_meshes;
-    std::vector<std::tuple<light_trait*, mat4>> active_lights;*/
     std::shared_ptr<scene> current_scene;
-    void                   traverse_scene_graph(scene_object*, frame_state*, const mat4& T);
 
     // call `f` on each renderable entity ie every entity with a mesh and transform
     // provided as a helper for render nodes
