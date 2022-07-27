@@ -51,8 +51,8 @@ struct unordered_map_storage {
     }
 
     template<typename T>
-    static bool contains(type<T>& self, entity_id id) {
-        return self.contains(id);
+    static bool contains(const type<T>& self, entity_id id) {
+        return self.find(id) != self.end();
     }
 
     template<typename T>
@@ -107,7 +107,7 @@ struct assoc_vector_storage {
     }
 
     template<typename T>
-    static bool contains(type<T>& self, entity_id id) {
+    static bool contains(const type<T>& self, entity_id id) {
         auto i
             = std::find_if(self.begin(), self.end(), [id](const auto& p) { return p.first == id; });
         return i != self.end();

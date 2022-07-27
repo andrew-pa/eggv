@@ -2,7 +2,6 @@
 
 #include "cmmn.h"
 #include "renderer.h"
-#include "scene_graph.h"
 #include <reactphysics3d/reactphysics3d.h>
 
 /*struct rigid_body_trait : public trait {

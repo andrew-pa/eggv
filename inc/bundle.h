@@ -1,7 +1,9 @@
 #pragma once
+#include "app.h"
 #include "cmmn.h"
 #include "ecs.h"
 #include "uuid.h"
+#include <filesystem>
 
 struct material {
     uuids::uuid id;
@@ -21,7 +23,7 @@ struct material {
 
     json serialize() const;
 
-    bool build_gui(frame_state*);
+    bool build_gui(frame_state& fs);
 
     uint32            _render_index;
     vk::DescriptorSet desc_set;
@@ -34,8 +36,6 @@ struct material {
 // - render graphs
 // - scripts
 class bundle {
-    bool materials_changed;
-
   public:
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
     std::vector<std::shared_ptr<material>>           materials;
@@ -43,10 +43,12 @@ class bundle {
 
     bundle() : materials_changed(true), selected_material(nullptr) {}
 
-    bundle(class device* dev, const std::filesystem::path& path);
+    bundle(device* dev, const std::filesystem::path& path);
 
-    void update(frame_state* fs, class app*);
-    void build_gui(frame_state* fs);
+    void update(frame_state& fs, class app*);
+    void build_gui(frame_state& fs);
 
     json serialize() const;
+
+    bool materials_changed;
 };

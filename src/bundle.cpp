@@ -1,8 +1,9 @@
+#include "bundle.h"
 #include "app.h"
 #include "geometry_set.h"
 #include "imgui.h"
-#include "scene_graph.h"
 #include <glm/gtx/polar_coordinates.hpp>
+#include <utility>
 
 static std::mt19937                 default_random_gen(std::random_device{}());
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
@@ -10,16 +11,19 @@ static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(defa
 material::material(
     std::string name, vec3 base_color, std::optional<std::string> diffuse_texpath, uuids::uuid id
 )
-    : id(id.is_nil() ? uuid_gen() : id), name(name), base_color(base_color),
-      diffuse_texpath(diffuse_texpath) {}
-
-#include <filesystem>
+    : id(id.is_nil() ? uuid_gen() : id), name(std::move(name)), base_color(base_color),
+      diffuse_texpath(std::move(diffuse_texpath)) {}
 
 bundle::bundle(device* dev, const std::filesystem::path& path)
     : selected_material(nullptr), materials_changed(true) {
     for(const auto& geo_src_path : std::filesystem::directory_iterator{path / "geometry"})
         geometry_sets.push_back(std::make_shared<geometry_set>(dev, geo_src_path));
-    for(const auto& [id, m] : data["materials"].items())
+
+    std::ifstream input(path / "materials.json");
+    json          raw_materials;
+    input >> raw_materials;
+
+    for(const auto& [id, m] : raw_materials.items())
         materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));
 }
 
@@ -33,7 +37,7 @@ void InputTextResizable(const char* label, std::string* str) {
         ImGuiInputTextFlags_CallbackResize,
         (ImGuiInputTextCallback)([](ImGuiInputTextCallbackData* data) {
             if(data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
-                std::string* str = (std::string*)data->UserData;
+                auto* str = (std::string*)data->UserData;
                 str->resize(data->BufTextLen);
                 data->Buf = (char*)str->c_str();
             }
@@ -51,7 +55,7 @@ void InputTextResizable(const char* label, std::optional<std::string>* str) {
         ImGuiInputTextFlags_CallbackResize,
         (ImGuiInputTextCallback)([](ImGuiInputTextCallbackData* data) {
             if(data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
-                std::optional<std::string>* str = (std::optional<std::string>*)data->UserData;
+                auto* str = (std::optional<std::string>*)data->UserData;
                 if(str->has_value()) {
                     str->value().resize(data->BufTextLen);
                     data->Buf = (char*)str->value().c_str();
@@ -65,9 +69,9 @@ void InputTextResizable(const char* label, std::optional<std::string>* str) {
     );
 }
 
-void bundle::build_gui(frame_state* fs) {
-    if(fs->gui_open_windows->at("Geometry Sets")) {
-        ImGui::Begin("Geometry Sets", &fs->gui_open_windows->at("Geometry Sets"));
+void bundle::build_gui(frame_state& fs) {
+    if(fs.gui_open_windows.at("Geometry Sets")) {
+        ImGui::Begin("Geometry Sets", &fs.gui_open_windows.at("Geometry Sets"));
         if(ImGui::BeginTable("##GeomSets", 2, ImGuiTableFlags_Resizable)) {
             ImGui::TableSetupColumn("Path");
             ImGui::TableSetupColumn("Meshes");
@@ -78,7 +82,9 @@ void bundle::build_gui(frame_state* fs) {
                 ImGui::Text("%s", gs->path.c_str());
                 ImGui::TableNextColumn();
                 if(ImGui::BeginTable(
-                       (std::string("##MeshInfo") + gs->path).c_str(), 5, ImGuiTableFlags_Resizable
+                       (std::string("##MeshInfo") + gs->path.c_str()).c_str(),
+                       5,
+                       ImGuiTableFlags_Resizable
                    )) {
                     ImGui::TableSetupColumn("Name");
                     ImGui::TableSetupColumn("# Vertices");
@@ -109,8 +115,8 @@ void bundle::build_gui(frame_state* fs) {
         ImGui::End();
     }
 
-    if(fs->gui_open_windows->at("Materials")) {
-        ImGui::Begin("Materials", &fs->gui_open_windows->at("Materials"));
+    if(fs.gui_open_windows.at("Materials")) {
+        ImGui::Begin("Materials", &fs.gui_open_windows.at("Materials"));
         if(ImGui::BeginCombo(
                "##SelMat",
                selected_material == nullptr ? "<no material selected>"
@@ -156,7 +162,7 @@ json material::serialize() const {
     return mat;
 }
 
-bool material::build_gui(frame_state*) {
+bool material::build_gui(frame_state& fs) {
     InputTextResizable("Name", &this->name);
 
     bool changed = false;

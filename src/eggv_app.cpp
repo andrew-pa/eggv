@@ -150,7 +150,7 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
         r.compile_render_graph();
     }
 
-    init_script_runtime();
+    // init_script_runtime();
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
     upload_cb->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});

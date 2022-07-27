@@ -124,7 +124,7 @@ class device {
         std::vector<vk::DescriptorSetLayoutBinding> bindings
     );
 
-    vk::ShaderModule load_shader(const std::string& path);
+    vk::ShaderModule load_shader(const std::filesystem::path& path);
 
     void clear_tmps();
 

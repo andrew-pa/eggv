@@ -1,6 +1,6 @@
 #pragma once
+#include "bundle.h"
 #include "cmmn.h"
-#include "scene_graph.h"
 #include <reactphysics3d/collision/PolygonVertexArray.h>
 
 using geom_file::vertex;

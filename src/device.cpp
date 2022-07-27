@@ -96,24 +96,24 @@ vk::UniqueDescriptorSetLayout device::create_desc_set_layout(
         vk::DescriptorSetLayoutCreateFlags(), (uint32_t)bindings.size(), bindings.data()});
 }
 
-vk::ShaderModule device::load_shader(const std::string& path) {
+vk::ShaderModule device::load_shader(const std::filesystem::path& path) {
     auto f = shader_module_cache.find(path);
-    if(f != shader_module_cache.end())
-        return f->second.get();
-    else {
-        std::ifstream file(path, std::ios::ate | std::ios::binary);
-        if(!file) throw path;
-        auto              size = (size_t)file.tellg();
-        std::vector<char> buffer(size);
-        file.seekg(0);
-        file.read(buffer.data(), buffer.size());
-        file.close();
-        vk::ShaderModuleCreateInfo cfo;
-        cfo.codeSize              = buffer.size();
-        cfo.pCode                 = (uint32_t*)buffer.data();
-        shader_module_cache[path] = this->dev->createShaderModuleUnique(cfo);
-        return shader_module_cache[path].get();
-    }
+    if(f != shader_module_cache.end()) return f->second.get();
+
+    std::ifstream file(path, std::ios::ate | std::ios::binary);
+    if(!file) throw std::runtime_error(std::string("failed to load shader at: ") + path.c_str());
+
+    std::vector<char> buffer((size_t)file.tellg());
+    file.seekg(0);
+    file.read(buffer.data(), buffer.size());
+    file.close();
+
+    vk::ShaderModuleCreateInfo cfo;
+    cfo.codeSize = buffer.size();
+    cfo.pCode    = (uint32_t*)buffer.data();
+
+    shader_module_cache[path] = this->dev->createShaderModuleUnique(cfo);
+    return shader_module_cache[path].get();
 }
 
 device::~device() {
