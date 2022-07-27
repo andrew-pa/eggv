@@ -67,8 +67,9 @@ void camera_system::build_gui_for_entity(const frame_state& fs, entity_id select
     if(d != this->entity_data.end()) {
         auto& comp = d->second;
         ImGui::DragFloat("Field of View", &comp.fov, 0.1f, pi<float>() / 8.f, pi<float>());
-        if(!this->active_camera.has_value() || selected_entity != this->active_camera.value()) {
-            if(ImGui::Button("Make Active Camera")) this->active_camera = selected_entity;
+        if(!this->active_camera_id.has_value()
+           || selected_entity != this->active_camera_id.value()) {
+            if(ImGui::Button("Make Active Camera")) this->active_camera_id = selected_entity;
         }
     }
 }

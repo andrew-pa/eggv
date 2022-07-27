@@ -6,15 +6,17 @@
 using entity_id = size_t;
 using system_id = size_t;
 
-enum class static_systems : system_id { transform, light, camera };
+enum class static_systems : system_id { transform, light, camera, renderer };
 
 struct frame_state {
-    float                        t, dt;
-    std::map<std::string, bool>* gui_open_windows;
-    entity_id                    selected_entity;
+    float                                 t, dt;
+    std::unordered_map<const char*, bool> gui_open_windows;
+    entity_id                             selected_entity;
 
-    frame_state(float t, float dt, std::map<std::string, bool>* gow)
-        : t(t), dt(dt), gui_open_windows(gow) {}
+    void set_time(float t, float dt) {
+        this->t  = t;
+        this->dt = dt;
+    }
 };
 
 class abstract_entity_system {
@@ -25,7 +27,7 @@ class abstract_entity_system {
 
     virtual void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {}
 
-    virtual void build_gui(const frame_state& fs) {}
+    virtual void build_gui(frame_state& fs) {}
 
     virtual void generate_viewport_shapes(
         class world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
@@ -299,7 +301,7 @@ class world {
     entity_handle root() { return entity_handle{this, root_entity}; }
 
     void update(const frame_state& fs);
-    void build_gui(const frame_state& fs);
+    void build_gui(frame_state& fs);
 
   private:
     // gui state

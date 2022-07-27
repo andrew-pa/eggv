@@ -1,5 +1,6 @@
-#include "eggv_app.h"
-#include <utility>
+#ifdef OLDCODE
+#    include "eggv_app.h"
+#    include <utility>
 
 using namespace emlisp;
 
@@ -202,3 +203,4 @@ void eggv_app::init_script_runtime() {
     std::cout << "initializing script runtime created " << (hfo.new_size - hfo.old_size)
               << "b of garbage\n";
 }
+#endif

@@ -229,9 +229,9 @@ void renderer::build_gui_textures(const frame_state& fs) {
     }
 }
 
-void renderer::build_gui(const frame_state& fs) {
-    if(!fs.gui_open_windows->at("Renderer")) return;
-    if(!ImGui::Begin("Renderer", &fs.gui_open_windows->at("Renderer"), ImGuiWindowFlags_MenuBar)) {
+void renderer::build_gui(frame_state& fs) {
+    if(!fs.gui_open_windows.at("Renderer")) return;
+    if(!ImGui::Begin("Renderer", &fs.gui_open_windows.at("Renderer"), ImGuiWindowFlags_MenuBar)) {
         ImGui::End();
         return;
     }
@@ -269,7 +269,7 @@ void renderer::build_gui_for_entity(const frame_state& fs, entity_id selected_en
         if(m) ImGui::Text("%u vertices, %u indices", m->vertex_count, m->index_count);
         bool reload_mesh = false;
         if(ImGui::BeginCombo("Geometry set", mesh_comp.geo_src->path.c_str())) {
-            for(const auto& gs : fs.current_scene->geometry_sets) {
+            for(const auto& gs : current_bundle->geometry_sets) {
                 if(ImGui::Selectable(gs->path.c_str(), gs == mesh_comp.geo_src)) {
                     mesh_comp.geo_src = gs;
                     reload_mesh       = true;
@@ -290,7 +290,7 @@ void renderer::build_gui_for_entity(const frame_state& fs, entity_id selected_en
                "Material",
                mesh_comp.mat == nullptr ? "<no material selected>" : mesh_comp.mat->name.c_str()
            )) {
-            for(const auto& m : fs.current_scene->materials)
+            for(const auto& m : current_bundle->materials)
                 if(ImGui::Selectable(m->name.c_str(), m == mesh_comp.mat)) mesh_comp.mat = m;
             ImGui::EndCombo();
         }

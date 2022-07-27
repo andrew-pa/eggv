@@ -43,9 +43,10 @@ class geometry_set {
     mio::shared_mmap_source data;
 
   public:
-    device*     dev;
-    std::string path;
-    geometry_set(device* dev, const std::string& path, std::filesystem::path data_path);
+    device*               dev;
+    std::filesystem::path path;
+
+    geometry_set(device* dev, std::filesystem::path path);
     std::shared_ptr<mesh>                              load_mesh(size_t index);
     std::optional<reactphysics3d::PolygonVertexArray*> load_convex_hull(size_t index);
     reactphysics3d::TriangleMesh*                      load_physics_mesh(

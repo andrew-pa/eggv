@@ -31,15 +31,15 @@ void world::build_scene_tree_gui(const world::entity_handle& e) {
     ImGui::PopID();
 }
 
-void world::build_gui(const frame_state& fs) {
-    if(fs.gui_open_windows->at("World")) {
-        ImGui::Begin("World", &fs.gui_open_windows->at("World"));
+void world::build_gui(frame_state& fs) {
+    if(fs.gui_open_windows.at("World")) {
+        ImGui::Begin("World", &fs.gui_open_windows.at("World"));
         this->build_scene_tree_gui(this->root());
         ImGui::End();
     }
 
-    if(fs.gui_open_windows->at("Selected Entity")) {
-        ImGui::Begin("Selected Entity", &fs.gui_open_windows->at("Selected Entity"));
+    if(fs.gui_open_windows.at("Selected Entity")) {
+        ImGui::Begin("Selected Entity", &fs.gui_open_windows.at("Selected Entity"));
         auto sel = entity(selected_entity);
         ImGui::Text("%s", sel.name().data());
         for(const auto& [_, sys] : systems)

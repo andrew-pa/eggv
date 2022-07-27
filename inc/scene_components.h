@@ -51,7 +51,9 @@ class camera_system : public entity_system<camera> {
   public:
     static const system_id id = (system_id)static_systems::camera;
 
-    std::optional<entity_id> active_camera;
+    std::optional<entity_id> active_camera_id;
+
+    auto active_camera() { return this->get_data_for_entity(this->active_camera_id.value()); }
 
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
 

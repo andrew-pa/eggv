@@ -1,11 +1,11 @@
 #pragma once
-/*
+
 #include "cmmn.h"
 #include "renderer.h"
 #include "scene_graph.h"
 #include <reactphysics3d/reactphysics3d.h>
 
-struct rigid_body_trait : public trait {
+/*struct rigid_body_trait : public trait {
     reactphysics3d::RigidBody* body;
     reactphysics3d::Transform  initial_transform;
     bool                       should_grab_initial_transform;

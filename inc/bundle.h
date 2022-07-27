@@ -27,16 +27,23 @@ struct material {
     vk::DescriptorSet desc_set;
 };
 
+// bundle contains assets + code for a project
+// - geometry
+// - materials
+// - textures
+// - render graphs
+// - scripts
 class bundle {
+    bool materials_changed;
+
   public:
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
     std::vector<std::shared_ptr<material>>           materials;
     std::shared_ptr<material>                        selected_material;
-    bool                                             materials_changed;
 
-    bundle() : selected_material(nullptr), materials_changed(true) {}
+    bundle() : materials_changed(true), selected_material(nullptr) {}
 
-    bundle(class device* dev, std::filesystem::path path, json data);
+    bundle(class device* dev, const std::filesystem::path& path);
 
     void update(frame_state* fs, class app*);
     void build_gui(frame_state* fs);

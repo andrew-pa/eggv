@@ -1,8 +1,9 @@
 #include "geometry_set.h"
 #include "imgui.h"
+#include <utility>
 
-geometry_set::geometry_set(device* dev, const std::string& path, std::filesystem::path data_path)
-    : dev(dev), data(data_path.string()), path(path) {}
+geometry_set::geometry_set(device* dev, std::filesystem::path path)
+    : dev(dev), path(std::move(path)) {}
 
 std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
     auto cv = this->mesh_cache.find(index);

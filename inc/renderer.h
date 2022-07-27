@@ -203,8 +203,9 @@ class renderer : public entity_system<mesh_component> {
     void generate_clear_values();
 
   public:  // TODO: a lot of this stuff should be private
-    device*     dev;
-    swap_chain* swpc;
+    static const system_id id = (system_id)static_systems::renderer;
+    device*                dev;
+    swap_chain*            swpc;
 
     world* cur_world;
 
@@ -278,7 +279,7 @@ class renderer : public entity_system<mesh_component> {
                                      gui_node_attribs;
     std::vector<std::pair<int, int>> gui_links;
 
-    std::shared_ptr<bundle> current_scene;
+    std::shared_ptr<bundle> current_bundle;
 
     // call `f` on each renderable entity ie every entity with a mesh and transform
     // provided as a helper for render nodes
@@ -294,7 +295,7 @@ class renderer : public entity_system<mesh_component> {
     renderer();
     void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
-    void build_gui(const frame_state& fs) override;
+    void build_gui(frame_state& fs) override;
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
     void update(const frame_state& fs, world* w) override;
     void render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs, world* w);

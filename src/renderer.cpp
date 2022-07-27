@@ -312,18 +312,18 @@ void renderer::update(const frame_state& fs, world* w) {
     cur_world = w;
 
     if(should_recompile || global_buffers[GLOBAL_BUF_MATERIALS] == nullptr
-       || current_scene->materials_changed) {
+       || current_bundle->materials_changed) {
         dev->graphics_qu.waitIdle();
         dev->present_qu.waitIdle();
     }
 
-    if(global_buffers[GLOBAL_BUF_MATERIALS] == nullptr || current_scene->materials_changed) {
-        if(current_scene->materials.size() != 0) {
+    if(global_buffers[GLOBAL_BUF_MATERIALS] == nullptr || current_bundle->materials_changed) {
+        if(current_bundle->materials.size() != 0) {
             // recreate material buffer if necessary
             bool recreating_mat_buf = global_buffers[GLOBAL_BUF_MATERIALS] == nullptr
-                                      || num_gpu_mats != current_scene->materials.size();
+                                      || num_gpu_mats != current_bundle->materials.size();
             if(recreating_mat_buf) {
-                num_gpu_mats = (uint32_t)current_scene->materials.size();
+                num_gpu_mats = (uint32_t)current_bundle->materials.size();
                 // we could probably move the materials ubuffer into the material desc set
                 // and then use desc set offsets instead of push constants
                 // I guess that wouldn't work well for lights
@@ -349,7 +349,7 @@ void renderer::update(const frame_state& fs, world* w) {
                     (uint32)num_gpu_mats,
                     material_desc_set_layout_per_set.data()});
                 for(size_t i = 0; i < num_gpu_mats; ++i)
-                    current_scene->materials[i]->desc_set = new_sets[i];
+                    current_bundle->materials[i]->desc_set = new_sets[i];
             }
 
             // copy new materials to mapping
@@ -363,18 +363,19 @@ void renderer::update(const frame_state& fs, world* w) {
                 vk::ImageLayout::eShaderReadOnlyOptimal});
 
             uplcb.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-            for(uint32_t i = 0; i < current_scene->materials.size(); ++i) {
-                mapped_materials[i] = gpu_material(current_scene->materials[i].get());
-                current_scene->materials[i]->_render_index = i;
-                if(current_scene->materials[i]->diffuse_texpath.has_value()) {
-                    auto ix
-                        = load_texture(current_scene->materials[i]->diffuse_texpath.value(), uplcb);
+            for(uint32_t i = 0; i < current_bundle->materials.size(); ++i) {
+                mapped_materials[i] = gpu_material(current_bundle->materials[i].get());
+                current_bundle->materials[i]->_render_index = i;
+                if(current_bundle->materials[i]->diffuse_texpath.has_value()) {
+                    auto ix = load_texture(
+                        current_bundle->materials[i]->diffuse_texpath.value(), uplcb
+                    );
                     auto* info = img_infos.alloc(vk::DescriptorImageInfo{
                         texture_sampler.get(),
                         std::get<2>(texture_cache[ix]).get(),
                         vk::ImageLayout::eShaderReadOnlyOptimal});
                     desc_writes.emplace_back(
-                        current_scene->materials[i]->desc_set,
+                        current_bundle->materials[i]->desc_set,
                         0,
                         0,
                         1,
@@ -383,7 +384,7 @@ void renderer::update(const frame_state& fs, world* w) {
                     );
                 } else {
                     desc_writes.emplace_back(
-                        current_scene->materials[i]->desc_set,
+                        current_bundle->materials[i]->desc_set,
                         0,
                         0,
                         1,

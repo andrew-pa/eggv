@@ -15,13 +15,10 @@ material::material(
 
 #include <filesystem>
 
-scene::scene(device* dev, std::filesystem::path path, json data)
+bundle::bundle(device* dev, const std::filesystem::path& path)
     : selected_material(nullptr), materials_changed(true) {
-    for(const auto& p : data["geometries"]) {
-        auto pp = std::filesystem::path(p.get<std::string>());
-        auto gp = path.parent_path() / pp;
-        geometry_sets.push_back(std::make_shared<geometry_set>(dev, p, gp));
-    }
+    for(const auto& geo_src_path : std::filesystem::directory_iterator{path / "geometry"})
+        geometry_sets.push_back(std::make_shared<geometry_set>(dev, geo_src_path));
     for(const auto& [id, m] : data["materials"].items())
         materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));
 }
@@ -68,7 +65,7 @@ void InputTextResizable(const char* label, std::optional<std::string>* str) {
     );
 }
 
-void scene::build_gui(frame_state* fs) {
+void bundle::build_gui(frame_state* fs) {
     if(fs->gui_open_windows->at("Geometry Sets")) {
         ImGui::Begin("Geometry Sets", &fs->gui_open_windows->at("Geometry Sets"));
         if(ImGui::BeginTable("##GeomSets", 2, ImGuiTableFlags_Resizable)) {
