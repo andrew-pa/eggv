@@ -75,7 +75,7 @@ struct script_repl_window_t {
 };
 
 eggv_cmdline_args::eggv_cmdline_args(int argc, const char* argv[]) : resolution(1920, 1080) {
-    for(int i = 0; i < argc; ++i) {
+    for(int i = 1; i < argc; ++i) {
         if(argv[i][0] == '-') {
             switch(argv[i][1]) {
                 case 'r': {
@@ -83,20 +83,22 @@ eggv_cmdline_args::eggv_cmdline_args(int argc, const char* argv[]) : resolution(
                     float h          = std::atof(argv[++i]);
                     this->resolution = vec2(w, h);
                 } break;
-
-                case 's': this->scene_path = argv[++i]; break;
-                case 'g': this->render_graph_path = argv[++i]; break;
+                default: throw std::runtime_error(std::string("unknown option: ") + argv[i]);
             }
+        } else {
+            bundle_path = argv[i];
+            return;
         }
     }
+    throw std::runtime_error("expected bundle path");
 }
 
 eggv_app::eggv_app(const eggv_cmdline_args& args)
-    : app("erg", args.resolution), w(std::make_shared<world>()), gui_visible(true),
-      cam_mouse_enabled(false), phys_cmmn(), ui_key_cooldown(0.f), physics_sim_time(0),
+    : app("erg", args.resolution), w(std::make_shared<world>()), r(std::make_shared<renderer>()),
+      gui_visible(true), cam_mouse_enabled(false), ui_key_cooldown(0.f), physics_sim_time(0),
       script_repl_window(std::make_unique<script_repl_window_t>()),
       script_runtime(std::make_shared<emlisp::runtime>()) {
-    r.init(dev.get());
+    r->init(dev.get());
 
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 256)  // for ImGUI
@@ -113,28 +115,26 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
 
     phys_world = phys_cmmn.createPhysicsWorld();
 
-    r.prototypes.emplace_back(std::make_shared<gbuffer_geom_render_node_prototype>(dev.get(), &r));
-    r.prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get()));
-    r.prototypes.emplace_back(
+    r->prototypes.emplace_back(
+        std::make_shared<gbuffer_geom_render_node_prototype>(dev.get(), r.get())
+    );
+    r->prototypes.emplace_back(std::make_shared<directional_light_render_node_prototype>(dev.get())
+    );
+    r->prototypes.emplace_back(
         std::make_shared<directional_light_shadowmap_render_node_prototype>(dev.get())
     );
-    r.prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
+    r->prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
     // r.prototypes.emplace_back(
     //     std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world)
     // );
 
-    // if(args.scene_path.has_value()) {
-    //     std::ifstream input(args.scene_path.value());
-    //     json          data;
-    //     input >> data;
-    //     current_scene = std::make_shared<scene>(
-    //         dev.get(), collect_factories(), args.scene_path.value(), data
-    //     );
-    // } else {
-    //     current_scene = this->create_test_scene();
-    // }
+    bndl              = std::make_shared<bundle>(dev.get(), args.bundle_path);
+    r->current_bundle = bndl;
 
-    // r.current_scene = current_scene;
+    w->add_system(std::make_shared<transform_system>());
+    w->add_system(std::make_shared<camera_system>());
+    w->add_system(std::make_shared<light_system>());
+    w->add_system(r);
 
     auto thing = w->create_entity("Thing");
     thing.add_child("thing 1");
@@ -142,13 +142,13 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     thing.add_child("thing 3");
     auto thing2 = w->create_entity("Thing 2");
 
-    if(args.render_graph_path.has_value()) {
-        std::ifstream input(args.render_graph_path.value());
-        json          data;
-        input >> data;
-        r.deserialize_render_graph(data);
-        r.compile_render_graph();
-    }
+    // if(args.render_graph_path.has_value()) {
+    //     std::ifstream input(args.render_graph_path.value());
+    //     json          data;
+    //     input >> data;
+    //     r.deserialize_render_graph(data);
+    //     r.compile_render_graph();
+    // }
 
     // init_script_runtime();
 
@@ -173,7 +173,7 @@ void eggv_app::init_swapchain_depd() {
     framebuffers = swapchain->create_framebuffers(
         gui_render_pass.get(), [&](size_t index, std::vector<vk::ImageView>& att) {}, false
     );
-    r.create_swapchain_dependencies(swapchain.get());
+    r->create_swapchain_dependencies(swapchain.get());
     command_buffers = dev->alloc_cmd_buffers(swapchain->images.size());
 }
 
@@ -285,19 +285,19 @@ void eggv_app::build_gui() {
         }
         ImGui::EndPopup();
     }
-    if(fs.gui_open_windows.at("ImGui Demo"))
+    if(fs.gui_open_windows["ImGui Demo"])
         ImGui::ShowDemoWindow(&fs.gui_open_windows.at("ImGui Demo"));
-    if(fs.gui_open_windows.at("ImGui Metrics"))
+    if(fs.gui_open_windows["ImGui Metrics"])
         ImGui::ShowMetricsWindow(&fs.gui_open_windows.at("ImGui Metrics"));
     w->build_gui(fs);
-    r.build_gui(fs);
-    script_repl_window->build_gui(script_runtime.get(), &fs.gui_open_windows.at("Script Console"));
+    r->build_gui(fs);
+    script_repl_window->build_gui(script_runtime.get(), &fs.gui_open_windows["Script Console"]);
 }
 
 void eggv_app::update(float t, float dt) {
     fs.set_time(t, dt);
     w->update(fs);
-    r.update(fs, w.get());
+    r->update(fs, w.get());
 
     physics_sim_time += dt;
     while(physics_sim_time > physics_fixed_time_step) {
@@ -373,7 +373,7 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
     cb->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     fs.set_time(t, dt);
-    r.render(cb.get(), image_index, fs, this->w.get());
+    r->render(cb.get(), image_index, fs, this->w.get());
 
     if(gui_visible) {
         cb->beginRenderPass(

@@ -9,9 +9,8 @@
 const float physics_fixed_time_step = 1.f / 60.f;
 
 struct eggv_cmdline_args {
-    std::optional<std::filesystem::path> render_graph_path;
-    std::optional<std::filesystem::path> scene_path;
-    vec2                                 resolution;
+    vec2                  resolution;
+    std::filesystem::path bundle_path;
     eggv_cmdline_args(int argc, const char* argv[]);
 };
 
@@ -26,7 +25,7 @@ class eggv_app : public app {
 
     std::shared_ptr<world> w;
 
-    renderer r;
+    std::shared_ptr<renderer> r;
 
     bool        gui_visible, cam_mouse_enabled;
     frame_state fs;

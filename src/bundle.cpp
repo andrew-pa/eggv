@@ -20,11 +20,14 @@ bundle::bundle(device* dev, const std::filesystem::path& path)
         geometry_sets.push_back(std::make_shared<geometry_set>(dev, geo_src_path));
 
     std::ifstream input(path / "materials.json");
-    json          raw_materials;
-    input >> raw_materials;
+    if(input) {
+        json raw_materials;
+        input >> raw_materials;
 
-    for(const auto& [id, m] : raw_materials.items())
-        materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));
+        for(const auto& [id, m] : raw_materials.items())
+            materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m)
+            );
+    }
 }
 
 #include "ImGuiFileDialog.h"

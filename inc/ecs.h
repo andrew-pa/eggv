@@ -288,7 +288,7 @@ class world {
     auto end() { return systems.end(); }
 
     entity_handle create_entity(const std::string& name = "") {
-        std::cout << "??? " << next_id << "\n";
+        // std::cout << "create_entity " << next_id << "\n";
         auto id = next_id++;
         auto n  = std::make_shared<node>(id, name);
         root_entity->children.push_back(n);

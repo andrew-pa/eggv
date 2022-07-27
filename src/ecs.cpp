@@ -32,13 +32,13 @@ void world::build_scene_tree_gui(const world::entity_handle& e) {
 }
 
 void world::build_gui(frame_state& fs) {
-    if(fs.gui_open_windows.at("World")) {
+    if(fs.gui_open_windows["World"]) {
         ImGui::Begin("World", &fs.gui_open_windows.at("World"));
         this->build_scene_tree_gui(this->root());
         ImGui::End();
     }
 
-    if(fs.gui_open_windows.at("Selected Entity")) {
+    if(fs.gui_open_windows["Selected Entity"]) {
         ImGui::Begin("Selected Entity", &fs.gui_open_windows.at("Selected Entity"));
         auto sel = entity(selected_entity);
         ImGui::Text("%s", sel.name().data());

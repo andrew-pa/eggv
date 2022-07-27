@@ -230,7 +230,7 @@ void renderer::build_gui_textures(const frame_state& fs) {
 }
 
 void renderer::build_gui(frame_state& fs) {
-    if(!fs.gui_open_windows.at("Renderer")) return;
+    if(!fs.gui_open_windows["Renderer"]) return;
     if(!ImGui::Begin("Renderer", &fs.gui_open_windows.at("Renderer"), ImGuiWindowFlags_MenuBar)) {
         ImGui::End();
         return;
