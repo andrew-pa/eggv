@@ -73,7 +73,7 @@ void InputTextResizable(const char* label, std::optional<std::string>* str) {
 }
 
 void bundle::build_gui(frame_state& fs) {
-    if(fs.gui_open_windows.at("Geometry Sets")) {
+    if(fs.gui_open_windows["Geometry Sets"]) {
         ImGui::Begin("Geometry Sets", &fs.gui_open_windows.at("Geometry Sets"));
         if(ImGui::BeginTable("##GeomSets", 2, ImGuiTableFlags_Resizable)) {
             ImGui::TableSetupColumn("Path");
@@ -118,7 +118,7 @@ void bundle::build_gui(frame_state& fs) {
         ImGui::End();
     }
 
-    if(fs.gui_open_windows.at("Materials")) {
+    if(fs.gui_open_windows["Materials"]) {
         ImGui::Begin("Materials", &fs.gui_open_windows.at("Materials"));
         if(ImGui::BeginCombo(
                "##SelMat",

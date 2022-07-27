@@ -3,7 +3,7 @@
 #include <utility>
 
 geometry_set::geometry_set(device* dev, std::filesystem::path path)
-    : dev(dev), path(std::move(path)) {}
+    : data(path.c_str()), dev(dev), path(std::move(path)) {}
 
 std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
     auto cv = this->mesh_cache.find(index);

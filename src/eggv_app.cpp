@@ -291,6 +291,7 @@ void eggv_app::build_gui() {
         ImGui::ShowMetricsWindow(&fs.gui_open_windows.at("ImGui Metrics"));
     w->build_gui(fs);
     r->build_gui(fs);
+    bndl->build_gui(fs);
     script_repl_window->build_gui(script_runtime.get(), &fs.gui_open_windows["Script Console"]);
 }
 
