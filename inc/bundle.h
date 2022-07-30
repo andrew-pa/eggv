@@ -39,6 +39,7 @@ class bundle {
   public:
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
     std::vector<std::shared_ptr<material>>           materials;
+    std::unordered_map<std::string, json>            render_graphs;
     std::shared_ptr<material>                        selected_material;
 
     bundle() : materials_changed(true), selected_material(nullptr) {}

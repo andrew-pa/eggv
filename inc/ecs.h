@@ -1,6 +1,7 @@
 #pragma once
 #include "cmmn.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 using entity_id = size_t;
@@ -11,7 +12,7 @@ enum class static_systems : system_id { transform, light, camera, renderer };
 struct frame_state {
     float                                 t, dt;
     std::unordered_map<const char*, bool> gui_open_windows;
-    entity_id                             selected_entity;
+    entity_id                             selected_entity = 0;
 
     void set_time(float t, float dt) {
         this->t  = t;
@@ -195,20 +196,25 @@ class world {
     struct node {
         std::string                        name;
         entity_id                          entity;
+        std::weak_ptr<node>                parent;
         std::vector<std::shared_ptr<node>> children;
 
-        node(entity_id id, std::string n) : name(std::move(n)), entity(id) {}
+        node(const std::shared_ptr<node>& parent, entity_id id, std::string n)
+            : name(std::move(n)), entity(id), parent(parent) {}
     };
 
     std::shared_ptr<node>                                root_entity;
     std::unordered_map<entity_id, std::shared_ptr<node>> nodes;
+
+    std::unordered_set<entity_id> dead_entities;
 
   public:
     class entity_handle {
         world*                w;
         std::shared_ptr<node> _node;
 
-        entity_handle(world* w, std::shared_ptr<node> n) : w(w), _node(std::move(n)) {}
+        entity_handle(world* w, std::shared_ptr<node> n) : w(w), _node(std::move(n)) {
+        }
 
       public:
         template<typename System>
@@ -244,9 +250,13 @@ class world {
             system->remove_entity(_node->entity);
         }
 
+        void remove() {
+            w->dead_entities.insert(_node->entity);
+        }
+
         entity_handle add_child(const std::string& name = "") {
             auto id = w->next_id++;
-            auto n  = std::make_shared<node>(id, name);
+            auto n  = std::make_shared<node>(_node, id, name);
             _node->children.push_back(n);
             w->nodes.emplace(id, n);
             return entity_handle{w, n};
@@ -256,10 +266,13 @@ class world {
 
         bool has_children() const { return !_node->children.empty(); }
 
-        template<typename F>
-        void for_each_child(F fn) const {
+        void for_each_child(const std::function<void(entity_handle)>& fn) const {
             for(const auto& c : _node->children)
                 fn(entity_handle{w, c});
+        }
+
+        entity_handle parent() const {
+            return entity_handle{w, _node->parent.lock()};
         }
 
         std::string_view name() const { return this->_node->name; }
@@ -290,7 +303,7 @@ class world {
     entity_handle create_entity(const std::string& name = "") {
         // std::cout << "create_entity " << next_id << "\n";
         auto id = next_id++;
-        auto n  = std::make_shared<node>(id, name);
+        auto n  = std::make_shared<node>(root_entity, id, name);
         root_entity->children.push_back(n);
         nodes.emplace(id, n);
         return entity_handle{this, n};
@@ -305,6 +318,5 @@ class world {
 
   private:
     // gui state
-    entity_id selected_entity;
-    void      build_scene_tree_gui(const entity_handle& e);
+    void build_scene_tree_gui(frame_state& fs, entity_handle& e);
 };

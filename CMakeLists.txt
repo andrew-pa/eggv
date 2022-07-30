@@ -62,8 +62,8 @@ message("${COMPILED_SHADERS}")
 ###    targets            ###
 
 include_directories(inc/ depd/glm depd/vk_mem_alloc/include/
-    depd/imgui/ depd/imgui/backends/ depd/imnodes/
-    depd/ImGuiFileDialog/
+    depd/imgui/ depd/imgui/backends/ depd/imgui/misc/cpp
+    depd/imnodes/ depd/ImGuiFileDialog/
     depd/stb/ depd/emlisp/inc)
 
 if(WIN32)
@@ -76,6 +76,7 @@ set(IMGUI_SRC_FILES depd/imgui/imconfig.h depd/imgui/imgui.h depd/imgui/imgui.cp
     depd/imgui/imstb_textedit.h depd/imgui/imstb_truetype.h depd/imgui/imgui_tables.cpp
     depd/imgui/backends/imgui_impl_glfw.h depd/imgui/backends/imgui_impl_glfw.cpp
     depd/imgui/backends/imgui_impl_vulkan.h depd/imgui/backends/imgui_impl_vulkan.cpp
+    depd/imgui/misc/cpp/imgui_stdlib.cpp
     depd/ImGuiFileDialog/ImGuiFileDialog.h depd/ImGuiFileDialog/ImGuiFileDialog.cpp
     depd/ImGuiFileDialog/ImGuiFileDialogConfig.h
     depd/imnodes/imnodes.h depd/imnodes/imnodes_internal.h depd/imnodes/imnodes.cpp)
