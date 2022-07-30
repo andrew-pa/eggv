@@ -213,8 +213,7 @@ class world {
         world*                w;
         std::shared_ptr<node> _node;
 
-        entity_handle(world* w, std::shared_ptr<node> n) : w(w), _node(std::move(n)) {
-        }
+        entity_handle(world* w, std::shared_ptr<node> n) : w(w), _node(std::move(n)) {}
 
       public:
         template<typename System>
@@ -250,9 +249,7 @@ class world {
             system->remove_entity(_node->entity);
         }
 
-        void remove() {
-            w->dead_entities.insert(_node->entity);
-        }
+        void remove() { w->dead_entities.insert(_node->entity); }
 
         entity_handle add_child(const std::string& name = "") {
             auto id = w->next_id++;
@@ -271,9 +268,7 @@ class world {
                 fn(entity_handle{w, c});
         }
 
-        entity_handle parent() const {
-            return entity_handle{w, _node->parent.lock()};
-        }
+        entity_handle parent() const { return entity_handle{w, _node->parent.lock()}; }
 
         std::string_view name() const { return this->_node->name; }
 

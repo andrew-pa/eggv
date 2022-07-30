@@ -10,15 +10,19 @@ world::world()
 void world::update(const frame_state& fs) {
     // remove any dead entities
     while(!dead_entities.empty()) {
-        auto ent = dead_entities.extract(dead_entities.begin()).value();
+        auto ent  = dead_entities.extract(dead_entities.begin()).value();
         auto node = nodes.extract(ent).mapped();
-        for(const auto& [_, sys] : systems) sys->remove_entity(ent);
+        for(const auto& [_, sys] : systems)
+            sys->remove_entity(ent);
         if(node->parent.lock() != nullptr) {
-            auto& ch = node->parent.lock()->children;
-            auto self = std::find_if(ch.begin(), ch.end(), [&](const auto& c) { return c->entity == node->entity; });
+            auto& ch   = node->parent.lock()->children;
+            auto  self = std::find_if(ch.begin(), ch.end(), [&](const auto& c) {
+                return c->entity == node->entity;
+            });
             ch.erase(self);
         }
-        for(const auto& c : node->children) dead_entities.insert(c->entity);
+        for(const auto& c : node->children)
+            dead_entities.insert(c->entity);
     }
 
     // update all systems
@@ -40,11 +44,10 @@ void world::build_scene_tree_gui(frame_state& fs, world::entity_handle& e) {
     if(ImGui::IsItemClicked()) fs.selected_entity = e;
 
     if(ImGui::BeginPopupContextItem("#entity-menu")) {
-        if(ImGui::MenuItem("Add child")) e.add_child();
+        if(ImGui::MenuItem("New child")) fs.selected_entity = e.add_child();
+
         if(ImGui::MenuItem("Remove")) {
-            if (fs.selected_entity == e) {
-                fs.selected_entity = e.parent();
-            }
+            if(fs.selected_entity == e) fs.selected_entity = e.parent();
             e.remove();
         }
         ImGui::EndPopup();
