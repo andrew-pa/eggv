@@ -350,7 +350,7 @@ void renderer::generate_attachment_descriptions(
 
 void renderer::generate_clear_values() {
     clear_values.clear();
-    clear_values.emplace_back(vk::ClearColorValue(std::array<float, 4>{0.f, 0.0f, 0.0f, 0.f}));
+    clear_values.emplace_back(vk::ClearColorValue(std::array<float, 4>{0.f, 0.0f, 0.0f, 1.f}));
     for(const auto& fb : buffers) {
         if(!fb.second.in_use) continue;
         size_t num_layers = fb.second.num_layers();
@@ -358,7 +358,7 @@ void renderer::generate_clear_values() {
             switch(fb.second.type) {
                 case framebuffer_type::color:
                     clear_values.emplace_back(vk::ClearColorValue(std::array<float, 4>{
-                        0.f, 0.f, 0.f, 0.f}));
+                        0.f, 0.f, 0.f, 1.f}));
                     break;
                 case framebuffer_type::depth:
                 case framebuffer_type::depth_stencil:

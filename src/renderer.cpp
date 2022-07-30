@@ -126,6 +126,8 @@ json renderer::serialize_render_graph() {
     };
 }
 
+// TODO: this should return something so we don't have to rerun this and instead we can store them
+// in the loaded bundle
 void renderer::deserialize_render_graph(json data) {
     render_graph.clear();
     for(const auto& [id, node] : data.at("nodes").items())

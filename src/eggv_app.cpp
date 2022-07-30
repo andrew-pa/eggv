@@ -128,8 +128,7 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     //     std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world)
     // );
 
-    bndl              = std::make_shared<bundle>(dev.get(), args.bundle_path);
-    r->current_bundle = bndl;
+    r->current_bundle = bndl = std::make_shared<bundle>(dev.get(), args.bundle_path);
 
     w->add_system(std::make_shared<transform_system>());
     w->add_system(std::make_shared<camera_system>());
@@ -142,13 +141,11 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     thing.add_child("thing 3");
     auto thing2 = w->create_entity("Thing 2");
 
-    // if(args.render_graph_path.has_value()) {
-    //     std::ifstream input(args.render_graph_path.value());
-    //     json          data;
-    //     input >> data;
-    //     r.deserialize_render_graph(data);
-    //     r.compile_render_graph();
-    // }
+    auto default_rg = bndl->render_graphs.find("default.json");
+    if(default_rg != bndl->render_graphs.end()) {
+        r->deserialize_render_graph(default_rg->second);
+        r->compile_render_graph();
+    }
 
     // init_script_runtime();
 
@@ -162,6 +159,9 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     },
         nullptr
     );
+
+    fs.gui_open_windows["World"]           = true;
+    fs.gui_open_windows["Selected Entity"] = true;
 
     dev->graphics_qu.waitIdle();
     ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -290,7 +290,6 @@ void eggv_app::build_gui() {
     if(fs.gui_open_windows["ImGui Metrics"])
         ImGui::ShowMetricsWindow(&fs.gui_open_windows.at("ImGui Metrics"));
     w->build_gui(fs);
-    r->build_gui(fs);
     bndl->build_gui(fs);
     script_repl_window->build_gui(script_runtime.get(), &fs.gui_open_windows["Script Console"]);
 }

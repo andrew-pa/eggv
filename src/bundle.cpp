@@ -28,6 +28,13 @@ bundle::bundle(device* dev, const std::filesystem::path& path)
             materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m)
             );
     }
+
+    for(const auto& rg_path : std::filesystem::directory_iterator{path / "render-graphs"}) {
+        json          rg;
+        std::ifstream input{rg_path};
+        input >> rg;
+        render_graphs.emplace(rg_path.path().filename().c_str(), rg);
+    }
 }
 
 #include "ImGuiFileDialog.h"
