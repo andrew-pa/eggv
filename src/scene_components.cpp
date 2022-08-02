@@ -12,7 +12,7 @@ void transform_system::update_world_transforms(world::entity_handle e, const mat
             glm::translate(T, comp.translation) * glm::mat4_cast(comp.rotation), comp.scale
         );
     }
-    const auto& p = d->second.world;
+    const auto& p = d != this->entity_data.end() ? d->second.world : T;
     e.for_each_child([&](const auto& c) { this->update_world_transforms(c, p); });
 }
 

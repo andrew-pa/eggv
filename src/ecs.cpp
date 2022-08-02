@@ -76,8 +76,16 @@ void world::build_gui(frame_state& fs) {
             ImGui::InputTextWithHint("##name", "<entity name>", &sel._node->name);
             ImGui::SameLine();
             ImGui::Text("#%lu", fs.selected_entity);
-            for(const auto& [_, sys] : systems)
-                sys->build_gui_for_entity(fs, fs.selected_entity);
+            for(const auto& [sys_id, sys] : systems)
+                if(sys->has_data_for_entity(fs.selected_entity)
+                   && ImGui::CollapsingHeader(sys->name().data(), ImGuiTreeNodeFlags_DefaultOpen))
+                    sys->build_gui_for_entity(fs, fs.selected_entity);
+            if(ImGui::BeginPopupContextWindow("##newcomp")) {
+                for(const auto& [id, sys] : systems)
+                    if(ImGui::MenuItem(sys->name().data()))
+                        sys->add_entity_with_defaults(fs.selected_entity);
+                ImGui::EndPopup();
+            }
         }
         ImGui::End();
     }

@@ -26,9 +26,15 @@ class abstract_entity_system {
 
     virtual void remove_entity(entity_id id) = 0;
 
+    virtual void add_entity_with_defaults(entity_id id) = 0;
+
+    virtual bool has_data_for_entity(entity_id id) const = 0;
+
     virtual void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {}
 
     virtual void build_gui(frame_state& fs) {}
+
+    virtual std::string_view name() const = 0;
 
     virtual void generate_viewport_shapes(
         class world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
@@ -163,11 +169,13 @@ class entity_system : public abstract_entity_system {
         Storage::template emplace<Component>(this->entity_data, id, data);
     }
 
-    virtual void remove_entity(entity_id id) {
+    void add_entity_with_defaults(entity_id id) override { this->add_entity(id, Component{}); }
+
+    void remove_entity(entity_id id) override {
         Storage::template remove<Component>(this->entity_data, id);
     }
 
-    bool has_data_for_entity(entity_id id) const {
+    bool has_data_for_entity(entity_id id) const override {
         return Storage::template contains<Component>(this->entity_data, id);
     }
 

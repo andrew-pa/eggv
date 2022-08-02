@@ -305,6 +305,8 @@ class renderer : public entity_system<mesh_component> {
     void generate_viewport_shapes(
         world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
+
+    std::string_view name() const override { return "Renderer"; }
 };
 
 struct single_pipeline_render_node_prototype : public render_node_prototype {

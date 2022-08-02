@@ -24,12 +24,16 @@ class transform_system : public entity_system<transform> {
 
     void update(const frame_state& fs, world* w) override;
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
+
+    std::string_view name() const override { return "Transform"; }
 };
 
 struct light {
-    light_type type;
+    light_type type{};
     vec3       param, color;
-    size_t     _render_index;
+    size_t     _render_index{};
+
+    light() : param(1.f, 0.f, 0.f), color(0.f) {}
 };
 
 class light_system : public entity_system<light> {
@@ -41,6 +45,8 @@ class light_system : public entity_system<light> {
     void generate_viewport_shapes(
         world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
+
+    std::string_view name() const override { return "Light"; }
 };
 
 struct camera {
@@ -60,4 +66,6 @@ class camera_system : public entity_system<camera> {
     void generate_viewport_shapes(
         world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
+
+    std::string_view name() const override { return "Camera"; }
 };
