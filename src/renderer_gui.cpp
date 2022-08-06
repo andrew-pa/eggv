@@ -268,7 +268,7 @@ void renderer::build_gui_for_entity(const frame_state& fs, entity_id selected_en
         auto  m         = mesh_comp.m;
         if(m) ImGui::Text("%u vertices, %u indices", m->vertex_count, m->index_count);
         bool reload_mesh = false;
-        if(ImGui::BeginCombo("Geometry set", mesh_comp.geo_src->path.c_str())) {
+        if(ImGui::BeginCombo("Geometry set", mesh_comp.geo_src ? mesh_comp.geo_src->path.c_str() : "<unset>")) {
             for(const auto& gs : current_bundle->geometry_sets) {
                 if(ImGui::Selectable(gs->path.c_str(), gs == mesh_comp.geo_src)) {
                     mesh_comp.geo_src = gs;
@@ -277,7 +277,7 @@ void renderer::build_gui_for_entity(const frame_state& fs, entity_id selected_en
             }
             ImGui::EndCombo();
         }
-        if(ImGui::BeginCombo("Mesh name", mesh_comp.geo_src->mesh_name(mesh_comp.mesh_index))) {
+        if(ImGui::BeginCombo("Mesh name", mesh_comp.geo_src ? mesh_comp.geo_src->mesh_name(mesh_comp.mesh_index) : "<unset>")) {
             for(size_t i = 0; i < mesh_comp.geo_src->num_meshes(); ++i) {
                 if(ImGui::Selectable(mesh_comp.geo_src->mesh_name(i), i == mesh_comp.mesh_index)) {
                     mesh_comp.mesh_index = i;

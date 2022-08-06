@@ -2,17 +2,12 @@
 #include "app.h"
 #include "geometry_set.h"
 #include "imgui.h"
+#include "imgui_stdlib.h"
 #include <glm/gtx/polar_coordinates.hpp>
 #include <utility>
 
 static std::mt19937                 default_random_gen(std::random_device{}());
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
-
-material::material(
-    std::string name, vec3 base_color, std::optional<std::string> diffuse_texpath, uuids::uuid id
-)
-    : id(id.is_nil() ? uuid_gen() : id), name(std::move(name)), base_color(base_color),
-      diffuse_texpath(std::move(diffuse_texpath)) {}
 
 bundle::bundle(device* dev, const std::filesystem::path& path)
     : selected_material(nullptr), materials_changed(true) {
@@ -25,8 +20,7 @@ bundle::bundle(device* dev, const std::filesystem::path& path)
         input >> raw_materials;
 
         for(const auto& [id, m] : raw_materials.items())
-            materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m)
-            );
+            materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));
     }
 
     for(const auto& rg_path : std::filesystem::directory_iterator{path / "render-graphs"}) {
@@ -38,47 +32,6 @@ bundle::bundle(device* dev, const std::filesystem::path& path)
 }
 
 #include "ImGuiFileDialog.h"
-
-void InputTextResizable(const char* label, std::string* str) {
-    ImGui::InputText(
-        label,
-        (char*)str->c_str(),
-        str->size() + 1,
-        ImGuiInputTextFlags_CallbackResize,
-        (ImGuiInputTextCallback)([](ImGuiInputTextCallbackData* data) {
-            if(data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
-                auto* str = (std::string*)data->UserData;
-                str->resize(data->BufTextLen);
-                data->Buf = (char*)str->c_str();
-            }
-            return 0;
-        }),
-        (void*)str
-    );
-}
-
-void InputTextResizable(const char* label, std::optional<std::string>* str) {
-    ImGui::InputText(
-        label,
-        (char*)str->value_or("<unnamed>").c_str(),
-        str->value_or("<unnamed>").size() + 1,
-        ImGuiInputTextFlags_CallbackResize,
-        (ImGuiInputTextCallback)([](ImGuiInputTextCallbackData* data) {
-            if(data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
-                auto* str = (std::optional<std::string>*)data->UserData;
-                if(str->has_value()) {
-                    str->value().resize(data->BufTextLen);
-                    data->Buf = (char*)str->value().c_str();
-                } else {
-                    *str = std::string(data->Buf, data->BufTextLen);
-                }
-            }
-            return 0;
-        }),
-        (void*)str
-    );
-}
-
 void bundle::build_gui(frame_state& fs) {
     if(fs.gui_open_windows["Geometry Sets"]) {
         ImGui::Begin("Geometry Sets", &fs.gui_open_windows.at("Geometry Sets"));
@@ -151,6 +104,12 @@ void bundle::build_gui(frame_state& fs) {
     }
 }
 
+material::material(
+    std::string name, vec3 base_color, std::optional<std::string> diffuse_texpath, uuids::uuid id
+)
+    : id(id.is_nil() ? uuid_gen() : id), name(std::move(name)), base_color(base_color),
+      diffuse_texpath(std::move(diffuse_texpath)) {}
+
 material::material(uuids::uuid id, json data) : id(id) {
     name       = data["name"];
     base_color = ::deserialize_v3(data["base"]);
@@ -173,7 +132,7 @@ json material::serialize() const {
 }
 
 bool material::build_gui(frame_state& fs) {
-    InputTextResizable("Name", &this->name);
+    ImGui::InputText("Name", &this->name);
 
     bool changed = false;
     changed = ImGui::ColorEdit3("Base", &this->base_color[0], ImGuiColorEditFlags_Float) || changed;

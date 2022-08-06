@@ -95,11 +95,15 @@ void renderer::init(device* _dev) {
            std::make_shared<simple_geom_render_node_prototype>(this, dev),
            std::make_shared<color_preview_render_node_prototype>(),
            std::make_shared<debug_shape_render_node_prototype>(dev)};
+
     screen_output_node = std::make_shared<render_node>(prototypes[0]);
     render_graph.push_back(screen_output_node);
-    auto test = std::make_shared<render_node>(prototypes[1]);
-    render_graph.push_back(test);
-    screen_output_node->inputs[0] = {test, 0};
+
+    auto simple_node = std::make_shared<render_node>(prototypes[1]);
+    render_graph.push_back(simple_node);
+    screen_output_node->inputs[0] = {simple_node, 0};
+    simple_node->inputs[0] = {screen_output_node, 0};
+    //TODO: get rid of silly cycles required for blending
 }
 
 void renderer::create_swapchain_dependencies(swap_chain* swpc) {

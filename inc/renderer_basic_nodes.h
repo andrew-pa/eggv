@@ -51,8 +51,8 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
     }
 
     void update_descriptor_sets(
-        class renderer*                      r,
-        struct render_node*                  node,
+        renderer*                      r,
+        render_node*                  node,
         std::vector<vk::WriteDescriptorSet>& writes,
         arena<vk::DescriptorBufferInfo>&     buf_infos,
         arena<vk::DescriptorImageInfo>&      img_infos
@@ -156,6 +156,7 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
 
         for(auto meshi = r->begin_components(); meshi != r->end_components(); ++meshi) {
             const auto& [id, mesh] = *meshi;
+            if(mesh.geo_src == nullptr || mesh.m == nullptr || mesh.mat == nullptr) continue;
             if(!transforms->has_data_for_entity(id)) continue;
             const auto& transform = transforms->get_data_for_entity(id);
 
