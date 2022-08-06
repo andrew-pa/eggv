@@ -421,6 +421,15 @@ void renderer::render(
 ) {
     cur_world = w;
 
+    auto cam_system = cur_world->system<camera_system>();
+    if(cam_system->active_camera_id.has_value()) {
+        auto cam = cam_system->active_camera();
+        auto T = cur_world->system<transform_system>()->get_data_for_entity(cam_system->active_camera_id.value()).world;
+        mapped_frame_uniforms->proj = glm::perspective(cam.fov,
+                (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f);
+        mapped_frame_uniforms->view = inverse(T);
+    }
+
     render_pass_begin_info.framebuffer = framebuffers[image_index].get();
     cb.beginRenderPass(
         render_pass_begin_info,

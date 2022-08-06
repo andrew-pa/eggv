@@ -74,7 +74,7 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
             vk::PipelineShaderStageCreateInfo{
                                               {},
                                               vk::ShaderStageFlagBits::eFragment,
-                                              r->dev->load_shader("simple.frag.spv"),
+                                              r->dev->load_shader("solid-color.frag.spv"),
                                               "main"                                                                            }
         };
 
