@@ -78,8 +78,16 @@ void world::build_gui(frame_state& fs) {
             ImGui::Text("#%lu", fs.selected_entity);
             for(const auto& [sys_id, sys] : systems)
                 if(sys->has_data_for_entity(fs.selected_entity)
-                   && ImGui::CollapsingHeader(sys->name().data(), ImGuiTreeNodeFlags_DefaultOpen))
-                    sys->build_gui_for_entity(fs, fs.selected_entity);
+                   && ImGui::CollapsingHeader(
+                       sys->name().data(),
+                       ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowItemOverlap
+                   )) {
+                    ImGui::SameLine(ImGui::GetWindowWidth() - 50.0f);
+                    if(ImGui::SmallButton("X"))
+                        sys->remove_entity(fs.selected_entity);
+                    else
+                        sys->build_gui_for_entity(fs, fs.selected_entity);
+                }
             if(ImGui::BeginPopupContextWindow("##newcomp")) {
                 for(const auto& [id, sys] : systems)
                     if(ImGui::MenuItem(sys->name().data()))
