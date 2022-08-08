@@ -7,27 +7,24 @@ geometry_set::geometry_set(device* dev, std::filesystem::path path)
 
 std::shared_ptr<mesh> geometry_set::load_mesh(size_t index) {
     auto cv = this->mesh_cache.find(index);
-    if(cv != this->mesh_cache.end()) {
-        return cv->second;
-    } else {
-        const auto& h   = this->header(index);
-        auto        msh = std::make_shared<mesh>(
-            dev,
-            (size_t)h.num_vertices,
-            sizeof(vertex),
-            (size_t)h.num_indices,
-            [&](void* stg_buf) {
-                memcpy(stg_buf, data.data() + h.vertex_ptr, sizeof(vertex) * h.num_vertices);
-                memcpy(
-                    (char*)stg_buf + sizeof(vertex) * h.num_vertices,
-                    data.data() + h.index_ptr,
-                    sizeof(uint16) * h.num_indices
-                );
-            }
-        );
-        this->mesh_cache[index] = msh;
-        return msh;
-    }
+    if(cv != this->mesh_cache.end()) return cv->second;
+    const auto& h   = this->header(index);
+    auto        msh = std::make_shared<mesh>(
+        dev,
+        (size_t)h.num_vertices,
+        sizeof(vertex),
+        (size_t)h.num_indices,
+        [&](void* stg_buf) {
+            memcpy(stg_buf, data.data() + h.vertex_ptr, sizeof(vertex) * h.num_vertices);
+            memcpy(
+                (char*)stg_buf + sizeof(vertex) * h.num_vertices,
+                data.data() + h.index_ptr,
+                sizeof(uint16) * h.num_indices
+            );
+        }
+    );
+    this->mesh_cache[index] = msh;
+    return msh;
 }
 
 std::optional<reactphysics3d::PolygonVertexArray*> geometry_set::load_convex_hull(size_t index) {

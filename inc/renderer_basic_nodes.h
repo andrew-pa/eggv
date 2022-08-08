@@ -51,8 +51,8 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
     }
 
     void update_descriptor_sets(
-        renderer*                      r,
-        render_node*                  node,
+        renderer*                            r,
+        render_node*                         node,
         std::vector<vk::WriteDescriptorSet>& writes,
         arena<vk::DescriptorBufferInfo>&     buf_infos,
         arena<vk::DescriptorImageInfo>&      img_infos

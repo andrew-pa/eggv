@@ -32,9 +32,9 @@ struct physics_pva {
 };
 
 class geometry_set {
-    std::map<size_t, std::shared_ptr<mesh>> mesh_cache;
-    std::map<size_t, physics_pva>           convex_hull_cache;
-    std::map<
+    std::unordered_map<size_t, std::shared_ptr<mesh>> mesh_cache;
+    std::unordered_map<size_t, physics_pva>           convex_hull_cache;
+    std::unordered_map<
         size_t,
         std::pair<
             reactphysics3d::TriangleMesh*,

@@ -20,7 +20,8 @@ bundle::bundle(device* dev, const std::filesystem::path& path)
         input >> raw_materials;
 
         for(const auto& [id, m] : raw_materials.items())
-            materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m));
+            materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m)
+            );
     }
 
     for(const auto& rg_path : std::filesystem::directory_iterator{path / "render-graphs"}) {
@@ -32,6 +33,7 @@ bundle::bundle(device* dev, const std::filesystem::path& path)
 }
 
 #include "ImGuiFileDialog.h"
+
 void bundle::build_gui(frame_state& fs) {
     if(fs.gui_open_windows["Geometry Sets"]) {
         ImGui::Begin("Geometry Sets", &fs.gui_open_windows.at("Geometry Sets"));

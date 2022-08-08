@@ -102,8 +102,8 @@ void renderer::init(device* _dev) {
     auto simple_node = std::make_shared<render_node>(prototypes[1]);
     render_graph.push_back(simple_node);
     screen_output_node->inputs[0] = {simple_node, 0};
-    simple_node->inputs[0] = {screen_output_node, 0};
-    //TODO: get rid of silly cycles required for blending
+    simple_node->inputs[0]        = {screen_output_node, 0};
+    // TODO: get rid of silly cycles required for blending
 }
 
 void renderer::create_swapchain_dependencies(swap_chain* swpc) {
@@ -424,9 +424,12 @@ void renderer::render(
     auto cam_system = cur_world->system<camera_system>();
     if(cam_system->active_camera_id.has_value()) {
         auto cam = cam_system->active_camera();
-        auto T = cur_world->system<transform_system>()->get_data_for_entity(cam_system->active_camera_id.value()).world;
-        mapped_frame_uniforms->proj = glm::perspective(cam.fov,
-                (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f);
+        auto T   = cur_world->system<transform_system>()
+                     ->get_data_for_entity(cam_system->active_camera_id.value())
+                     .world;
+        mapped_frame_uniforms->proj = glm::perspective(
+            cam.fov, (float)swpc->extent.width / (float)swpc->extent.height, 0.1f, 2000.f
+        );
         mapped_frame_uniforms->view = inverse(T);
     }
 
