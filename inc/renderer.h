@@ -182,6 +182,14 @@ struct framebuffer_values {
     }
 };
 
+struct gpu_texture {
+    std::shared_ptr<image> img;
+    vk::UniqueImageView    img_view;
+    uint64_t               imgui_tex_id;
+    gpu_texture(std::shared_ptr<image>  img, vk::UniqueImageView img_view)
+        : img(std::move(img)), img_view(std::move(img_view)), imgui_tex_id(0) {}
+};
+
 const size_t GLOBAL_BUF_FRAME_UNIFORMS = 1;
 const size_t GLOBAL_BUF_MATERIALS      = 2;
 
@@ -235,18 +243,17 @@ class renderer : public entity_system<mesh_component> {
     uint32_t                                  num_gpu_mats;
 
     // texturing/materials
-    std::vector<std::tuple<std::string, std::shared_ptr<image>, vk::UniqueImageView, uint64_t>>
-           texture_cache;  // TODO: refactor this tuple into a struct
-    size_t create_texture2d(
-        const std::string& name,
-        uint32_t           width,
-        uint32_t           height,
-        vk::Format         fmt,
-        size_t             data_size,
-        void*              data,
-        vk::CommandBuffer  uplcb
-    );
-    size_t                        load_texture(const std::string&, vk::CommandBuffer uplcb);
+    std::unordered_map<std::string, gpu_texture> texture_cache;
+    gpu_texture&                            create_texture2d(
+                                                const std::string& name,
+                                                uint32_t           width,
+                                                uint32_t           height,
+                                                vk::Format         fmt,
+                                                size_t             data_size,
+                                                void*              data,
+                                                vk::CommandBuffer  uplcb
+                                            );
+    gpu_texture&                          load_texture_from_bundle(const std::string& name, vk::CommandBuffer uplcb);
     vk::UniqueSampler             texture_sampler;
     vk::UniqueDescriptorPool      material_desc_pool;
     vk::UniqueDescriptorSetLayout material_desc_set_layout;

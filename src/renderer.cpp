@@ -200,31 +200,7 @@ for(const auto& c : obj->children)
 
 #include "stb_image.h"
 
-size_t renderer::load_texture(const std::string& path, vk::CommandBuffer uplcb) {
-    auto existing_texture
-        = std::find_if(texture_cache.begin(), texture_cache.end(), [&](const auto& p) {
-              return std::get<0>(p) == path;
-          });
-    if(existing_texture != texture_cache.end())
-        return std::distance(texture_cache.begin(), existing_texture);
-    else {
-        int  width, height, channels;
-        auto data      = stbi_load(path.c_str(), &width, &height, &channels, 4);
-        channels       = 4;
-        vk::Format fmt = vk::Format::eUndefined;
-        switch(channels) {
-            case 1: fmt = vk::Format::eR8Unorm; break;
-            case 2: fmt = vk::Format::eR8G8Unorm; break;
-            case 3: fmt = vk::Format::eR8G8B8Unorm; break;
-            case 4: fmt = vk::Format::eR8G8B8A8Unorm; break;
-        };
-        std::cout << "image " << path << " -> " << width << "x" << height << "/" << channels
-                  << "\n";
-        return create_texture2d(path, width, height, fmt, width * height * channels, data, uplcb);
-    }
-}
-
-size_t renderer::create_texture2d(
+gpu_texture& renderer::create_texture2d(
     const std::string& name,
     uint32_t           width,
     uint32_t           height,
@@ -233,12 +209,9 @@ size_t renderer::create_texture2d(
     void*              data,
     vk::CommandBuffer  uplcb
 ) {
-    auto existing_texture
-        = std::find_if(texture_cache.begin(), texture_cache.end(), [&](const auto& p) {
-              return std::get<0>(p) == name;
-          });
+    auto existing_texture = texture_cache.find(name);
     if(existing_texture != texture_cache.end())
-        return std::distance(texture_cache.begin(), existing_texture);
+        return existing_texture->second;
 
     auto staging_buffer = std::make_unique<buffer>(
         dev,
@@ -309,9 +282,12 @@ size_t renderer::create_texture2d(
         )}
     );
     dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
-    size_t index = texture_cache.size();
-    texture_cache.emplace_back(name, img, std::move(img_view), 0);
-    return index;
+    return texture_cache.emplace(name, gpu_texture{img, std::move(img_view)}).first->second;
+}
+
+gpu_texture& renderer::load_texture_from_bundle(const std::string& name, vk::CommandBuffer uplcb) {
+    const auto& btx = current_bundle->textures[name];
+    return create_texture2d(name, btx.width, btx.height, btx.fmt, btx.size_bytes, btx.data, uplcb);
 }
 
 void renderer::update(const frame_state& fs, world* w) {
@@ -365,20 +341,20 @@ void renderer::update(const frame_state& fs, world* w) {
             arena<vk::DescriptorImageInfo>      img_infos;
             auto* default_info = img_infos.alloc(vk::DescriptorImageInfo{
                 texture_sampler.get(),
-                std::get<2>(texture_cache[0]).get(),
+                texture_cache.at("nil").img_view.get(),
                 vk::ImageLayout::eShaderReadOnlyOptimal});
 
             uplcb.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
             for(uint32_t i = 0; i < current_bundle->materials.size(); ++i) {
                 mapped_materials[i] = gpu_material(current_bundle->materials[i].get());
                 current_bundle->materials[i]->_render_index = i;
-                if(current_bundle->materials[i]->diffuse_texpath.has_value()) {
-                    auto ix = load_texture(
-                        current_bundle->materials[i]->diffuse_texpath.value(), uplcb
+                if(current_bundle->materials[i]->diffuse_tex.has_value()) {
+                    auto& tx = load_texture_from_bundle(
+                        current_bundle->materials[i]->diffuse_tex.value(), uplcb
                     );
                     auto* info = img_infos.alloc(vk::DescriptorImageInfo{
                         texture_sampler.get(),
-                        std::get<2>(texture_cache[ix]).get(),
+                        tx.img_view.get(),
                         vk::ImageLayout::eShaderReadOnlyOptimal});
                     desc_writes.emplace_back(
                         current_bundle->materials[i]->desc_set,

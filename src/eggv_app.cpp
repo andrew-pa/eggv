@@ -128,7 +128,8 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     //     std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world)
     // );
 
-    r->current_bundle = bndl = std::make_shared<bundle>(dev.get(), args.bundle_path);
+    r->current_bundle = bndl = std::make_shared<bundle>();
+    bndl->load(dev.get(), args.bundle_path);
 
     w->add_system(std::make_shared<transform_system>());
     w->add_system(std::make_shared<camera_system>());

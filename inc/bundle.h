@@ -10,16 +10,19 @@ struct material {
     std::string name;
 
     vec3                       base_color;
-    std::optional<std::string> diffuse_texpath;
+    std::optional<std::string> diffuse_tex;
+
+    std::weak_ptr<class bundle> parent_bundle;
 
     material(
+        const std::shared_ptr<class bundle>& parent_bundle,
         std::string                name,
         vec3                       base_color      = vec3(.1f),
-        std::optional<std::string> diffuse_texpath = {},
+        std::optional<std::string> diffuse_tex = {},
         uuids::uuid                id              = uuids::uuid()
     );
 
-    material(uuids::uuid id, json data);
+    material(const std::shared_ptr<class bundle>& parent_bundle, uuids::uuid id, json data);
 
     json serialize() const;
 
@@ -29,22 +32,54 @@ struct material {
     vk::DescriptorSet desc_set;
 };
 
+struct texture_data {
+    uint32_t   width, height;
+    vk::Format fmt;
+    void*      data;
+    size_t size_bytes;
+
+    texture_data() = default;
+    texture_data(const std::filesystem::path& path);
+
+    texture_data(const texture_data&)            = delete;
+    texture_data& operator=(const texture_data&) = delete;
+
+    texture_data(texture_data&& other) noexcept
+        : width(other.width), height(other.height), fmt(other.fmt), data(other.data), size_bytes(other.size_bytes)
+    {
+        other.data = nullptr;
+    }
+    texture_data& operator=(texture_data&& o) noexcept {
+        this->width = o.width;
+        this->height = o.height;
+        this->fmt = o.fmt;
+        this->data = o.data;
+        this->size_bytes = o.size_bytes;
+        o.data = nullptr;
+        return *this;
+    }
+
+    ~texture_data();
+};
+
 // bundle contains assets + code for a project
 // - geometry
 // - materials
 // - textures
 // - render graphs
 // - scripts
-class bundle {
+class bundle : public std::enable_shared_from_this<bundle> {
   public:
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
     std::vector<std::shared_ptr<material>>           materials;
+    //TODO: use UUIDs for textures?
+    std::unordered_map<std::string, texture_data>    textures;
     std::unordered_map<std::string, json>            render_graphs;
     std::shared_ptr<material>                        selected_material;
 
     bundle() : materials_changed(true), selected_material(nullptr) {}
 
-    bundle(device* dev, const std::filesystem::path& path);
+    void load(device* dev, const std::filesystem::path& path);
 
     void update(frame_state& fs, class app*);
     void build_gui(frame_state& fs);

@@ -207,23 +207,23 @@ void renderer::build_gui_textures(const frame_state& fs) {
         ImGui::TableSetupColumn("Size");
         ImGui::TableSetupColumn("Preview");
         ImGui::TableHeadersRow();
-        for(auto& [name, img, imv, imtex] : texture_cache) {
+        for(auto& [name, tx] : texture_cache) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::Text("%s", name.c_str());
             ImGui::TableNextColumn();
-            ImGui::Text("%s", vk::to_string(img->info.format).c_str());
+            ImGui::Text("%s", vk::to_string(tx.img->info.format).c_str());
             ImGui::TableNextColumn();
-            ImGui::Text("%u x %u", img->info.extent.width, img->info.extent.height);
+            ImGui::Text("%u x %u", tx.img->info.extent.width, tx.img->info.extent.height);
             ImGui::TableNextColumn();
-            if(imtex == 0) {
-                imtex = (uint64_t)ImGui_ImplVulkan_AddTexture(
+            if(tx.imgui_tex_id == 0) {
+                tx.imgui_tex_id = (uint64_t)ImGui_ImplVulkan_AddTexture(
                     (VkSampler)texture_sampler.get(),
-                    imv.get(),
+                    tx.img_view.get(),
                     (VkImageLayout)vk::ImageLayout::eShaderReadOnlyOptimal
                 );
             }
-            ImGui::Image((ImTextureID)imtex, ImVec2(128, 128));
+            ImGui::Image((ImTextureID)tx.imgui_tex_id, ImVec2(128, 128));
         }
         ImGui::EndTable();
     }

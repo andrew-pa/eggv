@@ -3,24 +3,43 @@
 #include "geometry_set.h"
 #include "imgui.h"
 #include "imgui_stdlib.h"
+#include "stb_image.h"
 #include <glm/gtx/polar_coordinates.hpp>
 #include <utility>
 
 static std::mt19937                 default_random_gen(std::random_device{}());
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
 
-bundle::bundle(device* dev, const std::filesystem::path& path)
-    : selected_material(nullptr), materials_changed(true) {
+// tragic that we can't use constructors the way things are meant to be, but we can't call `shared_from_this` from a constructor and we need some way for materials to refer back to the bundle they came from so sometimes it just be like that
+void bundle::load(device* dev, const std::filesystem::path& path) {
+    materials_changed = true;
+    geometry_sets.clear();
+    materials.clear();
+    textures.clear();
+    render_graphs.clear();
+    selected_material = nullptr;
+
     for(const auto& geo_src_path : std::filesystem::directory_iterator{path / "geometry"})
         geometry_sets.push_back(std::make_shared<geometry_set>(dev, geo_src_path));
+
+    auto tx_path = path / "textures";
+    for(const auto& tx_entry : std::filesystem::recursive_directory_iterator{tx_path}) {
+        if(tx_entry.is_regular_file()) {
+            const auto* name = tx_entry.path().lexically_relative(tx_path).c_str();
+            textures[name] = texture_data{tx_entry.path()};
+        }
+    }
 
     std::ifstream input(path / "materials.json");
     if(input) {
         json raw_materials;
         input >> raw_materials;
 
-        for(const auto& [id, m] : raw_materials.items())
-            materials.push_back(std::make_shared<material>(uuids::uuid::from_string(id).value(), m)
+        auto self = shared_from_this();
+
+        for(const auto& [id, material_def] : raw_materials.items())
+            materials.push_back(
+                std::make_shared<material>(self, uuids::uuid::from_string(id).value(), material_def)
             );
     }
 
@@ -31,6 +50,22 @@ bundle::bundle(device* dev, const std::filesystem::path& path)
         render_graphs.emplace(rg_path.path().filename().c_str(), rg);
     }
 }
+
+texture_data::texture_data(const std::filesystem::path& path) {
+    int channels;
+    this->data = stbi_load(path.c_str(), (int*)&this->width, (int*)&this->height, &channels, 4);
+    /*switch(channels) {
+        case 1: fmt = vk::Format::eR8Unorm; break;
+        case 2: fmt = vk::Format::eR8G8Unorm; break;
+        case 3: fmt = vk::Format::eR8G8B8Unorm; break;
+        case 4: fmt = vk::Format::eR8G8B8A8Unorm; break;
+    };*/
+    this->fmt = vk::Format::eR8G8B8A8Unorm;
+    this->size_bytes = width*4*height;
+    std::cout << "image " << path << " -> " << width << "x" << height << "/" << channels << "\n";
+}
+
+texture_data::~texture_data() { if(data != nullptr) free(data); }
 
 #include "ImGuiFileDialog.h"
 
@@ -94,7 +129,7 @@ void bundle::build_gui(frame_state& fs) {
         }
         ImGui::SameLine();
         if(ImGui::Button("+")) {
-            auto new_mat = std::make_shared<material>("new material");
+            auto new_mat = std::make_shared<material>(shared_from_this(), "new material");
             materials.push_back(new_mat);
             selected_material = new_mat;
             materials_changed = true;
@@ -106,18 +141,19 @@ void bundle::build_gui(frame_state& fs) {
     }
 }
 
-material::material(
-    std::string name, vec3 base_color, std::optional<std::string> diffuse_texpath, uuids::uuid id
+material::material(const std::shared_ptr<class bundle>& parent_bundle,
+    std::string name, vec3 base_color, std::optional<std::string> diffuse_tex, uuids::uuid id
 )
     : id(id.is_nil() ? uuid_gen() : id), name(std::move(name)), base_color(base_color),
-      diffuse_texpath(std::move(diffuse_texpath)) {}
+      diffuse_tex(std::move(diffuse_tex)), parent_bundle(parent_bundle) {}
 
-material::material(uuids::uuid id, json data) : id(id) {
+material::material(const std::shared_ptr<class bundle>& parent_bundle,
+        uuids::uuid id, json data) : id(id), parent_bundle(parent_bundle) {
     name       = data["name"];
     base_color = ::deserialize_v3(data["base"]);
     if(data.contains("textures")) {
         auto& tx = data["textures"];
-        if(tx.contains("diffuse")) diffuse_texpath = tx["diffuse"];
+        if(tx.contains("diffuse")) diffuse_tex = tx["diffuse"];
     }
 }
 
@@ -128,17 +164,33 @@ json material::serialize() const {
         {"textures", json::object()         }
     };
 
-    if(diffuse_texpath.has_value()) mat["textures"]["diffuse"] = diffuse_texpath.value();
+    if(diffuse_tex.has_value()) mat["textures"]["diffuse"] = diffuse_tex.value();
 
     return mat;
 }
 
 bool material::build_gui(frame_state& fs) {
     ImGui::InputText("Name", &this->name);
+    ImGui::Text("Id: %s", uuids::to_string(this->id).c_str());
 
     bool changed = false;
     changed = ImGui::ColorEdit3("Base", &this->base_color[0], ImGuiColorEditFlags_Float) || changed;
-    ImGui::Text("Id: %s", uuids::to_string(this->id).c_str());
+
+    ImGui::Text("Textures");
+    ImGui::Indent();
+    if(ImGui::BeginCombo("Diffuse", diffuse_tex.value_or("<none>").c_str())) {
+        if(ImGui::Selectable("<none>", !diffuse_tex.has_value())) {
+            diffuse_tex = std::nullopt;
+            changed = true;
+        }
+        for(const auto& [name, _] : parent_bundle.lock()->textures) {
+            if(ImGui::Selectable(name.c_str(), name == diffuse_tex)) {
+                diffuse_tex = name;
+                changed = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
 
     return changed;
 }
