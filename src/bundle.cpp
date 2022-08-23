@@ -19,6 +19,8 @@ void bundle::load(device* dev, const std::filesystem::path& path) {
     render_graphs.clear();
     selected_material = nullptr;
 
+    root_path = path;
+
     for(const auto& geo_src_path : std::filesystem::directory_iterator{path / "geometry"})
         geometry_sets.push_back(std::make_shared<geometry_set>(dev, geo_src_path));
 
@@ -48,6 +50,20 @@ void bundle::load(device* dev, const std::filesystem::path& path) {
         std::ifstream input{rg_path.path()};
         input >> rg;
         render_graphs.emplace(rg_path.path().filename().c_str(), rg);
+    }
+}
+
+void bundle::save() {
+    json raw_materials;
+    for(const auto& mat : materials) {
+        raw_materials[uuids::to_string(mat->id)] = mat->serialize();
+    }
+    std::ofstream mats_out{root_path / "materials.json"};
+    mats_out << raw_materials;
+
+    for(const auto&[name, raw_rg] : render_graphs) {
+        std::ofstream f{root_path / "render-graphs" / name};
+        f << raw_rg;
     }
 }
 

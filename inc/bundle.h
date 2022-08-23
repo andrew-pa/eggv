@@ -70,6 +70,7 @@ struct texture_data {
 // - scripts
 class bundle : public std::enable_shared_from_this<bundle> {
   public:
+    std::filesystem::path root_path;
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
     std::vector<std::shared_ptr<material>>           materials;
     //TODO: use UUIDs for textures?
@@ -80,6 +81,7 @@ class bundle : public std::enable_shared_from_this<bundle> {
     bundle() : selected_material(nullptr), materials_changed(true) {}
 
     void load(device* dev, const std::filesystem::path& path);
+    void save();
 
     void update(frame_state& fs, class app*);
     void build_gui(frame_state& fs);

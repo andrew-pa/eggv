@@ -284,6 +284,9 @@ void eggv_app::build_gui() {
                 ImGui::MenuItem(name.c_str(), nullptr, &open);
             ImGui::EndMenu();
         }
+        if(ImGui::MenuItem("Save bundle")) {
+            bndl->save();
+        }
         ImGui::EndPopup();
     }
     if(fs.gui_open_windows["ImGui Demo"])
