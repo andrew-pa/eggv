@@ -8,31 +8,20 @@
 
 void renderer::build_gui_menu(const frame_state& fs) {
     if(ImGui::BeginMenuBar()) {
-        if(ImGui::BeginMenu("File")) {
-            if(ImGui::MenuItem("New graph")) {
-                render_graph.clear();
-                render_graph.push_back(screen_output_node);
-                auto test = std::make_shared<render_node>(prototypes[1]);
-                render_graph.push_back(test);
-                screen_output_node->inputs[0] = {test, 0};
-            }
-            if(ImGui::BeginMenu("Load graph")) {
-                for(const auto& [graph_name, graph] : current_bundle->render_graphs) {
-                    if(ImGui::Selectable(graph_name.c_str())) {
-                        render_graph_name = graph_name;
-                        deserialize_render_graph(graph);
-                    }
+        if(ImGui::BeginMenu("Graphs")) {
+            for(const auto& [graph_name, graph] : current_bundle->render_graphs) {
+                if(ImGui::Selectable(graph_name.c_str())) {
+                    if(render_graph_name != "<unnamed>")
+                        current_bundle->render_graphs[render_graph_name] = serialize_render_graph();
+                    render_graph_name = graph_name;
+                    deserialize_render_graph(graph);
                 }
-                if(ImGui::Selectable("<new graph>")) {
-                    render_graph_name = "<unnamed>";
-                    load_initial_render_graph();
-                }
-                ImGui::EndMenu();
             }
-            if(ImGui::MenuItem("Save graph")) {
-                ImGuiFileDialog::Instance()->OpenDialog(
-                    "SaveRenderGraphDlg", "Choose Render Graph", ".json", "."
-                );
+            if(ImGui::Selectable("<new graph>")) {
+                if(render_graph_name != "<unnamed>")
+                    current_bundle->render_graphs[render_graph_name] = serialize_render_graph();
+                render_graph_name = "<unnamed>";
+                load_initial_render_graph();
             }
             ImGui::EndMenu();
         }
@@ -48,7 +37,7 @@ void renderer::build_gui_menu(const frame_state& fs) {
 void renderer::build_gui_graph_view(const frame_state& fs) {
     ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
 
-    ImGui::InputText("#graph_name", &render_graph_name);
+    ImGui::InputText("##graph_name", &render_graph_name);
 
     ImNodes::BeginNodeEditor();
 

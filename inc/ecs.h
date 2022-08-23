@@ -11,7 +11,7 @@ enum class static_systems : system_id { transform, light, camera, renderer };
 
 struct frame_state {
     float                                 t, dt;
-    std::unordered_map<const char*, bool> gui_open_windows;
+    std::unordered_map<std::string, bool> gui_open_windows;
     entity_id                             selected_entity = 0;
 
     void set_time(float t, float dt) {

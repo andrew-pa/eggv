@@ -281,7 +281,7 @@ void eggv_app::build_gui() {
     if(ImGui::BeginPopupContextVoid("#mainmenu")) {
         if(ImGui::BeginMenu("Windows")) {
             for(auto& [name, open] : (fs.gui_open_windows))
-                ImGui::MenuItem(name, nullptr, &open);
+                ImGui::MenuItem(name.c_str(), nullptr, &open);
             ImGui::EndMenu();
         }
         ImGui::EndPopup();

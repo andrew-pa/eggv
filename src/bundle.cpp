@@ -45,7 +45,7 @@ void bundle::load(device* dev, const std::filesystem::path& path) {
 
     for(const auto& rg_path : std::filesystem::directory_iterator{path / "render-graphs"}) {
         json          rg;
-        std::ifstream input{rg_path};
+        std::ifstream input{rg_path.path()};
         input >> rg;
         render_graphs.emplace(rg_path.path().filename().c_str(), rg);
     }

@@ -77,7 +77,7 @@ class bundle : public std::enable_shared_from_this<bundle> {
     std::unordered_map<std::string, json>            render_graphs;
     std::shared_ptr<material>                        selected_material;
 
-    bundle() : materials_changed(true), selected_material(nullptr) {}
+    bundle() : selected_material(nullptr), materials_changed(true) {}
 
     void load(device* dev, const std::filesystem::path& path);
 

@@ -109,7 +109,6 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json
     stduuid mio::mio stb ReactPhysics3D::reactphysics3d emlisp)
 target_compile_features(eggv PUBLIC cxx_std_17)
-add_compile_options(-fcolor-diagnostics)
 
 
 include_directories(depd/quickhull)
