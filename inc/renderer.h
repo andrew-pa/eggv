@@ -219,6 +219,7 @@ class renderer : public entity_system<mesh_component> {
 
     // the render graph
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
+    std::string render_graph_name;
     std::vector<std::shared_ptr<render_node>>           render_graph;
     std::shared_ptr<render_node>                        screen_output_node;
 
@@ -269,7 +270,9 @@ class renderer : public entity_system<mesh_component> {
         arena<vk::AttachmentReference>&            reference_pool
     );
 
-    void deserialize_render_graph(json data);
+    void load_initial_render_graph();
+
+    void deserialize_render_graph(const json& data);
     json serialize_render_graph();
 
     // to trigger a recompile at the next possible time

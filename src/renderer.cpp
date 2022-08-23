@@ -96,6 +96,11 @@ void renderer::init(device* _dev) {
            std::make_shared<color_preview_render_node_prototype>(),
            std::make_shared<debug_shape_render_node_prototype>(dev)};
 
+    this->load_initial_render_graph();
+}
+
+void renderer::load_initial_render_graph() {
+    render_graph.clear();
     screen_output_node = std::make_shared<render_node>(prototypes[0]);
     render_graph.push_back(screen_output_node);
 
@@ -132,7 +137,7 @@ json renderer::serialize_render_graph() {
 
 // TODO: this should return something so we don't have to rerun this and instead we can store them
 // in the loaded bundle
-void renderer::deserialize_render_graph(json data) {
+void renderer::deserialize_render_graph(const json& data) {
     render_graph.clear();
     for(const auto& [id, node] : data.at("nodes").items())
         render_graph.push_back(std::make_shared<render_node>(this, std::atoll(id.c_str()), node));
