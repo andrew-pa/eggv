@@ -22,7 +22,9 @@ class transform_system : public entity_system<transform> {
   public:
     static const system_id id = (system_id)static_systems::transform;
 
-    void update(const frame_state& fs, world* w) override;
+    transform_system(const std::shared_ptr<world>& w) : entity_system<transform>(w) {}
+
+    void update(const frame_state& fs) override;
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
 
     std::string_view name() const override { return "Transform"; }
@@ -40,10 +42,12 @@ class light_system : public entity_system<light> {
   public:
     static const system_id id = (system_id)static_systems::light;
 
+    light_system(const std::shared_ptr<world>& w) : entity_system<light>(w) {}
+
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
 
     void generate_viewport_shapes(
-        world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
+        const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
 
     std::string_view name() const override { return "Light"; }
@@ -59,12 +63,14 @@ class camera_system : public entity_system<camera> {
 
     std::optional<entity_id> active_camera_id = std::nullopt;
 
+    camera_system(const std::shared_ptr<world>& w) : entity_system<camera>(w) {}
+
     auto active_camera() { return this->get_data_for_entity(this->active_camera_id.value()); }
 
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
 
     void generate_viewport_shapes(
-        world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
+        const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
 
     std::string_view name() const override { return "Camera"; }

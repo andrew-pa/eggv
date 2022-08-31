@@ -16,8 +16,8 @@ void transform_system::update_world_transforms(world::entity_handle e, const mat
     e.for_each_child([&](const auto& c) { this->update_world_transforms(c, p); });
 }
 
-void transform_system::update(const frame_state& fs, world* w) {
-    this->update_world_transforms(w->root(), mat4(1));
+void transform_system::update(const frame_state& fs) {
+    this->update_world_transforms(cur_world.lock()->root(), mat4(1));
 }
 
 void transform_system::build_gui_for_entity(const frame_state& fs, entity_id selected_entity) {
@@ -50,9 +50,9 @@ void light_system::build_gui_for_entity(const frame_state& fs, entity_id selecte
 }
 
 void light_system::generate_viewport_shapes(
-    world* world, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
+    const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
 ) {
-    auto transforms = world->system<transform_system>();
+    auto transforms = cur_world.lock()->system<transform_system>();
     for(const auto& [id, li] : this->entity_data) {
         if(li.type == light_type::point) {
             auto trf = transforms->get_data_for_entity(id);
@@ -75,9 +75,9 @@ void camera_system::build_gui_for_entity(const frame_state& fs, entity_id select
 }
 
 void camera_system::generate_viewport_shapes(
-    world* world, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
+    const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
 ) {
-    auto transforms = world->system<transform_system>();
+    auto transforms = cur_world.lock()->system<transform_system>();
     for(const auto& [id, _] : this->entity_data) {
         auto trf = transforms->get_data_for_entity(id);
         add_shape(viewport_shape{

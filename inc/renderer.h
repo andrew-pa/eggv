@@ -9,7 +9,7 @@
 #include "swap_chain.h"
 #include <utility>
 
-typedef size_t framebuffer_ref;
+using framebuffer_ref = size_t;
 
 enum class framebuffer_type { color, depth, depth_stencil };
 
@@ -144,9 +144,7 @@ struct render_node {
 
     json serialize() const;
 
-    virtual ~render_node() {
-        //        std::cout << "goodbye rendernode\n";
-    }
+    virtual ~render_node() = default;
 };
 
 struct frame_uniforms {
@@ -214,8 +212,6 @@ class renderer : public entity_system<mesh_component> {
     static const system_id id = (system_id)static_systems::renderer;
     device*                dev;
     swap_chain*            swpc;
-
-    world* cur_world;
 
     // the render graph
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
@@ -302,21 +298,23 @@ class renderer : public entity_system<mesh_component> {
     vk::Rect2D   full_scissor;
 
     // renderer lifecycle
-    renderer();
+    renderer(const std::shared_ptr<world>& w);
     void init(device* dev);
     void create_swapchain_dependencies(swap_chain* swpc);
     void build_gui(frame_state& fs) override;
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
-    void update(const frame_state& fs, world* w) override;
-    void render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs, world* w);
+    void update(const frame_state& fs) override;
+    void render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs);
     ~renderer() override;
 
     // generate viewport shapes for meshes
     void generate_viewport_shapes(
-        world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
+        const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
 
     std::string_view name() const override { return "Renderer"; }
+
+    inline world* current_world() const { return cur_world.lock().get(); }
 };
 
 struct single_pipeline_render_node_prototype : public render_node_prototype {

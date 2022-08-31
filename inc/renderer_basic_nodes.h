@@ -152,7 +152,9 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
             {}
         );
 
-        auto transforms = r->cur_world->system<transform_system>();
+        auto* cur_world = r->current_world();
+
+        auto transforms = cur_world->system<transform_system>();
 
         for(auto meshi = r->begin_components(); meshi != r->end_components(); ++meshi) {
             const auto& [id, mesh] = *meshi;

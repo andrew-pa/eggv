@@ -20,9 +20,15 @@ struct frame_state {
     }
 };
 
+class world;
+
 class abstract_entity_system {
+  protected:
+    std::weak_ptr<world> cur_world;
   public:
-    virtual void update(const frame_state& fs, class world* w) {}
+    abstract_entity_system(const std::shared_ptr<world>& w) : cur_world(w) {}
+
+    virtual void update(const frame_state& fs) {}
 
     virtual void remove_entity(entity_id id) = 0;
 
@@ -37,7 +43,7 @@ class abstract_entity_system {
     virtual std::string_view name() const = 0;
 
     virtual void generate_viewport_shapes(
-        class world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
+        const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) {}
 
     virtual ~abstract_entity_system() = default;
@@ -174,6 +180,8 @@ class entity_system : public abstract_entity_system {
   public:
     using component_t = Component;
     using storage_t   = Storage;
+
+    entity_system(const std::shared_ptr<world>& w) : abstract_entity_system(w) {}
 
     virtual void add_entity(entity_id id, Component data) {
         Storage::template emplace<Component>(this->entity_data, id, data);

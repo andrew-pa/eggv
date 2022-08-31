@@ -94,10 +94,12 @@ eggv_cmdline_args::eggv_cmdline_args(int argc, const char* argv[]) : resolution(
 }
 
 eggv_app::eggv_app(const eggv_cmdline_args& args)
-    : app("erg", args.resolution), w(std::make_shared<world>()), r(std::make_shared<renderer>()),
+    : app("erg", args.resolution), w(std::make_shared<world>()),
       gui_visible(true), cam_mouse_enabled(false), ui_key_cooldown(0.f), physics_sim_time(0),
       script_repl_window(std::make_unique<script_repl_window_t>()),
-      script_runtime(std::make_shared<emlisp::runtime>()) {
+      script_runtime(std::make_shared<emlisp::runtime>())
+{
+    r = std::make_shared<renderer>(w);
     r->init(dev.get());
 
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
@@ -131,9 +133,9 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     r->current_bundle = bndl = std::make_shared<bundle>();
     bndl->load(dev.get(), args.bundle_path);
 
-    w->add_system(std::make_shared<transform_system>());
-    w->add_system(std::make_shared<camera_system>());
-    w->add_system(std::make_shared<light_system>());
+    w->add_system(std::make_shared<transform_system>(w));
+    w->add_system(std::make_shared<camera_system>(w));
+    w->add_system(std::make_shared<light_system>(w));
     w->add_system(r);
 
     auto thing = w->create_entity("Thing");
@@ -301,7 +303,7 @@ void eggv_app::build_gui() {
 void eggv_app::update(float t, float dt) {
     fs.set_time(t, dt);
     w->update(fs);
-    r->update(fs, w.get());
+    r->update(fs);
 
     physics_sim_time += dt;
     while(physics_sim_time > physics_fixed_time_step) {
@@ -377,7 +379,7 @@ vk::CommandBuffer eggv_app::render(float t, float dt, uint32_t image_index) {
     cb->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
 
     fs.set_time(t, dt);
-    r->render(cb.get(), image_index, fs, this->w.get());
+    r->render(cb.get(), image_index, fs);
 
     if(gui_visible) {
         cb->beginRenderPass(

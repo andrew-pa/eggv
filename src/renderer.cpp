@@ -52,8 +52,8 @@ json render_node::serialize() const {
     };
 }
 
-renderer::renderer()
-    : dev(nullptr), next_id(10), desc_pool(nullptr), num_gpu_mats(0), should_recompile(false),
+renderer::renderer(const std::shared_ptr<world>& w)
+    : entity_system<mesh_component>(w), dev(nullptr), next_id(10), desc_pool(nullptr), num_gpu_mats(0), should_recompile(false),
       log_compile(true), show_shapes(true) {}
 
 void renderer::init(device* _dev) {
@@ -295,9 +295,7 @@ gpu_texture& renderer::load_texture_from_bundle(const std::string& name, vk::Com
     return create_texture2d(name, btx.width, btx.height, btx.fmt, btx.size_bytes, btx.data, uplcb);
 }
 
-void renderer::update(const frame_state& fs, world* w) {
-    cur_world = w;
-
+void renderer::update(const frame_state& fs) {
     if(should_recompile || global_buffers[GLOBAL_BUF_MATERIALS] == nullptr
        || current_bundle->materials_changed) {
         dev->graphics_qu.waitIdle();
@@ -398,10 +396,9 @@ void renderer::update(const frame_state& fs, world* w) {
 }
 
 void renderer::render(
-    vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs, world* w
+    vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs
 ) {
-    cur_world = w;
-
+    auto* cur_world = this->cur_world.lock().get();
     auto cam_system = cur_world->system<camera_system>();
     if(cam_system->active_camera_id.has_value()) {
         auto cam = cam_system->active_camera();
@@ -452,7 +449,7 @@ void renderer::render(
 void renderer::for_each_renderable(
     const std::function<void(entity_id, const mesh_component&, const transform&)>& f
 ) {
-    auto transforms = cur_world->system<transform_system>();
+    auto transforms = cur_world.lock()->system<transform_system>();
 
     for(auto meshi = this->begin_components(); meshi != this->end_components(); ++meshi) {
         const auto& [id, mesh] = *meshi;
@@ -472,10 +469,9 @@ renderer::~renderer() {
 }
 
 void renderer::generate_viewport_shapes(
-    world* w, const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
+    const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
 ) {
-    assert(this->cur_world == w);
-    auto transforms = cur_world->system<transform_system>();
+    auto transforms = cur_world.lock()->system<transform_system>();
     if(this->has_data_for_entity(fs.selected_entity)
        && transforms->has_data_for_entity(fs.selected_entity)) {
         auto msh = this->get_data_for_entity(fs.selected_entity);

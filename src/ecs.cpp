@@ -27,7 +27,7 @@ void world::update(const frame_state& fs) {
 
     // update all systems
     for(const auto& [_, sys] : systems)
-        sys->update(fs, this);
+        sys->update(fs);
 }
 
 void world::build_scene_tree_gui(frame_state& fs, world::entity_handle& e) {
