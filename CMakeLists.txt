@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.9)
 
 project(eggv VERSION 0.2 LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 #############################
 ### include dependencies ###
@@ -82,11 +82,11 @@ set(IMGUI_SRC_FILES depd/imgui/imconfig.h depd/imgui/imgui.h depd/imgui/imgui.cp
     depd/imnodes/imnodes.h depd/imnodes/imnodes_internal.h depd/imnodes/imnodes.cpp)
 
 add_library(imgui ${IMGUI_SRC_FILES})
-target_compile_features(imgui PRIVATE cxx_std_17)
+target_compile_features(imgui PRIVATE cxx_std_20)
 target_link_libraries(imgui glfw Vulkan::Vulkan)
 
 add_library(stb src/stb_impl.cpp)
-target_compile_features(stb PRIVATE cxx_std_17)
+target_compile_features(stb PRIVATE cxx_std_20)
 
 add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/main.cpp src/swap_chain.cpp
@@ -108,12 +108,12 @@ add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     point-light.frag.spv solid-color.frag.spv nop.frag.spv multiview-simple.vert.spv)
 target_link_libraries(eggv glfw Vulkan::Vulkan imgui nlohmann_json::nlohmann_json
     stduuid mio::mio stb ReactPhysics3D::reactphysics3d emlisp)
-target_compile_features(eggv PUBLIC cxx_std_17)
+target_compile_features(eggv PUBLIC cxx_std_20)
 
 
 include_directories(depd/quickhull)
 add_executable(eggv_import inc/ndcommon.h src/import.cpp depd/quickhull/QuickHull.cpp)
-target_compile_features(eggv_import PUBLIC cxx_std_17)
+target_compile_features(eggv_import PUBLIC cxx_std_20)
 target_link_libraries(eggv_import nlohmann_json::nlohmann_json stduuid assimp)
 
 

@@ -1,8 +1,37 @@
 #pragma once
 
 #include "cmmn.h"
+#include "ecs.h"
 #include "renderer.h"
 #include <reactphysics3d/reactphysics3d.h>
+
+
+struct rigid_body_component {
+    reactphysics3d::RigidBody* body;
+
+    rigid_body_component(class rigid_body_system* sys);
+};
+
+struct collider_component {
+    reactphysics3d::Collider* collider;
+
+    collider_component(class collider_system* sys);
+};
+
+class rigid_body_system : public entity_system<rigid_body_component> {
+    reactphysics3d::PhysicsCommon phy;
+    reactphysics3d::PhysicsWorld* world;
+};
+
+class collider_system : public entity_system<collider_component> {
+    reactphysics3d::PhysicsCommon phy;
+    reactphysics3d::PhysicsWorld* world;
+};
+
+
+// either self has [transform, rigid body, collider] or self has [transform, rigid body] and some children have [collider, transform]
+// always sets self's transform
+
 
 /*struct rigid_body_trait : public trait {
     reactphysics3d::RigidBody* body;

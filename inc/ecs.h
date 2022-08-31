@@ -156,6 +156,16 @@ struct assoc_vector_storage {
     }
 };
 
+template<typename Component, typename Context, typename std::enable_if_t<std::is_default_constructible<Component>::value>* = nullptr>
+inline Component default_component(Context* cx) {
+    return Component{};
+}
+
+template<typename Component, typename Context, typename std::enable_if_t<!std::is_default_constructible<Component>::value>* = nullptr>
+inline Component default_component(Context* cx) {
+    return Component{cx};
+}
+
 template<typename Component, typename Storage = unordered_map_storage>
 class entity_system : public abstract_entity_system {
   protected:
@@ -169,7 +179,7 @@ class entity_system : public abstract_entity_system {
         Storage::template emplace<Component>(this->entity_data, id, data);
     }
 
-    void add_entity_with_defaults(entity_id id) override { this->add_entity(id, Component{}); }
+    void add_entity_with_defaults(entity_id id) override { this->add_entity(id, default_component<Component>(this)); }
 
     void remove_entity(entity_id id) override {
         Storage::template remove<Component>(this->entity_data, id);
