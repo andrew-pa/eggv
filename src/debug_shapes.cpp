@@ -182,7 +182,7 @@ void debug_shape_render_node_prototype::generate_command_buffer_inline(
     );
     cb.bindVertexBuffers(0, {frame_axis_mesh.vertex_buffer->buf}, {0});
     cb.bindIndexBuffer(frame_axis_mesh.index_buffer->buf, 0, vk::IndexType::eUint16);
-    auto *cur_world = r->current_world();
+    auto* cur_world = r->current_world();
     for(const auto& [_, sys] : *cur_world) {
         sys->generate_viewport_shapes(
             [&](auto shape) {

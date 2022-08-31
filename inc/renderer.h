@@ -184,7 +184,8 @@ struct gpu_texture {
     std::shared_ptr<image> img;
     vk::UniqueImageView    img_view;
     uint64_t               imgui_tex_id;
-    gpu_texture(std::shared_ptr<image>  img, vk::UniqueImageView img_view)
+
+    gpu_texture(std::shared_ptr<image> img, vk::UniqueImageView img_view)
         : img(std::move(img)), img_view(std::move(img_view)), imgui_tex_id(0) {}
 };
 
@@ -215,7 +216,7 @@ class renderer : public entity_system<mesh_component> {
 
     // the render graph
     std::vector<std::shared_ptr<render_node_prototype>> prototypes;
-    std::string render_graph_name;
+    std::string                                         render_graph_name;
     std::vector<std::shared_ptr<render_node>>           render_graph;
     std::shared_ptr<render_node>                        screen_output_node;
 
@@ -241,17 +242,17 @@ class renderer : public entity_system<mesh_component> {
 
     // texturing/materials
     std::unordered_map<std::string, gpu_texture> texture_cache;
-    gpu_texture&                            create_texture2d(
-                                                const std::string& name,
-                                                uint32_t           width,
-                                                uint32_t           height,
-                                                vk::Format         fmt,
-                                                size_t             data_size,
-                                                void*              data,
-                                                vk::CommandBuffer  uplcb
-                                            );
-    gpu_texture&                          load_texture_from_bundle(const std::string& name, vk::CommandBuffer uplcb);
-    vk::UniqueSampler             texture_sampler;
+    gpu_texture&                                 create_texture2d(
+                                        const std::string& name,
+                                        uint32_t           width,
+                                        uint32_t           height,
+                                        vk::Format         fmt,
+                                        size_t             data_size,
+                                        void*              data,
+                                        vk::CommandBuffer  uplcb
+                                    );
+    gpu_texture&      load_texture_from_bundle(const std::string& name, vk::CommandBuffer uplcb);
+    vk::UniqueSampler texture_sampler;
     vk::UniqueDescriptorPool      material_desc_pool;
     vk::UniqueDescriptorSetLayout material_desc_set_layout;
 

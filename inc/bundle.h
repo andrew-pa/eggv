@@ -16,10 +16,10 @@ struct material {
 
     material(
         const std::shared_ptr<class bundle>& parent_bundle,
-        std::string                name,
-        vec3                       base_color      = vec3(.1f),
-        std::optional<std::string> diffuse_tex = {},
-        uuids::uuid                id              = uuids::uuid()
+        std::string                          name,
+        vec3                                 base_color  = vec3(.1f),
+        std::optional<std::string>           diffuse_tex = {},
+        uuids::uuid                          id          = uuids::uuid()
     );
 
     material(const std::shared_ptr<class bundle>& parent_bundle, uuids::uuid id, json data);
@@ -36,7 +36,7 @@ struct texture_data {
     uint32_t   width, height;
     vk::Format fmt;
     void*      data;
-    size_t size_bytes;
+    size_t     size_bytes;
 
     texture_data() = default;
     texture_data(const std::filesystem::path& path);
@@ -45,17 +45,18 @@ struct texture_data {
     texture_data& operator=(const texture_data&) = delete;
 
     texture_data(texture_data&& other) noexcept
-        : width(other.width), height(other.height), fmt(other.fmt), data(other.data), size_bytes(other.size_bytes)
-    {
+        : width(other.width), height(other.height), fmt(other.fmt), data(other.data),
+          size_bytes(other.size_bytes) {
         other.data = nullptr;
     }
+
     texture_data& operator=(texture_data&& o) noexcept {
-        this->width = o.width;
-        this->height = o.height;
-        this->fmt = o.fmt;
-        this->data = o.data;
+        this->width      = o.width;
+        this->height     = o.height;
+        this->fmt        = o.fmt;
+        this->data       = o.data;
         this->size_bytes = o.size_bytes;
-        o.data = nullptr;
+        o.data           = nullptr;
         return *this;
     }
 
@@ -70,13 +71,13 @@ struct texture_data {
 // - scripts
 class bundle : public std::enable_shared_from_this<bundle> {
   public:
-    std::filesystem::path root_path;
+    std::filesystem::path                            root_path;
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
     std::vector<std::shared_ptr<material>>           materials;
-    //TODO: use UUIDs for textures?
-    std::unordered_map<std::string, texture_data>    textures;
-    std::unordered_map<std::string, json>            render_graphs;
-    std::shared_ptr<material>                        selected_material;
+    // TODO: use UUIDs for textures?
+    std::unordered_map<std::string, texture_data> textures;
+    std::unordered_map<std::string, json>         render_graphs;
+    std::shared_ptr<material>                     selected_material;
 
     bundle() : selected_material(nullptr), materials_changed(true) {}
 

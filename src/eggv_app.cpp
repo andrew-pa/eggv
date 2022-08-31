@@ -94,11 +94,10 @@ eggv_cmdline_args::eggv_cmdline_args(int argc, const char* argv[]) : resolution(
 }
 
 eggv_app::eggv_app(const eggv_cmdline_args& args)
-    : app("erg", args.resolution), w(std::make_shared<world>()),
-      gui_visible(true), cam_mouse_enabled(false), ui_key_cooldown(0.f), physics_sim_time(0),
+    : app("erg", args.resolution), w(std::make_shared<world>()), gui_visible(true),
+      cam_mouse_enabled(false), ui_key_cooldown(0.f), physics_sim_time(0),
       script_repl_window(std::make_unique<script_repl_window_t>()),
-      script_runtime(std::make_shared<emlisp::runtime>())
-{
+      script_runtime(std::make_shared<emlisp::runtime>()) {
     r = std::make_shared<renderer>(w);
     r->init(dev.get());
 
@@ -126,9 +125,9 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
         std::make_shared<directional_light_shadowmap_render_node_prototype>(dev.get())
     );
     r->prototypes.emplace_back(std::make_shared<point_light_render_node_prototype>(dev.get()));
-    // r.prototypes.emplace_back(
-    //     std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world)
-    // );
+    r->prototypes.emplace_back(
+        std::make_shared<physics_debug_shape_render_node_prototype>(dev.get(), phys_world)
+    );
 
     r->current_bundle = bndl = std::make_shared<bundle>();
     bndl->load(dev.get(), args.bundle_path);
@@ -286,9 +285,7 @@ void eggv_app::build_gui() {
                 ImGui::MenuItem(name.c_str(), nullptr, &open);
             ImGui::EndMenu();
         }
-        if(ImGui::MenuItem("Save bundle")) {
-            bndl->save();
-        }
+        if(ImGui::MenuItem("Save bundle")) bndl->save();
         ImGui::EndPopup();
     }
     if(fs.gui_open_windows["ImGui Demo"])

@@ -53,8 +53,8 @@ json render_node::serialize() const {
 }
 
 renderer::renderer(const std::shared_ptr<world>& w)
-    : entity_system<mesh_component>(w), dev(nullptr), next_id(10), desc_pool(nullptr), num_gpu_mats(0), should_recompile(false),
-      log_compile(true), show_shapes(true) {}
+    : entity_system<mesh_component>(w), dev(nullptr), next_id(10), desc_pool(nullptr),
+      num_gpu_mats(0), should_recompile(false), log_compile(true), show_shapes(true) {}
 
 void renderer::init(device* _dev) {
     this->dev                                 = _dev;
@@ -215,8 +215,7 @@ gpu_texture& renderer::create_texture2d(
     vk::CommandBuffer  uplcb
 ) {
     auto existing_texture = texture_cache.find(name);
-    if(existing_texture != texture_cache.end())
-        return existing_texture->second;
+    if(existing_texture != texture_cache.end()) return existing_texture->second;
 
     auto staging_buffer = std::make_unique<buffer>(
         dev,
@@ -395,11 +394,9 @@ void renderer::update(const frame_state& fs) {
     if(should_recompile) compile_render_graph();
 }
 
-void renderer::render(
-    vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs
-) {
-    auto* cur_world = this->cur_world.lock().get();
-    auto cam_system = cur_world->system<camera_system>();
+void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, const frame_state& fs) {
+    auto* cur_world  = this->cur_world.lock().get();
+    auto  cam_system = cur_world->system<camera_system>();
     if(cam_system->active_camera_id.has_value()) {
         auto cam = cam_system->active_camera();
         auto T   = cur_world->system<transform_system>()

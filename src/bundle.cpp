@@ -10,7 +10,9 @@
 static std::mt19937                 default_random_gen(std::random_device{}());
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
 
-// tragic that we can't use constructors the way things are meant to be, but we can't call `shared_from_this` from a constructor and we need some way for materials to refer back to the bundle they came from so sometimes it just be like that
+// tragic that we can't use constructors the way things are meant to be, but we can't call
+// `shared_from_this` from a constructor and we need some way for materials to refer back to the
+// bundle they came from so sometimes it just be like that
 void bundle::load(device* dev, const std::filesystem::path& path) {
     materials_changed = true;
     geometry_sets.clear();
@@ -28,7 +30,7 @@ void bundle::load(device* dev, const std::filesystem::path& path) {
     for(const auto& tx_entry : std::filesystem::recursive_directory_iterator{tx_path}) {
         if(tx_entry.is_regular_file()) {
             const auto* name = tx_entry.path().lexically_relative(tx_path).c_str();
-            textures[name] = texture_data{tx_entry.path()};
+            textures[name]   = texture_data{tx_entry.path()};
         }
     }
 
@@ -55,13 +57,12 @@ void bundle::load(device* dev, const std::filesystem::path& path) {
 
 void bundle::save() {
     json raw_materials;
-    for(const auto& mat : materials) {
+    for(const auto& mat : materials)
         raw_materials[uuids::to_string(mat->id)] = mat->serialize();
-    }
     std::ofstream mats_out{root_path / "materials.json"};
     mats_out << raw_materials;
 
-    for(const auto&[name, raw_rg] : render_graphs) {
+    for(const auto& [name, raw_rg] : render_graphs) {
         std::ofstream f{root_path / "render-graphs" / name};
         f << raw_rg;
     }
@@ -76,12 +77,14 @@ texture_data::texture_data(const std::filesystem::path& path) {
         case 3: fmt = vk::Format::eR8G8B8Unorm; break;
         case 4: fmt = vk::Format::eR8G8B8A8Unorm; break;
     };*/
-    this->fmt = vk::Format::eR8G8B8A8Unorm;
-    this->size_bytes = width*4*height;
+    this->fmt        = vk::Format::eR8G8B8A8Unorm;
+    this->size_bytes = width * 4 * height;
     std::cout << "image " << path << " -> " << width << "x" << height << "/" << channels << "\n";
 }
 
-texture_data::~texture_data() { if(data != nullptr) free(data); }
+texture_data::~texture_data() {
+    if(data != nullptr) free(data);
+}
 
 #include "ImGuiFileDialog.h"
 
@@ -157,14 +160,18 @@ void bundle::build_gui(frame_state& fs) {
     }
 }
 
-material::material(const std::shared_ptr<class bundle>& parent_bundle,
-    std::string name, vec3 base_color, std::optional<std::string> diffuse_tex, uuids::uuid id
+material::material(
+    const std::shared_ptr<class bundle>& parent_bundle,
+    std::string                          name,
+    vec3                                 base_color,
+    std::optional<std::string>           diffuse_tex,
+    uuids::uuid                          id
 )
     : id(id.is_nil() ? uuid_gen() : id), name(std::move(name)), base_color(base_color),
       diffuse_tex(std::move(diffuse_tex)), parent_bundle(parent_bundle) {}
 
-material::material(const std::shared_ptr<class bundle>& parent_bundle,
-        uuids::uuid id, json data) : id(id), parent_bundle(parent_bundle) {
+material::material(const std::shared_ptr<class bundle>& parent_bundle, uuids::uuid id, json data)
+    : id(id), parent_bundle(parent_bundle) {
     name       = data["name"];
     base_color = ::deserialize_v3(data["base"]);
     if(data.contains("textures")) {
@@ -197,12 +204,12 @@ bool material::build_gui(frame_state& fs) {
     if(ImGui::BeginCombo("Diffuse", diffuse_tex.value_or("<none>").c_str())) {
         if(ImGui::Selectable("<none>", !diffuse_tex.has_value())) {
             diffuse_tex = std::nullopt;
-            changed = true;
+            changed     = true;
         }
         for(const auto& [name, _] : parent_bundle.lock()->textures) {
             if(ImGui::Selectable(name.c_str(), name == diffuse_tex)) {
                 diffuse_tex = name;
-                changed = true;
+                changed     = true;
             }
         }
         ImGui::EndCombo();

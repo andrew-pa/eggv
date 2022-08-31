@@ -5,7 +5,6 @@
 #include "renderer.h"
 #include <reactphysics3d/reactphysics3d.h>
 
-
 struct rigid_body_component {
     reactphysics3d::RigidBody* body;
 
@@ -28,10 +27,8 @@ class collider_system : public entity_system<collider_component> {
     reactphysics3d::PhysicsWorld* world;
 };
 
-
-// either self has [transform, rigid body, collider] or self has [transform, rigid body] and some children have [collider, transform]
-// always sets self's transform
-
+// either self has [transform, rigid body, collider] or self has [transform, rigid body] and some
+// children have [collider, transform] always sets self's transform
 
 /*struct rigid_body_trait : public trait {
     reactphysics3d::RigidBody* body;
@@ -71,7 +68,7 @@ struct physics_system : public entity_system<reactphysics3d::RigidBody*> {
 
     rigid_body_trait_factory(reactphysics3d::PhysicsCommon* phy, reactphysics3d::PhysicsWorld* wrld)
         : phy(phy), world(wrld) {}
-};
+};*/
 
 struct physics_debug_shape_render_node_prototype : public render_node_prototype {
     reactphysics3d::PhysicsWorld* world;
@@ -111,6 +108,3 @@ struct physics_debug_shape_render_node_prototype : public render_node_prototype 
 
     size_t id() const override { return 0x0000aaaa; }
 };
-
-void build_physics_world_gui(frame_state*, bool* window_open, reactphysics3d::PhysicsWorld* world);
-*/

@@ -1,9 +1,10 @@
-/*
 #include "physics.h"
 #include "geometry_set.h"
 #include "imgui.h"
 #include "reactphysics3d/mathematics/Vector3.h"
 using namespace reactphysics3d;
+
+/*
 
 // TODO:
 // + offset transform for aliging 3d objects and rigid bodies
@@ -375,6 +376,8 @@ void build_physics_world_gui(
     }
 }
 
+*/
+
 const size_t NUM_DEBUG_LINES = 2048;
 const size_t NUM_DEBUG_TRIS  = 512;
 
@@ -488,12 +491,12 @@ void physics_debug_shape_render_node_prototype::generate_pipelines(
 ) {
     vk::PipelineShaderStageCreateInfo shader_stages[] = {
         vk::PipelineShaderStageCreateInfo{
-                                          {}, vk::ShaderStageFlagBits::eVertex,
-r->dev->load_shader("simple.vert.spv"), "main"}, vk::PipelineShaderStageCreateInfo{
+                                          {}, vk::ShaderStageFlagBits::eVertex, r->dev->load_shader("simple.vert.spv"), "main"},
+        vk::PipelineShaderStageCreateInfo{
                                           {},
                                           vk::ShaderStageFlagBits::eFragment,
                                           r->dev->load_shader("solid-color.frag.spv"),
-                                          "main" }
+                                          "main"                                                                              }
     };
 
     auto vertex_binding = vk::VertexInputBindingDescription{
@@ -575,7 +578,11 @@ r->dev->load_shader("simple.vert.spv"), "main"}, vk::PipelineShaderStageCreateIn
 }
 
 void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(
-    renderer* r, render_node* node, vk::CommandBuffer& cb, size_t subpass_index
+    renderer*          r,
+    render_node*       node,
+    vk::CommandBuffer& cb,
+    size_t             subpass_index,
+    const frame_state& fs
 ) {
     if(!world->getIsDebugRenderingEnabled()) return;
     auto& dr = world->getDebugRenderer();
@@ -640,4 +647,3 @@ void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(
         cb.draw(3 * dr.getNbTriangles(), 1, 0, 0);
     }
 }
-*/

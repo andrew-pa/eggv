@@ -460,7 +460,7 @@ void directional_light_render_node_prototype::generate_command_buffer_inline(
     }
 
     auto* cur_world = r->current_world();
-    auto lights = cur_world->system<light_system>();
+    auto  lights    = cur_world->system<light_system>();
 
     for(auto lighti = lights->begin_components(); lighti != lights->end_components(); ++lighti) {
         const auto& [id, light] = *lighti;
@@ -551,7 +551,7 @@ size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(
     pass_to_light_map.clear();
 
     auto* cur_world = r->current_world();
-    auto lights = cur_world->system<light_system>();
+    auto  lights    = cur_world->system<light_system>();
 
     for(auto lighti = lights->begin_components(); lighti != lights->end_components(); ++lighti) {
         auto& [id, light] = *lighti;
@@ -709,7 +709,7 @@ void directional_light_shadowmap_render_node_prototype::generate_command_buffer_
             light = (light_trait*)lt->second.get();
         }
     }*/
-    auto* cur_world = r->current_world();
+    auto*        cur_world = r->current_world();
     auto         light_ent = cur_world->entity(pass_to_light_map[subpass_index]);
     const light& light     = light_ent.get_component<light_system>();
 
@@ -960,9 +960,9 @@ void point_light_render_node_prototype::generate_command_buffer_inline(
     cb.bindVertexBuffers(0, {sphere_mesh->vertex_buffer->buf}, {0});
     cb.bindIndexBuffer(sphere_mesh->index_buffer->buf, 0, vk::IndexType::eUint16);
 
-    auto* cur_world = r->current_world();
-    auto lights     = cur_world->system<light_system>();
-    auto transforms = cur_world->system<transform_system>();
+    auto* cur_world  = r->current_world();
+    auto  lights     = cur_world->system<light_system>();
+    auto  transforms = cur_world->system<transform_system>();
 
     for(auto lighti = lights->begin_components(); lighti != lights->end_components(); ++lighti) {
         auto& [id, light] = *lighti;
