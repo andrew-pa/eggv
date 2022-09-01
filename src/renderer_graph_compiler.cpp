@@ -25,6 +25,8 @@ inline vk::ImageAspectFlags aspects_for_type(framebuffer_type ty) {
 framebuffer_ref renderer::allocate_framebuffer(
     const framebuffer_desc& desc, uint32_t subpass_count
 ) {
+    if(subpass_count == 0) return 0;
+
     for(auto& [ref, fb] : buffers) {
         if(fb.in_use) {
             if(fb.img->info.format == desc.format) {
@@ -208,6 +210,7 @@ void emit_node_subpass_dependencies(
         if(!_input_node.has_value()) continue;
         auto input_node = _input_node->lock();
         if(input_node->prototype->id() == 0x0000ffff) continue;  // screen output node
+        if(input_node->subpass_count == 0) continue;             // subpass isn't actually happening
         const auto& fb_desc = input_node->prototype->outputs[input_index];
 
         auto from_subpass = input_node->subpass_index + input_node->subpass_count - 1;
@@ -265,6 +268,11 @@ void renderer::generate_subpasses(
 
     if(node.get() == screen_output_node.get()) {
         if(log_compile) std::cout << "\toutput node, skipped\n";
+        return;
+    }
+
+    if(node->subpass_count == 0) {
+        if(log_compile) std::cout << "\tnode subpass count is zero, skipped\n";
         return;
     }
 

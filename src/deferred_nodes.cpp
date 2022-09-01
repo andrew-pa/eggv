@@ -268,7 +268,7 @@ void directional_light_render_node_prototype::update_descriptor_sets(
         );
     }
 
-    if(node->input_framebuffer(2).has_value()) {
+    if(node->input_framebuffer(2).has_value() && node->input_framebuffer(2).value() != 0) {
         writes.emplace_back(
             node->desc_set.get(),
             5,
@@ -562,7 +562,10 @@ size_t directional_light_shadowmap_render_node_prototype::subpass_repeat_count(
         }
     }
 
-    this->outputs[0].count                                   = num_lights;
+    this->outputs[0].count = num_lights;
+
+    if(num_lights == 0) return num_lights;
+
     r->global_buffers[GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ] = std::make_unique<buffer>(
         r->dev,
         sizeof(mat4) * num_lights,
@@ -601,19 +604,21 @@ void directional_light_shadowmap_render_node_prototype::update_descriptor_sets(
     arena<vk::DescriptorBufferInfo>&     buf_infos,
     arena<vk::DescriptorImageInfo>&      img_infos
 ) {
-    writes.emplace_back(
-        node->desc_set.get(),
-        0,
-        0,
-        1,
-        vk::DescriptorType::eStorageBuffer,
-        nullptr,
-        buf_infos.alloc(vk::DescriptorBufferInfo(
-            r->global_buffers[GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ]->buf,
+    if(r->global_buffers[GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ] != nullptr) {
+        writes.emplace_back(
+            node->desc_set.get(),
             0,
-            sizeof(mat4) * node->subpass_count
-        ))
-    );
+            0,
+            1,
+            vk::DescriptorType::eStorageBuffer,
+            nullptr,
+            buf_infos.alloc(vk::DescriptorBufferInfo(
+                r->global_buffers[GLOBAL_BUF_DIRECTIONAL_LIGHT_VIEWPROJ]->buf,
+                0,
+                sizeof(mat4) * node->subpass_count
+            ))
+        );
+    }
 }
 
 void directional_light_shadowmap_render_node_prototype::generate_pipelines(

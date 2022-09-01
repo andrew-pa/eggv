@@ -153,7 +153,10 @@ buffer::buffer(
     auto              res
         = vmaCreateBuffer(dev->allocator, (VkBufferCreateInfo*)&bco, &mreq, &buf, &alloc, &alli);
     if(persistent_map != nullptr) *persistent_map = alli.pMappedData;
-    assert(res == VK_SUCCESS);
+    if(res != VK_SUCCESS) {
+        std::cerr << "failed to create buffer " << res << "\n";
+        assert(res == VK_SUCCESS);
+    }
     id = counter++;
 #ifdef BUFFER_ALLOC_RELEASE_DEBUG
     std::cout << "buffer #" << id << "!" << size << "\n";

@@ -450,6 +450,7 @@ void renderer::for_each_renderable(
 
     for(auto meshi = this->begin_components(); meshi != this->end_components(); ++meshi) {
         const auto& [id, mesh] = *meshi;
+        if(mesh.geo_src == nullptr || mesh.m == nullptr || mesh.mat == nullptr) continue;
         if(!transforms->has_data_for_entity(id)) continue;
         const auto& transform = transforms->get_data_for_entity(id);
         f(id, mesh, transform);

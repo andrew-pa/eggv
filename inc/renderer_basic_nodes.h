@@ -152,16 +152,7 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
             {}
         );
 
-        auto* cur_world = r->current_world();
-
-        auto transforms = cur_world->system<transform_system>();
-
-        for(auto meshi = r->begin_components(); meshi != r->end_components(); ++meshi) {
-            const auto& [id, mesh] = *meshi;
-            if(mesh.geo_src == nullptr || mesh.m == nullptr || mesh.mat == nullptr) continue;
-            if(!transforms->has_data_for_entity(id)) continue;
-            const auto& transform = transforms->get_data_for_entity(id);
-
+        r->for_each_renderable([&](entity_id id, auto mesh, auto transform) {
             cb.bindDescriptorSets(
                 vk::PipelineBindPoint::eGraphics,
                 this->pipeline_layout.get(),
@@ -182,7 +173,7 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
                 {vec3(mesh.mat ? mesh.mat->base_color : vec3(0.5f, 0.f, 0.2f))}
             );
             cb.drawIndexed(m->index_count, 1, 0, 0, 0);
-        }
+        });
     }
 };
 
