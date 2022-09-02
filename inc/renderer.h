@@ -337,6 +337,6 @@ struct single_pipeline_render_node_prototype : public render_node_prototype {
         renderer* r, render_node* node, const vk::GraphicsPipelineCreateInfo& desc
     ) {
         ((single_pipeline_node_data*)node->data.get())->pipeline
-            = r->dev->dev->createGraphicsPipelineUnique(nullptr, desc);
+            = r->dev->create_graphics_pipeline(desc);
     }
 };

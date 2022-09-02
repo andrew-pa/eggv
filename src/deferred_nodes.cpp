@@ -696,7 +696,7 @@ void directional_light_shadowmap_render_node_prototype::generate_pipelines(
     data->pipelines.clear();
     for(uint32_t i = 0; i < node->subpass_count; ++i) {
         cfo.subpass = subpass + i;
-        data->pipelines.emplace_back(r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo));
+        data->pipelines.emplace_back(r->dev->create_graphics_pipeline(cfo));
     }
 }
 

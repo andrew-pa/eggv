@@ -6,8 +6,8 @@
 #include "vk_mem_alloc.h"
 
 device::device(app* app) {
-    auto devices = app->instance.enumeratePhysicalDevices(
-    );  // just choose the first physical device for now
+    auto devices = app->instance.enumeratePhysicalDevices();
+    // just choose the first physical device for now
     pdevice            = devices[0];
     auto pdevice_props = pdevice.getProperties();
     std::cout << "Physical Device: " << pdevice_props.deviceName << std::endl;
@@ -85,8 +85,8 @@ vk::CommandBuffer device::alloc_tmp_cmd_buffer(vk::CommandBufferLevel lvl) {
 }
 
 void device::clear_tmps() {
-    if(tmp_cmd_buffers.size() > 0) tmp_cmd_buffers.clear();
-    if(tmp_upload_buffers.size() > 0) tmp_upload_buffers.clear();
+    if(!tmp_cmd_buffers.empty()) tmp_cmd_buffers.clear();
+    if(!tmp_upload_buffers.empty()) tmp_upload_buffers.clear();
 }
 
 vk::UniqueDescriptorSetLayout device::create_desc_set_layout(
@@ -114,6 +114,14 @@ vk::ShaderModule device::load_shader(const std::filesystem::path& path) {
 
     shader_module_cache[path] = this->dev->createShaderModuleUnique(cfo);
     return shader_module_cache[path].get();
+}
+
+vk::UniquePipeline device::create_graphics_pipeline(const vk::GraphicsPipelineCreateInfo& cfo) {
+    auto res = dev->createGraphicsPipelineUnique(nullptr, cfo);
+    if(res.result != vk::Result::eSuccess) {
+        throw res;
+    }
+    return std::move(res.value);
 }
 
 device::~device() {
@@ -144,12 +152,14 @@ buffer::buffer(
     vk::MemoryPropertyFlags memuse,
     void**                  persistent_map
 )
-    : dev(dev) {
+    : dev(dev)
+{
     VmaAllocationCreateInfo mreq = {};
     mreq.flags                   = persistent_map ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
     mreq.requiredFlags           = (VkMemoryPropertyFlags)memuse;
     VmaAllocationInfo alli;
     auto              bco = vk::BufferCreateInfo{vk::BufferCreateFlags(), size, bufuse};
+
     auto              res
         = vmaCreateBuffer(dev->allocator, (VkBufferCreateInfo*)&bco, &mreq, &buf, &alloc, &alli);
     if(persistent_map != nullptr) *persistent_map = alli.pMappedData;

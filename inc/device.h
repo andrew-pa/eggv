@@ -126,6 +126,8 @@ class device {
 
     vk::ShaderModule load_shader(const std::filesystem::path& path);
 
+    vk::UniquePipeline create_graphics_pipeline(const vk::GraphicsPipelineCreateInfo& cfo);
+
     void clear_tmps();
 
     ~device();

@@ -569,12 +569,11 @@ void physics_debug_shape_render_node_prototype::generate_pipelines(
 
     physics_debug_shape_render_node_data* data
         = (physics_debug_shape_render_node_data*)node->data.get();
-    data->line_pipeline = r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);
+    data->line_pipeline = r->dev->create_graphics_pipeline(cfo);
 
     input_assembly.topology = vk::PrimitiveTopology::eLineList;
 
-    data->triangle_pipeline
-        = std::move(r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo));  // .value;
+    data->triangle_pipeline = r->dev->create_graphics_pipeline(cfo);
 }
 
 void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(
@@ -647,3 +646,5 @@ void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(
         cb.draw(3 * dr.getNbTriangles(), 1, 0, 0);
     }
 }
+
+

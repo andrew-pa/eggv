@@ -162,8 +162,7 @@ void debug_shape_render_node_prototype::generate_pipelines(
         subpass
     );
 
-    ((node_data*)node->data.get())->pipeline
-        = r->dev->dev->createGraphicsPipelineUnique(nullptr, cfo);
+    ((node_data*)node->data.get())->pipeline = r->dev->create_graphics_pipeline(cfo);
 }
 
 void debug_shape_render_node_prototype::generate_command_buffer_inline(
