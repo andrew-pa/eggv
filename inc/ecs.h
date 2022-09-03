@@ -1,5 +1,6 @@
 #pragma once
 #include "cmmn.h"
+#include "emlisp.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -331,12 +332,7 @@ class world {
     auto end() { return systems.end(); }
 
     entity_handle create_entity(const std::string& name = "") {
-        // std::cout << "create_entity " << next_id << "\n";
-        auto id = next_id++;
-        auto n  = std::make_shared<node>(root_entity, id, name);
-        root_entity->children.push_back(n);
-        nodes.emplace(id, n);
-        return entity_handle{this, n};
+        return root().add_child(name);
     }
 
     entity_handle entity(entity_id id) { return entity_handle{this, nodes[id]}; }

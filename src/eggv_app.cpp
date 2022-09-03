@@ -55,9 +55,18 @@ struct script_repl_window_t {
             if(ImGui::InputText("##input", input, 256, ImGuiInputTextFlags_EnterReturnsTrue)) {
                 std::ostringstream oss;
                 try {
-                    auto res = rt->eval(rt->read(input));
+                    auto in = rt->read(input);
+                    oss << "> ";
+                    rt->write(oss, in) << "\n";
+                    auto res = rt->eval(in);
                     rt->write(oss, res);
-                } catch(std::runtime_error e) { oss << "error: " << e.what(); }
+                }
+                catch(emlisp::type_mismatch_error e) {
+                    oss << "error: " << e.what() << " expected: " << e.expected << " actual: " << e.actual;
+                    oss << "\n\ttrace = ";
+                    rt->write(oss, e.trace);
+                }
+                catch(std::runtime_error e) { oss << "error: " << e.what(); }
                 lines.emplace_back(oss.str());
                 strcpy(input, "");
                 reclaim_focus    = true;
@@ -149,21 +158,17 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
         r->compile_render_graph();
     }
 
-    // init_script_runtime();
+    init_script_runtime();
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
     upload_cb->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
     ImGui_ImplVulkan_CreateFontsTexture(upload_cb.get());
     upload_cb->end();
-    dev->graphics_qu.submit(
-        {
-            vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cb.get()}
-    },
-        nullptr
-    );
+    dev->graphics_qu.submit( { vk::SubmitInfo{0, nullptr, nullptr, 1, &upload_cb.get()} }, nullptr);
 
     fs.gui_open_windows["World"]           = true;
     fs.gui_open_windows["Selected Entity"] = true;
+    fs.gui_open_windows["Script Console"] = true;
 
     dev->graphics_qu.waitIdle();
     ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -263,7 +268,7 @@ void eggv_app::init_gui() {
     io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 16.0f);
 #else
     std::cout << "U";
-    io.Fonts->AddFontFromFileTTF("/usr/share/fonts/fira-code/FiraCode-Medium.ttf", 16.0f);
+    io.Fonts->AddFontFromFileTTF("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf", 16.0f);
 #endif
 
     ImNodes::CreateContext();
