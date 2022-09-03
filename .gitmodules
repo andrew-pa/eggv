@@ -42,3 +42,6 @@
 [submodule "depd/quickhull"]
 	path = depd/quickhull
 	url = https://github.com/akuukka/quickhull
+[submodule "depd/emlisp"]
+	path = depd/emlisp
+	url = git+ssh://git@github.com/andrew-pa/emlisp
