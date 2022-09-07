@@ -56,8 +56,7 @@ struct script_repl_window_t {
                 std::ostringstream oss;
                 try {
                     auto in = rt->read(input);
-                    oss << "> ";
-                    rt->write(oss, in) << "\n";
+                    rt->write(oss, in) << "\n  = ";
                     auto res = rt->eval(in);
                     rt->write(oss, res);
                 }

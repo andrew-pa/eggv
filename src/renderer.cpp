@@ -480,3 +480,18 @@ void renderer::generate_viewport_shapes(
             scale(translate(trf.world, msh.bounds.center()), msh.bounds.extents())});
     }
 }
+
+void renderer::init_scripting(emlisp::runtime* rt) {
+    using namespace emlisp;
+    rt->define_fn("c/+mesh", [](runtime* rt, value args, void* cx) {
+        auto* r = (renderer*)cx;
+        auto m = mesh_component{};
+        if(nth(args, 1) != NIL) {
+            m.geo_src = r->current_bundle->geometry_set_by_name(rt->to_str(nth(args, 1)));
+            if(nth(args, 2) != NIL)
+                m.mesh_index = m.geo_src->mesh_index_for_name(rt->to_str(nth(args, 2)));
+        }
+        r->add_entity(to_int(first(args)), m);
+        return NIL;
+    }, this);
+}

@@ -3,26 +3,6 @@
 
 using namespace emlisp;
 
-value assoc(value m, value key) {
-    while(m != NIL) {
-        value p = first(m);
-        if(first(p) == key) return second(p);
-        m = second(m);
-    }
-    return NIL;
-}
-
-inline value nth(value list, size_t n) {
-    if(list == NIL) return NIL;
-    value cur = list;
-    while(n > 0) {
-        cur = second(cur);
-        if(cur == NIL) return NIL;
-        n--;
-    }
-    return first(cur);
-}
-
 void eggv_app::init_script_runtime() {
     // find/iter/create/destroy entities
     // we return the entity ID as an integer, which isn't very nicely typed but does the job
@@ -61,14 +41,25 @@ void eggv_app::init_script_runtime() {
         return NIL;
     }, this);
 
-    script_runtime->define_fn("entity/parent", [](runtime* rt, value args, void* cx){
+    script_runtime->define_fn("entity/parent", [](runtime* rt, value args, void* cx) {
         auto* app = (eggv_app*)cx;
         return rt->from_int(
                 app->w->entity(to_int(first(args))).parent().id()
         );
     }, this);
 
-    // add/remove standard components
+    script_runtime->define_fn("geometry-set/by-name", [](runtime* rt, value args, void* cx) {
+        auto* bndl = ((eggv_app*)cx)->current_bundle;
+        auto name = rt->to_str(first(args));
+        auto set = std::find_if(bndl->geometry_sets.begin(), bndl->geometry_sets.end(), [&](const auto& gs) {
+            return gs->path.str() == name;
+        });
+
+    }, this);
+
+    for(const auto& [id,sys] : *w) {
+        sys->init_scripting(script_runtime.get());
+    }
 
     heap_info hfo;
     script_runtime->collect_garbage(&hfo);

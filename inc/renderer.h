@@ -313,6 +313,8 @@ class renderer : public entity_system<mesh_component> {
         const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
 
+    void init_scripting(emlisp::runtime* rt) override;
+
     std::string_view name() const override { return "Renderer"; }
 
     inline world* current_world() const { return cur_world.lock().get(); }

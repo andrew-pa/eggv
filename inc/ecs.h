@@ -48,6 +48,8 @@ class abstract_entity_system {
         const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) {}
 
+    virtual void init_scripting(emlisp::runtime* rt) {}
+
     virtual ~abstract_entity_system() = default;
 };
 

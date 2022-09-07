@@ -57,4 +57,6 @@ class geometry_set {
     const geom_file::mesh_header& header(size_t index) const;
 
     const char* file_data() { return data.data(); }
+
+    size_t mesh_index_for_name(std::string_view name);
 };

@@ -26,6 +26,7 @@ class transform_system : public entity_system<transform> {
 
     void update(const frame_state& fs) override;
     void build_gui_for_entity(const frame_state& fs, entity_id selected_entity) override;
+    void init_scripting(emlisp::runtime* rt) override;
 
     std::string_view name() const override { return "Transform"; }
 };
@@ -50,6 +51,8 @@ class light_system : public entity_system<light> {
         const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
 
+    void init_scripting(emlisp::runtime* rt) override;
+
     std::string_view name() const override { return "Light"; }
 };
 
@@ -72,6 +75,8 @@ class camera_system : public entity_system<camera> {
     void generate_viewport_shapes(
         const std::function<void(viewport_shape)>& add_shape, const frame_state& fs
     ) override;
+
+    void init_scripting(emlisp::runtime* rt) override;
 
     std::string_view name() const override { return "Camera"; }
 };

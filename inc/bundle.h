@@ -63,6 +63,8 @@ struct texture_data {
     ~texture_data();
 };
 
+class geometry_set;
+
 // bundle contains assets + code for a project
 // - geometry
 // - materials
@@ -72,7 +74,7 @@ struct texture_data {
 class bundle : public std::enable_shared_from_this<bundle> {
   public:
     std::filesystem::path                            root_path;
-    std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
+    std::vector<std::shared_ptr<geometry_set>> geometry_sets;
     std::vector<std::shared_ptr<material>>           materials;
     // TODO: use UUIDs for textures?
     std::unordered_map<std::string, texture_data> textures;
@@ -88,6 +90,8 @@ class bundle : public std::enable_shared_from_this<bundle> {
     void build_gui(frame_state& fs);
 
     json serialize() const;
+
+    std::shared_ptr<geometry_set> geometry_set_by_name(std::string_view name);
 
     bool materials_changed;
 };
