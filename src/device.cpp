@@ -118,9 +118,7 @@ vk::ShaderModule device::load_shader(const std::filesystem::path& path) {
 
 vk::UniquePipeline device::create_graphics_pipeline(const vk::GraphicsPipelineCreateInfo& cfo) {
     auto res = dev->createGraphicsPipelineUnique(nullptr, cfo);
-    if(res.result != vk::Result::eSuccess) {
-        throw res;
-    }
+    if(res.result != vk::Result::eSuccess) throw res;
     return std::move(res.value);
 }
 
@@ -152,15 +150,14 @@ buffer::buffer(
     vk::MemoryPropertyFlags memuse,
     void**                  persistent_map
 )
-    : dev(dev)
-{
+    : dev(dev) {
     VmaAllocationCreateInfo mreq = {};
     mreq.flags                   = persistent_map ? VMA_ALLOCATION_CREATE_MAPPED_BIT : 0;
     mreq.requiredFlags           = (VkMemoryPropertyFlags)memuse;
     VmaAllocationInfo alli;
     auto              bco = vk::BufferCreateInfo{vk::BufferCreateFlags(), size, bufuse};
 
-    auto              res
+    auto res
         = vmaCreateBuffer(dev->allocator, (VkBufferCreateInfo*)&bco, &mreq, &buf, &alloc, &alli);
     if(persistent_map != nullptr) *persistent_map = alli.pMappedData;
     if(res != VK_SUCCESS) {
@@ -345,7 +342,7 @@ void image::generate_mipmaps(
                     subresrange}}
             );
         } else {
-// transtion this mip level to the final layout as it's the last mip level
+            // transtion this mip level to the final layout as it's the last mip level
             cb.pipelineBarrier(
                 vk::PipelineStageFlagBits::eTransfer,
                 vk::PipelineStageFlagBits::eFragmentShader,

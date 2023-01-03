@@ -13,7 +13,7 @@ gbuffer_geom_render_node_prototype::gbuffer_geom_render_node_prototype(device* d
                          framebuffer_mode::output,
                          3},
         framebuffer_desc{
-                         "depth",           vk::Format::eUndefined,                                      framebuffer_type::depth, framebuffer_mode::output}
+                         "depth", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::output}
     };
 
     desc_layout = dev->create_desc_set_layout({vk::DescriptorSetLayoutBinding(
@@ -181,16 +181,16 @@ directional_light_render_node_prototype::directional_light_render_node_prototype
         framebuffer_desc{
                          "input_color", vk::Format::eR32G32B32A32Sfloat,
                          framebuffer_type::color,
-                         framebuffer_mode::blend_input     },
+                         framebuffer_mode::blend_input},
         framebuffer_desc{
-                         "geometry",    vk::Format::eR32G32B32A32Sfloat,
+                         "geometry", vk::Format::eR32G32B32A32Sfloat,
                          framebuffer_type::color,
                          framebuffer_mode::input_attachment,
                          3},
         framebuffer_desc{
-                         "shadowmap",             vk::Format::eUndefined,
+                         "shadowmap", vk::Format::eUndefined,
                          framebuffer_type::depth,
-                         framebuffer_mode::shader_input           },
+                         framebuffer_mode::shader_input},
     };
     outputs = {
         framebuffer_desc{
@@ -715,7 +715,7 @@ void directional_light_shadowmap_render_node_prototype::generate_command_buffer_
         }
     }*/
     auto*        cur_world = r->current_world();
-    auto         light_ent = cur_world->entity(pass_to_light_map[subpass_index]);
+    auto         light_ent = cur_world->get(pass_to_light_map[subpass_index]);
     const light& light     = light_ent.get_component<light_system>();
 
     // const float scene_radius = 8.f;
@@ -753,7 +753,7 @@ void directional_light_shadowmap_render_node_prototype::generate_command_buffer_
 point_light_render_node_prototype::point_light_render_node_prototype(device* dev) {
     inputs = {
         framebuffer_desc{
-                         "input_color",                    vk::Format::eR32G32B32A32Sfloat,
+                         "input_color", vk::Format::eR32G32B32A32Sfloat,
                          framebuffer_type::color,
                          framebuffer_mode::blend_input},
         framebuffer_desc{

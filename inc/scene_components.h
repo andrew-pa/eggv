@@ -17,7 +17,7 @@ struct transform {
 };
 
 class transform_system : public entity_system<transform> {
-    void update_world_transforms(world::entity_handle e, const mat4& T);
+    void update_world_transforms(entity e, const mat4& T);
 
   public:
     static const system_id id = (system_id)static_systems::transform;

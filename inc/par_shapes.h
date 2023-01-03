@@ -37,8 +37,8 @@ extern "C" {
 #        if _MSC_VER >= 1800
 #            include <stdbool.h>
 #        else  // stdbool.h missing prior to MSVC++ 12.0 (VS2013)
-#            define bool int
-#            define true 1
+#            define bool  int
+#            define true  1
 #            define false 0
 #        endif
 #    endif

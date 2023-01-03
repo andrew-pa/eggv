@@ -646,5 +646,3 @@ void physics_debug_shape_render_node_prototype::generate_command_buffer_inline(
         cb.draw(3 * dr.getNbTriangles(), 1, 0, 0);
     }
 }
-
-

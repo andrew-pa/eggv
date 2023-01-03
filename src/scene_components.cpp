@@ -4,7 +4,7 @@
 // TODO: break up headers and move modules into directories ie this should go with the other ECS
 // stuff
 
-void transform_system::update_world_transforms(world::entity_handle e, const mat4& T) {
+void transform_system::update_world_transforms(entity e, const mat4& T) {
     auto d = this->entity_data.find(e);
     if(d != this->entity_data.end()) {
         auto& comp = d->second;

@@ -1,5 +1,6 @@
 #pragma once
 #include "cmmn.h"
+#include "emlisp_autobind.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -129,9 +130,7 @@ struct assoc_vector_storage {
 
     template<typename T>
     static T& get(type<T>& self, entity_id id) {
-        return std::any_of(
-            self.begin(), self.end(), [id](const auto& p) { return p.first == id; }
-        );
+        return std::any_of(self.begin(), self.end(), [id](const auto& p) { return p.first == id; });
     }
 
     template<typename T>
@@ -223,7 +222,9 @@ class entity_system : public abstract_entity_system {
 
 static const entity_id root_id = (entity_id)1;
 
-class world {
+class entity;
+
+EL_OBJ class world {
     std::unordered_map<system_id, std::shared_ptr<abstract_entity_system>> systems;
 
     entity_id next_id;
@@ -234,8 +235,8 @@ class world {
         std::weak_ptr<node>                parent;
         std::vector<std::shared_ptr<node>> children;
 
-        node(const std::shared_ptr<node>& parent, entity_id id, std::string n)
-            : name(std::move(n)), entity(id), parent(parent) {}
+        node(const std::shared_ptr<node>& parent, entity_id id, std::string_view n)
+            : name(n), entity(id), parent(parent) {}
     };
 
     std::shared_ptr<node>                                root_entity;
@@ -244,77 +245,9 @@ class world {
     std::unordered_set<entity_id> dead_entities;
 
   public:
-    class entity_handle {
-        world*                w;
-        std::shared_ptr<node> _node;
-
-        entity_handle(world* w, std::shared_ptr<node> n) : w(w), _node(std::move(n)) {}
-
-      public:
-        template<typename System>
-        entity_handle& add_component(
-            typename System::component_t component, system_id id = (system_id)System::id
-        ) {
-            auto* system = w->system<System>(id);
-            system->add_entity(_node->entity, component);
-            return *this;
-        }
-
-        template<typename System>
-        bool has_component(system_id id = (system_id)System::id) const {
-            auto* system = w->system<System>(id);
-            return system->has_data_for_entity(_node->entity);
-        }
-
-        template<typename System>
-        auto get_component(system_id id = (system_id)System::id) -> typename System::component_t& {
-            auto* system = w->system<System>(id).get();
-            return system->get_data_for_entity(_node->entity);
-        }
-
-        template<typename System>
-        auto get_component(system_id id = (system_id)System::id) const -> const
-            typename System::component_t& {
-            auto* system = w->system<System>(id).get();
-            return system->get_data_for_entity(_node->entity);
-        }
-
-        void remove_component(system_id id) {
-            auto system = w->systems[id];
-            system->remove_entity(_node->entity);
-        }
-
-        void remove() { w->dead_entities.insert(_node->entity); }
-
-        entity_handle add_child(const std::string& name = "") {
-            auto id = w->next_id++;
-            auto n  = std::make_shared<node>(_node, id, name);
-            _node->children.push_back(n);
-            w->nodes.emplace(id, n);
-            return entity_handle{w, n};
-        }
-
-        size_t num_children() const { return _node->children.size(); }
-
-        bool has_children() const { return !_node->children.empty(); }
-
-        void for_each_child(const std::function<void(entity_handle)>& fn) const {
-            for(const auto& c : _node->children)
-                fn(entity_handle{w, c});
-        }
-
-        entity_handle parent() const { return entity_handle{w, _node->parent.lock()}; }
-
-        std::string_view name() const { return this->_node->name; }
-
-        entity_id id() const { return this->_node->entity; }
-
-        operator entity_id() const { return this->_node->entity; }
-
-        friend class world;
-    };
-
     world();
+
+    friend class entity;
 
     template<typename System>
     void add_system(std::shared_ptr<System> sys, system_id id = (system_id)System::id) {
@@ -330,23 +263,93 @@ class world {
 
     auto end() { return systems.end(); }
 
-    entity_handle create_entity(const std::string& name = "") {
-        // std::cout << "create_entity " << next_id << "\n";
-        auto id = next_id++;
-        auto n  = std::make_shared<node>(root_entity, id, name);
-        root_entity->children.push_back(n);
-        nodes.emplace(id, n);
-        return entity_handle{this, n};
-    }
-
-    entity_handle entity(entity_id id) { return entity_handle{this, nodes[id]}; }
-
-    entity_handle root() { return entity_handle{this, root_entity}; }
+    EL_M entity create_entity(std::string_view name = "");
+    EL_M entity get(entity_id id);
+    EL_M entity root();
 
     void update(const frame_state& fs);
     void build_gui(frame_state& fs);
 
   private:
     // gui state
-    void build_scene_tree_gui(frame_state& fs, entity_handle& e);
+    void build_scene_tree_gui(frame_state& fs, entity& e);
+};
+
+EL_OBJ class entity {
+    world*                       w;
+    std::shared_ptr<world::node> _node;
+
+    entity(world* w, std::shared_ptr<world::node> n) : w(w), _node(std::move(n)) {}
+
+  public:
+    template<typename System>
+    entity& add_component(
+        typename System::component_t component, system_id id = (system_id)System::id
+    ) {
+        auto* system = w->system<System>(id);
+        system->add_entity(_node->entity, component);
+        return *this;
+    }
+
+    template<typename System>
+    bool has_component(system_id id = (system_id)System::id) const {
+        auto* system = w->system<System>(id);
+        return system->has_data_for_entity(_node->entity);
+    }
+
+    template<typename System>
+    auto get_component(system_id id = (system_id)System::id) -> typename System::component_t& {
+        auto* system = w->system<System>(id).get();
+        return system->get_data_for_entity(_node->entity);
+    }
+
+    template<typename System>
+    auto get_component(system_id id = (system_id)System::id) const -> const
+        typename System::component_t& {
+        auto* system = w->system<System>(id).get();
+        return system->get_data_for_entity(_node->entity);
+    }
+
+    void remove_component(system_id id) {
+        auto system = w->systems[id];
+        system->remove_entity(_node->entity);
+    }
+
+    EL_M void remove() {
+        if(_node->parent.expired() || !_node->parent.lock()) return;
+        w->dead_entities.insert(_node->entity);
+    }
+
+    EL_M entity add_child(std::string_view name = "") {
+        auto id = w->next_id++;
+        auto n  = std::make_shared<world::node>(_node, id, name);
+        _node->children.push_back(n);
+        w->nodes.emplace(id, n);
+        return entity{w, n};
+    }
+
+    EL_M size_t num_children() const { return _node->children.size(); }
+
+    EL_M bool has_children() const { return !_node->children.empty(); }
+
+    void for_each_child(const std::function<void(entity)>& fn) const {
+        for(const auto& c : _node->children)
+            fn(entity{w, c});
+    }
+
+    EL_M std::vector<entity> children() const {
+        std::vector<entity> children;
+        this->for_each_child([&](auto e) { children.push_back(e); });
+        return children;
+    }
+
+    EL_M entity parent() const { return entity{w, _node->parent.lock()}; }
+
+    EL_M std::string_view name() const { return this->_node->name; }
+
+    EL_M entity_id id() const { return this->_node->entity; }
+
+    operator entity_id() const { return this->_node->entity; }
+
+    friend class world;
 };

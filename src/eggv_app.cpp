@@ -55,8 +55,14 @@ struct script_repl_window_t {
             if(ImGui::InputText("##input", input, 256, ImGuiInputTextFlags_EnterReturnsTrue)) {
                 std::ostringstream oss;
                 try {
-                    auto res = rt->eval(rt->read(input));
+                    auto inp = rt->read(input);
+                    auto res = rt->eval(inp);
+                    rt->write(oss, inp) << "\n\t= ";
                     rt->write(oss, res);
+                } catch(emlisp::type_mismatch_error e) {
+                    oss << "error: " << e.what() << ". expected: " << e.expected
+                        << " actual: " << e.actual << "\n\tfrom: ";
+                    rt->write(oss, e.trace) << "\n";
                 } catch(std::runtime_error e) { oss << "error: " << e.what(); }
                 lines.emplace_back(oss.str());
                 strcpy(input, "");
@@ -149,7 +155,7 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
         r->compile_render_graph();
     }
 
-    // init_script_runtime();
+    init_script_runtime();
 
     auto upload_cb = std::move(dev->alloc_cmd_buffers(1)[0]);
     upload_cb->begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
@@ -164,6 +170,7 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
 
     fs.gui_open_windows["World"]           = true;
     fs.gui_open_windows["Selected Entity"] = true;
+    fs.gui_open_windows["Script Console"]  = true;
 
     dev->graphics_qu.waitIdle();
     ImGui_ImplVulkan_DestroyFontUploadObjects();

@@ -72,55 +72,36 @@ app::app(const std::string& title, vec2 winsize) {
 
     glfwSetWindowUserPointer(wnd, this);
 
-    glfwSetWindowSizeCallback(
-        wnd,
-        [](GLFWwindow* wnd, int w, int h) {
-            auto t = (app*)glfwGetWindowUserPointer(wnd);
-            t->resize();
-            t->make_resolution_dependent_resources(vec2(w, h));
-        }
-    );
+    glfwSetWindowSizeCallback(wnd, [](GLFWwindow* wnd, int w, int h) {
+        auto t = (app*)glfwGetWindowUserPointer(wnd);
+        t->resize();
+        t->make_resolution_dependent_resources(vec2(w, h));
+    });
 
-    glfwSetKeyCallback(
-        wnd,
-        [](GLFWwindow* wnd, int key, int scancode, int action, int mods) {
-            auto t = (app*)glfwGetWindowUserPointer(wnd);
-            t->key_down(key, (key_action)action, (key_mod)mods);
-            for(auto& ih : t->input_handlers) {
-                ih->key_handler(t, key, (input_action)action, (input_mod)mods);
-            }
-        }
-    );
+    glfwSetKeyCallback(wnd, [](GLFWwindow* wnd, int key, int scancode, int action, int mods) {
+        auto t = (app*)glfwGetWindowUserPointer(wnd);
+        t->key_down(key, (key_action)action, (key_mod)mods);
+        for(auto& ih : t->input_handlers)
+            ih->key_handler(t, key, (input_action)action, (input_mod)mods);
+    });
 
-    glfwSetCharModsCallback(
-        wnd,
-        [](GLFWwindow* wnd, uint cp, int mods) {
-            auto t = (app*)glfwGetWindowUserPointer(wnd);
-            for(auto& ih : t->input_handlers) {
-                ih->char_handler(t, cp, (input_mod)mods);
-            }
-        }
-    );
+    glfwSetCharModsCallback(wnd, [](GLFWwindow* wnd, uint cp, int mods) {
+        auto t = (app*)glfwGetWindowUserPointer(wnd);
+        for(auto& ih : t->input_handlers)
+            ih->char_handler(t, cp, (input_mod)mods);
+    });
 
-    glfwSetCursorPosCallback(
-        wnd,
-        [](GLFWwindow* wnd, double x, double y) {
-            auto t = (app*)glfwGetWindowUserPointer(wnd);
-            for(auto& ih : t->input_handlers) {
-                ih->mouse_position_handler(t, vec2(x, y));
-            }
-        }
-    );
+    glfwSetCursorPosCallback(wnd, [](GLFWwindow* wnd, double x, double y) {
+        auto t = (app*)glfwGetWindowUserPointer(wnd);
+        for(auto& ih : t->input_handlers)
+            ih->mouse_position_handler(t, vec2(x, y));
+    });
 
-    glfwSetCursorEnterCallback(
-        wnd,
-        [](GLFWwindow* wnd, int entered) {
-            auto t = (app*)glfwGetWindowUserPointer(wnd);
-            for(auto& ih : t->input_handlers) {
-                ih->mouse_enterleave_handler(t, entered > 0);
-            }
-        }
-    );
+    glfwSetCursorEnterCallback(wnd, [](GLFWwindow* wnd, int entered) {
+        auto t = (app*)glfwGetWindowUserPointer(wnd);
+        for(auto& ih : t->input_handlers)
+            ih->mouse_enterleave_handler(t, entered > 0);
+    });
 
     glfwSetMouseButtonCallback(wnd, [](GLFWwindow* wnd, int button, int action, int mods) {
         auto t = (app*)glfwGetWindowUserPointer(wnd);

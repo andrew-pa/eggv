@@ -14,7 +14,7 @@ struct simple_geom_render_node_prototype : public single_pipeline_render_node_pr
                              framebuffer_mode::blend_input}
         };
         outputs = {
-            framebuffer_desc{"color",                 vk::Format::eUndefined,  framebuffer_type::color },
+            framebuffer_desc{"color", vk::Format::eUndefined, framebuffer_type::color},
             framebuffer_desc{
                              "depth", vk::Format::eUndefined, framebuffer_type::depth, framebuffer_mode::output},
         };

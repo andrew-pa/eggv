@@ -7,6 +7,19 @@ world::world()
     nodes.emplace(root_id, root_entity);
 }
 
+entity world::create_entity(std::string_view name) {
+    // std::cout << "create_entity " << next_id << "\n";
+    auto id = next_id++;
+    auto n  = std::make_shared<node>(root_entity, id, name);
+    root_entity->children.push_back(n);
+    nodes.emplace(id, n);
+    return entity{this, n};
+}
+
+entity world::get(entity_id id) { return entity{this, nodes[id]}; }
+
+entity world::root() { return entity{this, root_entity}; }
+
 void world::update(const frame_state& fs) {
     // remove any dead entities
     while(!dead_entities.empty()) {
@@ -30,7 +43,7 @@ void world::update(const frame_state& fs) {
         sys->update(fs);
 }
 
-void world::build_scene_tree_gui(frame_state& fs, world::entity_handle& e) {
+void world::build_scene_tree_gui(frame_state& fs, entity& e) {
     ImGui::PushID(e.id());
     auto node_open = ImGui::TreeNodeEx(
         (void*)e.id(),
@@ -72,7 +85,7 @@ void world::build_gui(frame_state& fs) {
     if(fs.gui_open_windows["Selected Entity"]) {
         ImGui::Begin("Selected Entity", &fs.gui_open_windows.at("Selected Entity"));
         if(fs.selected_entity != 0) {
-            auto sel = entity(fs.selected_entity);
+            auto sel = get(fs.selected_entity);
             ImGui::InputTextWithHint("##name", "<entity name>", &sel._node->name);
             ImGui::SameLine();
             ImGui::Text("#%lu", fs.selected_entity);
