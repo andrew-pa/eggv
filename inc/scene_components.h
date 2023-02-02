@@ -1,14 +1,16 @@
 #pragma once
 #include "ecs.h"
+#include "emlisp_autobind.h"
 #include <glm/gtc/quaternion.hpp>
 
-struct transform {
-    vec3 translation, scale;
-    quat rotation;
+EL_OBJ struct transform {
+    EL_PROP(rw) vec3 translation;
+    EL_PROP(rw) vec3 scale;
+    EL_PROP(rw) quat rotation;
 
-    mat4 world;
+    EL_PROP(r) mat4 world;
 
-    transform(
+    EL_C transform(
         vec3 translation = vec3(0.f),
         quat rotation    = quat(0.f, 0.f, 0.f, 1.f),
         vec3 scale       = vec3(1.f)

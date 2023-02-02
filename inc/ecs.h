@@ -5,8 +5,8 @@
 #include <unordered_set>
 #include <utility>
 
-using entity_id = size_t;
-using system_id = size_t;
+EL_TYPEDEF using entity_id = size_t;
+EL_TYPEDEF using system_id = size_t;
 
 enum class static_systems : system_id { transform, light, camera, renderer };
 
@@ -282,31 +282,32 @@ EL_OBJ class entity {
     entity(world* w, std::shared_ptr<world::node> n) : w(w), _node(std::move(n)) {}
 
   public:
-    template<typename System>
-    entity& add_component(
+    EL_M template<typename System>
+    EL_KNOWN_INSTS(<transform_system><light_system><camera_system>)
+    void add_component(
         typename System::component_t component, system_id id = (system_id)System::id
     ) {
-        auto* system = w->system<System>(id);
+        auto system = w->system<System>(id);
         system->add_entity(_node->entity, component);
-        return *this;
     }
 
-    template<typename System>
+    EL_M template<typename System>
+    EL_KNOWN_INSTS(<transform_system><light_system><camera_system>)
     bool has_component(system_id id = (system_id)System::id) const {
-        auto* system = w->system<System>(id);
+        auto system = w->system<System>(id);
         return system->has_data_for_entity(_node->entity);
     }
 
     template<typename System>
     auto get_component(system_id id = (system_id)System::id) -> typename System::component_t& {
-        auto* system = w->system<System>(id).get();
+        auto system = w->system<System>(id).get();
         return system->get_data_for_entity(_node->entity);
     }
 
     template<typename System>
     auto get_component(system_id id = (system_id)System::id) const -> const
         typename System::component_t& {
-        auto* system = w->system<System>(id).get();
+        auto system = w->system<System>(id).get();
         return system->get_data_for_entity(_node->entity);
     }
 

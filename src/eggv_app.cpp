@@ -149,6 +149,8 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     thing.add_child("thing 3");
     auto thing2 = w->create_entity("Thing 2");
 
+    thing.add_component<transform_system>(transform_system::component_t{});
+
     auto default_rg = bndl->render_graphs.find("default.json");
     if(default_rg != bndl->render_graphs.end()) {
         r->deserialize_render_graph(default_rg->second);
@@ -270,7 +272,9 @@ void eggv_app::init_gui() {
     io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Menlo.ttc", 16.0f);
 #else
     std::cout << "U";
-    io.Fonts->AddFontFromFileTTF("/usr/share/fonts/fira-code/FiraCode-Medium.ttf", 16.0f);
+    io.Fonts->AddFontFromFileTTF(
+        "/usr/share/fonts/levien-inconsolata/Inconsolata-Regular.ttf", 16.0f
+    );
 #endif
 
     ImNodes::CreateContext();
