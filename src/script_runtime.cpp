@@ -20,7 +20,7 @@ void eggv_app::init_script_runtime() {
         auto x = to_float(nth(args, 0));
         auto y = to_float(nth(args, 1));
         auto z = to_float(nth(args, 2));
-        auto w = to_float(nth(args, 4));
+        auto w = to_float(nth(args, 3));
         return rt->make_owned_extern<quat>(x, y, z, w);
     });
 

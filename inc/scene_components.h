@@ -32,12 +32,13 @@ class transform_system : public entity_system<transform> {
     std::string_view name() const override { return "Transform"; }
 };
 
-struct light {
-    light_type type{};
-    vec3       param, color;
+EL_OBJ struct light {
+    EL_PROP(rw) light_type type;
+    EL_PROP(rw) vec3       param;
+    EL_PROP(rw) vec3       color;
     size_t     _render_index{};
 
-    light() : param(1.f, 0.f, 0.f), color(0.f) {}
+    EL_C light() : type(light_type::directional), param(1.f, 0.f, 0.f), color(0.f) {}
 };
 
 class light_system : public entity_system<light> {
@@ -55,8 +56,10 @@ class light_system : public entity_system<light> {
     std::string_view name() const override { return "Light"; }
 };
 
-struct camera {
-    float fov;
+EL_OBJ struct camera {
+    EL_PROP(rw) float fov;
+
+    EL_C camera() = default;
 };
 
 class camera_system : public entity_system<camera> {
