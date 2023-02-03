@@ -55,7 +55,7 @@ mesh::mesh(
     dev->tmp_upload_buffers.emplace_back(std::move(staging_buffer));
 }
 
-mesh_component::mesh_component(
+renderable::renderable(
     const std::shared_ptr<class geometry_set>& geo_src,
     size_t                                     mesh_index,
     const std::shared_ptr<material>&           mat

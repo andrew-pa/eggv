@@ -34,9 +34,9 @@ class transform_system : public entity_system<transform> {
 
 EL_OBJ struct light {
     EL_PROP(rw) light_type type;
-    EL_PROP(rw) vec3       param;
-    EL_PROP(rw) vec3       color;
-    size_t     _render_index{};
+    EL_PROP(rw) vec3 param;
+    EL_PROP(rw) vec3 color;
+    size_t _render_index{};
 
     EL_C light() : type(light_type::directional), param(1.f, 0.f, 0.f), color(0.f) {}
 };

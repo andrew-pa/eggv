@@ -283,7 +283,7 @@ EL_OBJ class entity {
 
   public:
     EL_M template<typename System>
-    EL_KNOWN_INSTS(<transform_system><light_system><camera_system>)
+    EL_KNOWN_INSTS(<transform_system><light_system><camera_system><renderer>)
     void add_component(
         typename System::component_t component, system_id id = (system_id)System::id
     ) {

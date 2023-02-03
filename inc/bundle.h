@@ -69,7 +69,7 @@ struct texture_data {
 // - textures
 // - render graphs
 // - scripts
-class bundle : public std::enable_shared_from_this<bundle> {
+EL_OBJ class bundle : public std::enable_shared_from_this<bundle> {
   public:
     std::filesystem::path                            root_path;
     std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
@@ -78,6 +78,7 @@ class bundle : public std::enable_shared_from_this<bundle> {
     std::unordered_map<std::string, texture_data> textures;
     std::unordered_map<std::string, json>         render_graphs;
     std::shared_ptr<material>                     selected_material;
+    bool                                          materials_changed;
 
     bundle() : selected_material(nullptr), materials_changed(true) {}
 
@@ -87,7 +88,7 @@ class bundle : public std::enable_shared_from_this<bundle> {
     void update(frame_state& fs, class app*);
     void build_gui(frame_state& fs);
 
-    json serialize() const;
-
-    bool materials_changed;
+    EL_M std::shared_ptr<geometry_set> geometry_set_for_path(const std::filesystem::path& p) {
+        throw 3;
+    }
 };

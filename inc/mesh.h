@@ -46,17 +46,3 @@ struct mesh {
             }
         ) {}
 };
-
-struct mesh_component {
-    std::shared_ptr<mesh>               m;
-    std::shared_ptr<class geometry_set> geo_src;
-    size_t                              mesh_index;
-    std::shared_ptr<material>           mat;
-    aabb                                bounds;
-
-    mesh_component(
-        const std::shared_ptr<class geometry_set>& geo_src    = nullptr,
-        size_t                                     mesh_index = 0,
-        const std::shared_ptr<material>&           mat        = nullptr
-    );
-};

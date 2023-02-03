@@ -53,8 +53,8 @@ json render_node::serialize() const {
 }
 
 renderer::renderer(const std::shared_ptr<world>& w)
-    : entity_system<mesh_component>(w), dev(nullptr), next_id(10), desc_pool(nullptr),
-      num_gpu_mats(0), should_recompile(false), log_compile(true), show_shapes(true) {}
+    : entity_system<renderable>(w), dev(nullptr), next_id(10), desc_pool(nullptr), num_gpu_mats(0),
+      should_recompile(false), log_compile(true), show_shapes(true) {}
 
 void renderer::init(device* _dev) {
     this->dev                                 = _dev;
@@ -444,7 +444,7 @@ void renderer::render(vk::CommandBuffer& cb, uint32_t image_index, const frame_s
 }
 
 void renderer::for_each_renderable(
-    const std::function<void(entity_id, const mesh_component&, const transform&)>& f
+    const std::function<void(entity_id, const renderable&, const transform&)>& f
 ) {
     auto transforms = cur_world.lock()->system<transform_system>();
 

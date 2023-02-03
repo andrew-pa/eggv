@@ -189,10 +189,24 @@ struct gpu_texture {
         : img(std::move(img)), img_view(std::move(img_view)), imgui_tex_id(0) {}
 };
 
+EL_OBJ struct renderable {
+    std::shared_ptr<mesh>         m;
+    std::shared_ptr<geometry_set> geo_src;
+    size_t                        mesh_index;
+    std::shared_ptr<material>     mat;
+    aabb                          bounds;
+
+    EL_C renderable(
+        const std::shared_ptr<geometry_set>& geo_src    = nullptr,
+        size_t                               mesh_index = 0,
+        const std::shared_ptr<material>&     mat        = nullptr
+    );
+};
+
 const size_t GLOBAL_BUF_FRAME_UNIFORMS = 1;
 const size_t GLOBAL_BUF_MATERIALS      = 2;
 
-class renderer : public entity_system<mesh_component> {
+class renderer : public entity_system<renderable> {
     // THOUGHT: in some sense, the renderer is really another inner ECS `world` with its own
     // subsystems and components...
 
@@ -291,7 +305,7 @@ class renderer : public entity_system<mesh_component> {
     // call `f` on each renderable entity ie every entity with a mesh and transform
     // provided as a helper for render nodes
     void for_each_renderable(
-        const std::function<void(entity_id, const mesh_component&, const transform&)>& f
+        const std::function<void(entity_id, const renderable&, const transform&)>& f
     );
 
     // viewport settings
