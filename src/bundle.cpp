@@ -23,8 +23,10 @@ void bundle::load(device* dev, const std::filesystem::path& path) {
 
     root_path = path;
 
-    for(const auto& geo_src_path : std::filesystem::directory_iterator{path / "geometry"})
-        geometry_sets.push_back(std::make_shared<geometry_set>(dev, geo_src_path));
+    for(const auto& geo_src_path : std::filesystem::directory_iterator{path / "geometry"}) {
+        auto set = std::make_shared<geometry_set>(dev, geo_src_path);
+        geometry_sets.emplace(set->name, set);
+    }
 
     auto tx_path = path / "textures";
     for(const auto& tx_entry : std::filesystem::recursive_directory_iterator{tx_path}) {
@@ -95,15 +97,13 @@ void bundle::build_gui(frame_state& fs) {
             ImGui::TableSetupColumn("Path");
             ImGui::TableSetupColumn("Meshes");
             ImGui::TableHeadersRow();
-            for(const auto& gs : this->geometry_sets) {
+            for(const auto& [_, gs] : this->geometry_sets) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
-                ImGui::Text("%s", gs->path.c_str());
+                ImGui::Text("%s", gs->name.c_str());
                 ImGui::TableNextColumn();
                 if(ImGui::BeginTable(
-                       (std::string("##MeshInfo") + gs->path.c_str()).c_str(),
-                       5,
-                       ImGuiTableFlags_Resizable
+                       (std::string("##MeshInfo") + gs->name).c_str(), 5, ImGuiTableFlags_Resizable
                    )) {
                     ImGui::TableSetupColumn("Name");
                     ImGui::TableSetupColumn("# Vertices");

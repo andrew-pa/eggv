@@ -88,7 +88,7 @@ target_link_libraries(imgui glfw Vulkan::Vulkan)
 add_library(stb src/stb_impl.cpp)
 target_compile_features(stb PRIVATE cxx_std_20)
 
-process_emlisp_bindings(lisp_bindings.cpp inc/ecs.h inc/scene_components.h inc/renderer.h)
+process_emlisp_bindings(lisp_bindings.cpp inc/ecs.h inc/scene_components.h inc/renderer.h inc/geometry_set.h inc/bundle.h)
 
 add_executable(eggv inc/app.h inc/device.h inc/cmmn.h inc/swap_chain.h
     src/app.cpp src/device.cpp src/main.cpp src/swap_chain.cpp

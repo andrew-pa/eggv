@@ -272,10 +272,10 @@ void renderer::build_gui_for_entity(const frame_state& fs, entity_id selected_en
             ImGui::Text("<no loaded mesh>");
         bool reload_mesh = false;
         if(ImGui::BeginCombo(
-               "Geometry set", mesh_comp.geo_src ? mesh_comp.geo_src->path.c_str() : "<unset>"
+               "Geometry set", mesh_comp.geo_src ? mesh_comp.geo_src->name.c_str() : "<unset>"
            )) {
-            for(const auto& gs : current_bundle->geometry_sets) {
-                if(ImGui::Selectable(gs->path.c_str(), gs == mesh_comp.geo_src)) {
+            for(const auto& [_, gs] : current_bundle->geometry_sets) {
+                if(ImGui::Selectable(gs->name.c_str(), gs == mesh_comp.geo_src)) {
                     mesh_comp.geo_src = gs;
                     reload_mesh       = true;
                 }

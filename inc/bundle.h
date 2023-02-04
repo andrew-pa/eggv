@@ -71,9 +71,9 @@ struct texture_data {
 // - scripts
 EL_OBJ class bundle : public std::enable_shared_from_this<bundle> {
   public:
-    std::filesystem::path                            root_path;
-    std::vector<std::shared_ptr<class geometry_set>> geometry_sets;
-    std::vector<std::shared_ptr<material>>           materials;
+    std::filesystem::path                                                     root_path;
+    std::unordered_map<std::string_view, std::shared_ptr<class geometry_set>> geometry_sets;
+    std::vector<std::shared_ptr<material>>                                    materials;
     // TODO: use UUIDs for textures?
     std::unordered_map<std::string, texture_data> textures;
     std::unordered_map<std::string, json>         render_graphs;
@@ -88,7 +88,14 @@ EL_OBJ class bundle : public std::enable_shared_from_this<bundle> {
     void update(frame_state& fs, class app*);
     void build_gui(frame_state& fs);
 
-    EL_M std::shared_ptr<geometry_set> geometry_set_for_path(const std::filesystem::path& p) {
-        throw 3;
+    EL_M std::shared_ptr<geometry_set> geometry_set_for_name(std::string_view n) {
+        return geometry_sets.at(n);
+    }
+
+    EL_M std::shared_ptr<material> material_for_name(std::string_view n) {
+        auto f = std::find_if(std::begin(materials), std::end(materials), [&](auto m) {
+            return m->name == n;
+        });
+        return f == std::end(materials) ? nullptr : *f;
     }
 };

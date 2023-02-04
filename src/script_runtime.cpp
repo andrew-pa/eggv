@@ -24,15 +24,23 @@ void eggv_app::init_script_runtime() {
         return rt->make_owned_extern<quat>(x, y, z, w);
     });
 
-    script_runtime->define_fn("world", [](runtime* rt, value args, void* cx) {
-        auto* self = (eggv_app*)cx;
-        return rt->make_extern_reference<world>(self->w.get());
-    });
+    script_runtime->define_fn(
+        "world",
+        [](runtime* rt, value args, void* cx) {
+            auto* self = (eggv_app*)cx;
+            return rt->make_extern_reference<world>(self->w.get());
+        },
+        this
+    );
 
-    script_runtime->define_fn("bundle", [](runtime* rt, value args, void* cx) {
-        auto* self = (eggv_app*)cx;
-        return rt->make_extern_reference<bundle>(self->bndl.get());
-    });
+    script_runtime->define_fn(
+        "bundle",
+        [](runtime* rt, value args, void* cx) {
+            auto* self = (eggv_app*)cx;
+            return rt->make_extern_reference<bundle>(self->bndl.get());
+        },
+        this
+    );
 
     heap_info hfo;
     script_runtime->collect_garbage(&hfo);
