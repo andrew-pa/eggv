@@ -10,6 +10,19 @@
 static std::mt19937                 default_random_gen(std::random_device{}());
 static uuids::uuid_random_generator uuid_gen = uuids::uuid_random_generator(default_random_gen);
 
+std::string get_file_contents(std::ifstream& in) {
+    if(in) {
+        std::string contents;
+        in.seekg(0, std::ios::end);
+        contents.resize(in.tellg());
+        in.seekg(0, std::ios::beg);
+        in.read(contents.data(), contents.size());
+        in.close();
+        return contents;
+    }
+    throw std::runtime_error("failed to read file");
+}
+
 // tragic that we can't use constructors the way things are meant to be, but we can't call
 // `shared_from_this` from a constructor and we need some way for materials to refer back to the
 // bundle they came from so sometimes it just be like that
@@ -55,6 +68,9 @@ void bundle::load(device* dev, const std::filesystem::path& path) {
         input >> rg;
         render_graphs.emplace(rg_path.path().filename().c_str(), rg);
     }
+
+    std::ifstream init_script(path / "init.lisp", std::ios::in | std::ios::binary);
+    if(init_script) this->init_script = get_file_contents(init_script);
 }
 
 void bundle::save() {

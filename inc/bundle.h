@@ -79,6 +79,7 @@ EL_OBJ class bundle : public std::enable_shared_from_this<bundle> {
     std::unordered_map<std::string, json>         render_graphs;
     std::shared_ptr<material>                     selected_material;
     bool                                          materials_changed;
+    std::string                                   init_script;
 
     bundle() : selected_material(nullptr), materials_changed(true) {}
 

@@ -59,7 +59,7 @@ class light_system : public entity_system<light> {
 EL_OBJ struct camera {
     EL_PROP(rw) float fov;
 
-    EL_C camera() = default;
+    EL_C camera() : fov(pi<float>() / 4.0f) {}
 };
 
 class camera_system : public entity_system<camera> {

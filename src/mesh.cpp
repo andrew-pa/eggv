@@ -58,9 +58,9 @@ mesh::mesh(
 renderable::renderable(
     const std::shared_ptr<class geometry_set>& geo_src,
     size_t                                     mesh_index,
-    const std::shared_ptr<material>&           mat
+    std::shared_ptr<material>                  mat
 )
-    : geo_src(geo_src), mesh_index(mesh_index) {
+    : geo_src(geo_src), mesh_index(mesh_index), mat(std::move(mat)) {
     if(geo_src != nullptr) {
         const auto& hdr = geo_src->header(mesh_index);
         bounds          = aabb(hdr.aabb_min, hdr.aabb_max);

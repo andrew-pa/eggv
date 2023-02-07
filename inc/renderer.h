@@ -199,7 +199,7 @@ EL_OBJ struct renderable {
     EL_C renderable(
         const std::shared_ptr<geometry_set>& geo_src    = nullptr,
         size_t                               mesh_index = 0,
-        const std::shared_ptr<material>&     mat        = nullptr
+        std::shared_ptr<material>            mat        = nullptr
     );
 };
 

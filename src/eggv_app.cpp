@@ -143,13 +143,13 @@ eggv_app::eggv_app(const eggv_cmdline_args& args)
     w->add_system(std::make_shared<light_system>(w));
     w->add_system(r);
 
-    auto thing = w->create_entity("Thing");
-    thing.add_child("thing 1");
-    thing.add_child("thing 2");
-    thing.add_child("thing 3");
-    auto thing2 = w->create_entity("Thing 2");
+    // auto thing = w->create_entity("Thing");
+    // thing.add_child("thing 1");
+    // thing.add_child("thing 2");
+    // thing.add_child("thing 3");
+    // auto thing2 = w->create_entity("Thing 2");
 
-    thing.add_component<transform_system>(transform_system::component_t{});
+    // thing.add_component<transform_system>(transform_system::component_t{});
 
     auto default_rg = bndl->render_graphs.find("default.json");
     if(default_rg != bndl->render_graphs.end()) {

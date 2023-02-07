@@ -44,6 +44,20 @@ void eggv_app::init_script_runtime() {
 
     heap_info hfo;
     script_runtime->collect_garbage(&hfo);
-    std::cout << "initializing script runtime created " << (hfo.new_size - hfo.old_size)
+    std::cout << "initializing script runtime created " << (hfo.old_size - hfo.new_size)
               << "b of garbage\n";
+
+    if(!bndl->init_script.empty()) {
+        try {
+            script_runtime->eval_file(bndl->init_script);
+        } catch(emlisp::type_mismatch_error e) {
+            std::cout << "error: " << e.what() << ". expected: " << e.expected
+                      << " actual: " << e.actual << "\n\tfrom: ";
+            script_runtime->write(std::cout, e.trace) << "\n";
+        } catch(std::runtime_error e) { std::cout << "error: " << e.what(); }
+
+        script_runtime->collect_garbage(&hfo);
+        std::cout << "running init script created " << (hfo.old_size - hfo.new_size)
+                  << "b of garbage\n";
+    }
 }
