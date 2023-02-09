@@ -31,7 +31,7 @@ struct physics_pva {
         : pva(pva), faces(faces) {}
 };
 
-class geometry_set {
+EL_OBJ EL_ALWAYS_SHARED class geometry_set {
     std::unordered_map<size_t, std::shared_ptr<mesh>> mesh_cache;
     std::unordered_map<size_t, physics_pva>           convex_hull_cache;
     std::unordered_map<
@@ -44,7 +44,7 @@ class geometry_set {
 
   public:
     device*     dev;
-    std::string name;
+    EL_PROP(r) std::string name;
 
     geometry_set(device* dev, const std::filesystem::path& path);
     std::shared_ptr<mesh>                              load_mesh(size_t index);
@@ -56,5 +56,5 @@ class geometry_set {
     const char*                   mesh_name(size_t index) const;
     const geom_file::mesh_header& header(size_t index) const;
 
-    const char* file_data() { return data.data(); }
+    EL_M void for_all_named(std::string_view name, const std::function<void(uint32, uint32)>& f) const;
 };

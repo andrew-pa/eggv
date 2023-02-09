@@ -79,7 +79,7 @@ reactphysics3d::TriangleMesh* geometry_set::load_physics_mesh(
         reactphysics3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE,
         reactphysics3d::TriangleVertexArray::IndexDataType ::INDEX_SHORT_TYPE
     );
-    auto msh = phy->createTriangleMesh();
+    auto* msh = phy->createTriangleMesh();
     msh->addSubpart(tva.get());
     this->phys_mesh_cache[index] = {msh, std::move(tva)};
     return msh;
@@ -93,4 +93,12 @@ const char* geometry_set::mesh_name(size_t index) const {
 
 const geom_file::mesh_header& geometry_set::header(size_t index) const {
     return *((geom_file::mesh_header*)(data.data() + sizeof(int32)) + index);
+}
+
+void geometry_set::for_all_named(std::string_view name, const std::function<void(uint32, uint32)>& f) const {
+    for(int32 i = 0; i < num_meshes(); ++i) {
+        if(name == mesh_name(i)) {
+            f(i, header(i).material_index);
+        }
+    }
 }

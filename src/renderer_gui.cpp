@@ -288,18 +288,22 @@ void renderer::build_gui_for_entity(const frame_state& fs, entity_id selected_en
                // is unset until it gets deliberately set to 0
                mesh_comp.geo_src ? mesh_comp.geo_src->mesh_name(mesh_comp.mesh_index) : "<unset>"
            )) {
-            for(size_t i = 0; i < mesh_comp.geo_src->num_meshes(); ++i) {
-                if(ImGui::Selectable(mesh_comp.geo_src->mesh_name(i), i == mesh_comp.mesh_index)) {
-                    mesh_comp.mesh_index = i;
-                    reload_mesh          = true;
+            if(mesh_comp.geo_src) {
+                for(size_t i = 0; i < mesh_comp.geo_src->num_meshes(); ++i) {
+                    ImGui::PushID(i);
+                    if(ImGui::Selectable(mesh_comp.geo_src->mesh_name(i), i == mesh_comp.mesh_index)) {
+                        mesh_comp.mesh_index = i;
+                        reload_mesh          = true;
+                    }
+                    ImGui::PopID();
                 }
             }
             ImGui::EndCombo();
         }
         if(ImGui::BeginCombo(
-               "Material",
-               mesh_comp.mat == nullptr ? "<no material selected>" : mesh_comp.mat->name.c_str()
-           )) {
+                    "Material",
+                    mesh_comp.mat == nullptr ? "<no material selected>" : mesh_comp.mat->name.c_str()
+                    )) {
             for(const auto& m : current_bundle->materials)
                 if(ImGui::Selectable(m->name.c_str(), m == mesh_comp.mat)) mesh_comp.mat = m;
             ImGui::EndCombo();
